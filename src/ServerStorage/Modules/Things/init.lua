@@ -35,6 +35,11 @@ local DEFAULT_INITIAL_POPULATION = 0
 local DEFAULT_MAX_POPULATION = math.huge
 local DEFAULT_SPAWN_SPACING = 18
 local DEFAULT_SPAWN_JITTER = 5
+local DEFAULT_INITIAL_TIME_SCALE_MIN = 0.35
+local DEFAULT_INITIAL_TIME_SCALE_MAX = 1
+local DEFAULT_SPAWN_TIME_SCALE_MIN = 0.85
+local DEFAULT_SPAWN_TIME_SCALE_MAX = 1.2
+local THING_GUI_MAX_DISTANCE = 45
 
 local function getCharacterRoot(Player)
 	local Character = Player.Character
@@ -163,10 +168,22 @@ function Things.Retrieve(Thing, Name)
 	end
 end
 
-local function spawnRandomThing(Area, AreaConfiguration)
+local function getRandomTimeScale(Range, DefaultMinimum, DefaultMaximum)
+	local Minimum = Range and Range.Minimum or DefaultMinimum
+	local Maximum = Range and Range.Maximum or DefaultMaximum
+
+	if Maximum < Minimum then
+		Maximum = Minimum
+	end
+
+	return Minimum + (math.random() * (Maximum - Minimum))
+end
+
+local function spawnRandomThing(Area, AreaConfiguration, SpawnOptions)
 	if not canSpawnInArea(Area, AreaConfiguration) then return end
 
 	local Attempts = AreaConfiguration.SpawnAttempts or 30
+	SpawnOptions = SpawnOptions or {}
 
 	for _ = 1, Attempts do
 		local Thing, ThingConfiguration, Mutation, MutationConfiguration, Level = Things.Random(Area)
@@ -175,7 +192,11 @@ local function spawnRandomThing(Area, AreaConfiguration)
 
 		local CreatedThing = Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
 		if CreatedThing then
-			ThingsData[CreatedThing]:Spawn()
+			local ThingData = ThingsData[CreatedThing]
+			if ThingData then
+				ThingData.TimeScale = SpawnOptions.TimeScale or getRandomTimeScale(AreaConfiguration.SpawnTimeScale, DEFAULT_SPAWN_TIME_SCALE_MIN, DEFAULT_SPAWN_TIME_SCALE_MAX)
+				ThingData:Spawn()
+			end
 
 			if CreatedThing.Parent then
 				return CreatedThing
@@ -233,8 +254,14 @@ function Things.Setup()
 		if AreaConfiguration.Enabled == false then continue end
 
 		local InitialPopulation = AreaConfiguration.InitialPopulation or DEFAULT_INITIAL_POPULATION
-		for _ = 1, InitialPopulation do
-			if not spawnRandomThing(Area, AreaConfiguration) then
+		for Index = 1, InitialPopulation do
+			local TimeScale = getRandomTimeScale(AreaConfiguration.InitialTimeScale, DEFAULT_INITIAL_TIME_SCALE_MIN, DEFAULT_INITIAL_TIME_SCALE_MAX)
+			if InitialPopulation > 1 then
+				local EvenScale = DEFAULT_INITIAL_TIME_SCALE_MIN + ((Index - 1) / (InitialPopulation - 1)) * (DEFAULT_INITIAL_TIME_SCALE_MAX - DEFAULT_INITIAL_TIME_SCALE_MIN)
+				TimeScale = math.clamp((TimeScale + EvenScale) / 2, DEFAULT_INITIAL_TIME_SCALE_MIN, DEFAULT_INITIAL_TIME_SCALE_MAX)
+			end
+
+			if not spawnRandomThing(Area, AreaConfiguration, {TimeScale = TimeScale}) then
 				break
 			end
 		end
@@ -691,6 +718,7 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 	end
 
 	ThingGui.Parent = ThingAttachment
+	ThingGui.MaxDistance = THING_GUI_MAX_DISTANCE
 	ThingGui.Enabled = true
 
 	ThingAttachment.CFrame = CFrame.new(Vector3.new(0, ThingConfiguration.YOffset + ThingGui.Size.Y.Scale / 2 + 1, 0))
@@ -1230,7 +1258,9 @@ function Things:Spawn()
 	local ThingAttachment = Thing.PrimaryPart:WaitForChild("ThingAttachment")
 	local ThingGui = ThingAttachment:WaitForChild("ThingGui")
 
-	local Time = ThingConfiguration.Time or 10
+	local BaseTime = ThingConfiguration.Time or 10
+	local TimeScale = self.TimeScale or 1
+	local Time = math.max(1, math.floor(BaseTime * TimeScale))
 
 	ThingGui.Time.Text = Format.Time(Time)
 
