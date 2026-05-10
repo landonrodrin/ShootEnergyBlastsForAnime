@@ -6,7 +6,6 @@ local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
 
 local Bases = require(ServerStorage.Modules:WaitForChild("Bases"))
-local Tsunamis = require(ServerStorage.Modules:WaitForChild("Tsunamis"))
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 
@@ -14,7 +13,6 @@ local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:Wait
 local ThingsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("ThingsConfigurations"))
 local BaseConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("BaseConfigurations"))
 local UpgradesConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("UpgradesConfigurations"))
-local TsunamisConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("TsunamisConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AreasConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("RebirthsConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
@@ -50,7 +48,6 @@ function PlayersModule.Setup()
 		PhysicsService:RegisterCollisionGroup("Players")	
 
 		PhysicsService:CollisionGroupSetCollidable("Players", "Things", false)
-		PhysicsService:CollisionGroupSetCollidable("Players", "Tsunamis", false)
 		PhysicsService:CollisionGroupSetCollidable("Players", "Players", false)
 	end)
 
@@ -154,23 +151,6 @@ function PlayersModule.Setup()
 			ReplacePlayerDataEvent:Fire(Player, "Rebirths", Rebirths + 1)
 
 			RebirthEvent:FireClient(Player, Rebirths + 1, Speed)
-		end
-
-		for Tsunami, TsunamiConfiguration in pairs(TsunamisConfigurations) do
-			local TsunamiProductId = TsunamiConfiguration.ProductId
-			if not TsunamiProductId then continue end
-
-			if TsunamiProductId ~= ProductId then continue end
-
-			local Colour = TsunamiConfiguration.Colour or Color3.fromRGB(255, 255, 255)
-
-			Colour = string.format("rgb(%d, %d, %d)", Colour.R * 255, Colour.G * 255, Colour.B * 255)
-
-			local Text = string.format("%s purchased a <font color=\"%s\">%s</font> Tusnami!", Player.Name, Colour, Tsunami)
-
-			AnnouncementEvent:FireAllClients(Text)
-
-			Tsunamis.Create(Tsunami, TsunamiConfiguration)
 		end
 
 		for Upgrade, UpgradeConfiguration in pairs(UpgradesConfigurations) do

@@ -46,7 +46,6 @@ function Things.Setup()
 		PhysicsService:RegisterCollisionGroup("Things")	
 
 		PhysicsService:CollisionGroupSetCollidable("Things", "Players", false)
-		PhysicsService:CollisionGroupSetCollidable("Things", "Tsunamis", false)
 		PhysicsService:CollisionGroupSetCollidable("Things", "Things", false)
 	end)
 
