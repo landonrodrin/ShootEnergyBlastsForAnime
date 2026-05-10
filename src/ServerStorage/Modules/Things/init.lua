@@ -800,7 +800,8 @@ function Things:Spawn()
 	local IdleTrack = Things.Animate(Thing, ThingConfiguration.AnimationsIds.Idle, true)
 
 	local ProximityPrompt = Instance.new("ProximityPrompt")
-	ProximityPrompt.Enabled = false
+	ProximityPrompt.Enabled = true
+	ProximityPrompt.ActionText = "Carry"
 	ProximityPrompt.HoldDuration = 1
 	ProximityPrompt.ObjectText = Thing.Name
 	ProximityPrompt.RequiresLineOfSight = false
