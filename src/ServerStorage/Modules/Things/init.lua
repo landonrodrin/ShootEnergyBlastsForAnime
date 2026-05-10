@@ -29,7 +29,12 @@ local ThingsData = {}
 local finishLinePlayerSides = {}
 
 local FINISH_LINE_PATH = {"Map", "Finish Line"}
+local FACING_TARGET_PATH = {"Map", "Main Floor"}
 local FINISH_LINE_SIDE_PADDING = 1
+local DEFAULT_INITIAL_POPULATION = 0
+local DEFAULT_MAX_POPULATION = math.huge
+local DEFAULT_SPAWN_SPACING = 18
+local DEFAULT_SPAWN_JITTER = 5
 
 local function getCharacterRoot(Player)
 	local Character = Player.Character
@@ -57,6 +62,61 @@ local function getSpawnZone(Area, AreaConfiguration)
 	end
 
 	warn("Area has no spawn zone:", Area)
+end
+
+local function getFacingTarget()
+	local FacingTarget = PathUtils.FindByPath(workspace, FACING_TARGET_PATH)
+	if FacingTarget and FacingTarget:IsA("BasePart") then
+		return FacingTarget
+	end
+end
+
+local function getAreaThingConfiguration(Thing)
+	if not Thing or not Thing.Name then return end
+
+	return ThingsConfigurations[Thing.Name]
+end
+
+local function getAreaThings(Area)
+	local AreaThings = {}
+	local ThingsFolder = workspace:FindFirstChild("Things")
+	if not ThingsFolder then return AreaThings end
+
+	for _, Thing in ipairs(ThingsFolder:GetChildren()) do
+		local ThingConfiguration = getAreaThingConfiguration(Thing)
+		if ThingConfiguration and ThingConfiguration.Area == Area and Thing.PrimaryPart then
+			table.insert(AreaThings, Thing)
+		end
+	end
+
+	return AreaThings
+end
+
+local function getAreaThingCount(Area)
+	return #getAreaThings(Area)
+end
+
+local function canSpawnInArea(Area, AreaConfiguration)
+	local MaxPopulation = AreaConfiguration.MaxPopulation or DEFAULT_MAX_POPULATION
+
+	return getAreaThingCount(Area) < MaxPopulation
+end
+
+local function hasThingTemplate(Area, Thing, Mutation)
+	local Animes = ServerStorage:FindFirstChild("Animes")
+
+	local function hasInMutation(MutationName)
+		local MutationFolder = Animes and Animes:FindFirstChild(MutationName)
+		local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
+
+		return AreaFolder and AreaFolder:FindFirstChild(Thing) ~= nil
+	end
+
+	if hasInMutation(Mutation) then
+		return true
+	end
+
+	return Mutation ~= "Default" and hasInMutation("Default")
 end
 
 local function startFinishLineWatcher()
@@ -103,14 +163,37 @@ function Things.Retrieve(Thing, Name)
 	end
 end
 
+local function spawnRandomThing(Area, AreaConfiguration)
+	if not canSpawnInArea(Area, AreaConfiguration) then return end
+
+	local Attempts = AreaConfiguration.SpawnAttempts or 30
+
+	for _ = 1, Attempts do
+		local Thing, ThingConfiguration, Mutation, MutationConfiguration, Level = Things.Random(Area)
+		if not Thing then return end
+		if not hasThingTemplate(Area, Thing, Mutation) then continue end
+
+		local CreatedThing = Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
+		if CreatedThing then
+			ThingsData[CreatedThing]:Spawn()
+
+			if CreatedThing.Parent then
+				return CreatedThing
+			end
+		end
+	end
+end
+
 function Things.Setup()
 	local ThingsFolder = workspace:FindFirstChild("Things") or Instance.new("Folder")
 	ThingsFolder.Name = "Things"
 	ThingsFolder.Parent = workspace
+	ThingsFolder:ClearAllChildren()
 
 	local LuckyBlocksFolder = workspace:FindFirstChild("LuckyBlocks") or Instance.new("Folder")
 	LuckyBlocksFolder.Name = "LuckyBlocks"
 	LuckyBlocksFolder.Parent = workspace
+	LuckyBlocksFolder:ClearAllChildren()
 	
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup("Things")	
@@ -149,6 +232,13 @@ function Things.Setup()
 	for Area, AreaConfiguration in pairs(AreasConfigurations) do
 		if AreaConfiguration.Enabled == false then continue end
 
+		local InitialPopulation = AreaConfiguration.InitialPopulation or DEFAULT_INITIAL_POPULATION
+		for _ = 1, InitialPopulation do
+			if not spawnRandomThing(Area, AreaConfiguration) then
+				break
+			end
+		end
+
 		task.spawn(function()
 			local Minimum = AreaConfiguration.Rate and AreaConfiguration.Rate.Minimum and math.clamp(AreaConfiguration.Rate.Minimum, 0.01, math.huge) or 0.01
 			local Maximum = AreaConfiguration.Rate and AreaConfiguration.Rate.Maximum and AreaConfiguration.Rate.Maximum or 5
@@ -156,15 +246,10 @@ function Things.Setup()
 			local Chance = AreaConfiguration.Chance or 1
 
 			while task.wait(math.random(Minimum, Maximum)) do
+				if not canSpawnInArea(Area, AreaConfiguration) then continue end
 				if math.random() > Chance then continue end
 
-				local Thing, ThingConfiguration, Mutation, MutationConfiguration, Level = Things.Random(Area)
-				if not Thing then continue end
-
-				local Thing = Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
-				if not Thing then continue end
-
-				ThingsData[Thing]:Spawn()
+				spawnRandomThing(Area, AreaConfiguration)
 			end
 		end)
 		
@@ -195,14 +280,9 @@ function Things.Setup()
 				if Timer > 0 then continue end
 				
 				Timer = tonumber(AreaConfiguration.Guaranteed)
+				if not canSpawnInArea(Area, AreaConfiguration) then continue end
 				
-				local Thing, ThingConfiguration, Mutation, MutationConfiguration, Level = Things.Random(Area)
-				if not Thing then continue end
-				
-				local Thing = Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
-				if not Thing then continue end
-
-				ThingsData[Thing]:Spawn()
+				spawnRandomThing(Area, AreaConfiguration)
 			end
 		end)
 	end
@@ -425,18 +505,134 @@ function Things.Zone(Player)
 	end
 end
 
+local function findThingTemplate(Animes, Mutation, Area, Thing)
+	local function findInMutation(MutationName)
+		local MutationFolder = Animes and Animes:FindFirstChild(MutationName)
+		local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
+
+		return AreaFolder and AreaFolder:FindFirstChild(Thing)
+	end
+
+	local ThingTemplate = findInMutation(Mutation)
+	if ThingTemplate then
+		return ThingTemplate
+	end
+
+	if Mutation ~= "Default" then
+		return findInMutation("Default")
+	end
+end
+
+local function getMutationAuraParts(Thing)
+	local PreferredParts = {
+		"Head",
+		"UpperTorso",
+		"Torso",
+		"LowerTorso",
+		"LeftUpperArm",
+		"Left Arm",
+		"RightUpperArm",
+		"Right Arm",
+		"LeftUpperLeg",
+		"Left Leg",
+		"RightUpperLeg",
+		"Right Leg"
+	}
+
+	local AuraParts = {}
+
+	for _, PartName in ipairs(PreferredParts) do
+		local Part = Thing:FindFirstChild(PartName, true)
+		if Part and Part:IsA("BasePart") and Part.Transparency < 0.95 then
+			table.insert(AuraParts, Part)
+		end
+	end
+
+	if #AuraParts == 0 then
+		for _, Descendant in ipairs(Thing:GetDescendants()) do
+			if not Descendant:IsA("BasePart") then continue end
+			if Descendant == Thing.PrimaryPart then continue end
+			if Descendant.Transparency >= 0.95 then continue end
+
+			table.insert(AuraParts, Descendant)
+
+			if #AuraParts >= 6 then break end
+		end
+	end
+
+	if #AuraParts == 0 and Thing.PrimaryPart then
+		table.insert(AuraParts, Thing.PrimaryPart)
+	end
+
+	return AuraParts
+end
+
+local function applyMutationAura(Thing, Mutation, MutationConfiguration)
+	if not Mutation or Mutation == "Default" or not MutationConfiguration then return end
+
+	local AuraConfiguration = MutationConfiguration.Aura
+	if not AuraConfiguration then return end
+
+	local HighlightConfiguration = AuraConfiguration.Highlight
+	if HighlightConfiguration then
+		local Highlight = Instance.new("Highlight")
+		Highlight.Name = "MutationHighlight"
+		Highlight.Adornee = Thing
+		Highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+		Highlight.FillColor = HighlightConfiguration.FillColor or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		Highlight.FillTransparency = HighlightConfiguration.FillTransparency or 0.65
+		Highlight.OutlineColor = HighlightConfiguration.OutlineColor or Highlight.FillColor
+		Highlight.OutlineTransparency = HighlightConfiguration.OutlineTransparency or 0.15
+		Highlight.Parent = Thing
+	end
+
+	local ParticleConfiguration = AuraConfiguration.Particle
+	if ParticleConfiguration then
+		for _, AuraPart in ipairs(getMutationAuraParts(Thing)) do
+			local AuraAttachment = Instance.new("Attachment")
+			AuraAttachment.Name = "MutationAuraAttachment"
+			AuraAttachment.Parent = AuraPart
+
+			local Particle = Instance.new("ParticleEmitter")
+			Particle.Name = "MutationAura"
+			Particle.Texture = ParticleConfiguration.Texture or "rbxasset://textures/particles/sparkles_main.dds"
+			Particle.Color = ParticleConfiguration.Color or ColorSequence.new(MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255))
+			Particle.LightEmission = ParticleConfiguration.LightEmission or 0.75
+			Particle.LightInfluence = ParticleConfiguration.LightInfluence or 0
+			Particle.Rate = ParticleConfiguration.Rate or 12
+			Particle.Lifetime = ParticleConfiguration.Lifetime or NumberRange.new(0.8, 1.3)
+			Particle.Speed = ParticleConfiguration.Speed or NumberRange.new(0.5, 1.2)
+			Particle.SpreadAngle = ParticleConfiguration.SpreadAngle or Vector2.new(360, 360)
+			Particle.Size = ParticleConfiguration.Size or NumberSequence.new(0.25)
+			Particle.Transparency = ParticleConfiguration.Transparency or NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.35),
+				NumberSequenceKeypoint.new(1, 1)
+			})
+			Particle.Parent = AuraAttachment
+		end
+	end
+
+	local LightConfiguration = AuraConfiguration.Light
+	if LightConfiguration and Thing.PrimaryPart then
+		local Light = Instance.new("PointLight")
+		Light.Name = "MutationAuraLight"
+		Light.Color = LightConfiguration.Color or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		Light.Brightness = LightConfiguration.Brightness or 0.6
+		Light.Range = LightConfiguration.Range or 8
+		Light.Parent = Thing.PrimaryPart
+	end
+end
+
 function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
 	Level = Level or 1
 
 	local Data = setmetatable({}, {__index = Things})
 
 	local Animes = ServerStorage:FindFirstChild("Animes")
-	local MutationFolder = Animes and Animes:FindFirstChild(Mutation)
-	local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
-	local ThingTemplate = AreaFolder and AreaFolder:FindFirstChild(Thing)
+	local ThingTemplate = findThingTemplate(Animes, Mutation, Area, Thing)
 
 	if not ThingTemplate then
-		warn(string.format("Missing anime asset: %s.%s.%s", tostring(Mutation), tostring(Area), tostring(Thing)))
+		warn(string.format("Missing anime asset: %s.%s.%s or Default.%s.%s", tostring(Mutation), tostring(Area), tostring(Thing), tostring(Area), tostring(Thing)))
 		return
 	end
 
@@ -446,6 +642,7 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 	end
 
 	Thing = ThingTemplate:Clone()
+	applyMutationAura(Thing, Mutation, MutationConfiguration)
 
 	Data.Thing = Thing
 	Data.Mutation = Mutation
@@ -733,6 +930,102 @@ function Things.LuckyBlock(Player, Area, AreaConfiguration, Name, ThingConfigura
 	PlayersModule.Tool(Player, AreaMutationThing, AreaMutationThingConfiguration, Mutation, math.clamp(Level, 1, MaximumLevel), Index, ToolData)
 end
 
+local function getCandidateSpacing(AreaConfiguration, ThingConfiguration)
+	return math.max(
+		AreaConfiguration.SpawnSpacing or DEFAULT_SPAWN_SPACING,
+		(ThingConfiguration.Distance or 0) * 3
+	)
+end
+
+local function scoreSpawnCandidate(Area, AreaConfiguration, ThingConfiguration, Candidate)
+	local Spacing = getCandidateSpacing(AreaConfiguration, ThingConfiguration)
+	local RequiredSpacing = Spacing * 0.75
+	local NearbyCount = 0
+	local NearestDistance = math.huge
+
+	for _, OtherThing in ipairs(getAreaThings(Area)) do
+		local OtherConfiguration = getAreaThingConfiguration(OtherThing)
+		if not OtherConfiguration then continue end
+
+		local RequiredDistance = math.max(
+			RequiredSpacing,
+			(ThingConfiguration.Distance or 0) + (OtherConfiguration.Distance or 0)
+		)
+		local Delta = OtherThing.PrimaryPart.Position - Candidate
+		local Distance = Vector2.new(Delta.X, Delta.Z).Magnitude
+
+		if Distance < RequiredDistance then
+			return nil
+		end
+
+		if Distance < Spacing * 1.5 then
+			NearbyCount += 1
+		end
+
+		if Distance < NearestDistance then
+			NearestDistance = Distance
+		end
+	end
+
+	return NearbyCount * 1000 - NearestDistance
+end
+
+local function getGridSpawnPosition(Area, AreaConfiguration, ThingConfiguration, SpawnZone)
+	local AreaCFrame = SpawnZone.CFrame
+	local AreaSize = SpawnZone.Size
+	local Spacing = getCandidateSpacing(AreaConfiguration, ThingConfiguration)
+	local Jitter = math.min(AreaConfiguration.SpawnJitter or DEFAULT_SPAWN_JITTER, Spacing * 0.35)
+
+	local Padding = math.max(ThingConfiguration.Distance or 0, 2)
+	local HalfX = (AreaSize.X / 2) - Padding
+	local HalfZ = (AreaSize.Z / 2) - Padding
+	if HalfX <= 0 or HalfZ <= 0 then return end
+
+	local Columns = math.max(1, math.floor((HalfX * 2) / Spacing))
+	local Rows = math.max(1, math.floor((HalfZ * 2) / Spacing))
+
+	local BestPosition
+	local BestScore
+
+	for Column = 1, Columns do
+		for Row = 1, Rows do
+			local LocalX = -HalfX + ((Column - 0.5) / Columns) * (HalfX * 2)
+			local LocalZ = -HalfZ + ((Row - 0.5) / Rows) * (HalfZ * 2)
+
+			LocalX += (math.random() - 0.5) * 2 * Jitter
+			LocalZ += (math.random() - 0.5) * 2 * Jitter
+
+			LocalX = math.clamp(LocalX, -HalfX, HalfX)
+			LocalZ = math.clamp(LocalZ, -HalfZ, HalfZ)
+
+			local Candidate = AreaCFrame:PointToWorldSpace(Vector3.new(LocalX, AreaSize.Y / 2, LocalZ))
+			local Score = scoreSpawnCandidate(Area, AreaConfiguration, ThingConfiguration, Candidate)
+			if Score and (not BestScore or Score < BestScore) then
+				BestPosition = Candidate
+				BestScore = Score
+			end
+		end
+	end
+
+	return BestPosition
+end
+
+local function getSpawnCFrame(Position, ThingConfiguration, SpawnZone)
+	local SpawnPosition = Position + Vector3.new(0, ThingConfiguration.YOffset - SpawnZone.Size.Y / 2, 0)
+	local FacingTarget = getFacingTarget()
+
+	if not FacingTarget then
+		return CFrame.new(SpawnPosition)
+	end
+
+	local TargetPosition = Vector3.new(FacingTarget.Position.X, SpawnPosition.Y, FacingTarget.Position.Z)
+	if (TargetPosition - SpawnPosition).Magnitude < 0.1 then
+		return CFrame.new(SpawnPosition)
+	end
+
+	return CFrame.lookAt(SpawnPosition, TargetPosition)
+end
+
 function Things:Spawn()
 	local Thing = self.Thing
 	
@@ -743,47 +1036,7 @@ function Things:Spawn()
 	local SpawnZone = getSpawnZone(AreaName, AreaConfiguration)
 	if not SpawnZone then return end
 
-	local AreaCFrame = SpawnZone.CFrame
-	local AreaSize = SpawnZone.Size
-
-	local Position
-
-	for Attempt = 1, 100 do
-		local HalfX = (AreaSize.X / 2) - (ThingConfiguration.Distance or 0)
-		local HalfZ = (AreaSize.Z / 2) - (ThingConfiguration.Distance or 0)
-
-		local X = (math.random() - 0.5) * 2 * HalfX
-		local Z = (math.random() - 0.5) * 2 * HalfZ
-
-		local Candidate = AreaCFrame.Position + Vector3.new(X, AreaSize.Y / 2, Z)
-
-		local Valid = true
-
-		for _, OtherThing in ipairs(workspace.Things:GetChildren()) do
-			if OtherThing == Thing then continue end
-
-			local OtherConfiguration = ThingsConfigurations[OtherThing.Name]
-			if not OtherConfiguration then continue end
-
-			local RequiredDistance = (ThingConfiguration.Distance or 0) + (OtherConfiguration.Distance or 0)
-
-			local Delta = OtherThing.PrimaryPart.Position - Candidate
-			
-			local Distance = Vector2.new(Delta.X, Delta.Z).Magnitude
-
-			if Distance < RequiredDistance then
-				Valid = false
-
-				break
-			end
-		end
-
-		if Valid then
-			Position = Candidate
-
-			break
-		end
-	end
+	local Position = getGridSpawnPosition(AreaName, AreaConfiguration, ThingConfiguration, SpawnZone)
 
 	if not Position then
 		self:Destroy()
@@ -793,7 +1046,7 @@ function Things:Spawn()
 
 	Thing.Parent = workspace:WaitForChild("Things")
 
-	local TargetCFrame = CFrame.new(Position) + Vector3.new(0, ThingConfiguration.YOffset - SpawnZone.Size.Y / 2, 0)
+	local TargetCFrame = getSpawnCFrame(Position, ThingConfiguration, SpawnZone)
 
 	Thing:PivotTo(TargetCFrame)
 

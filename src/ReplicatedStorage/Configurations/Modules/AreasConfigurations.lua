@@ -2,6 +2,10 @@ local AreasConfigurations = {
 	["Common"] = {
 		Enabled = true,
 		SpawnZonePath = {"Strips", "Strip 1", "Floor"},
+		InitialPopulation = 6,
+		MaxPopulation = 12,
+		SpawnSpacing = 18,
+		SpawnJitter = 5,
 
 		Rate = {Minimum = 1, Maximum = 5},
 		
@@ -13,6 +17,10 @@ local AreasConfigurations = {
 	["Rare"] = {
 		Enabled = true,
 		SpawnZonePath = {"Strips", "Strip 2", "Floor"},
+		InitialPopulation = 6,
+		MaxPopulation = 12,
+		SpawnSpacing = 18,
+		SpawnJitter = 5,
 
 		Rate = {Minimum = 5, Maximum = 10},
 
