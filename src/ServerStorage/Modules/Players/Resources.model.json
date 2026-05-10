@@ -1,0 +1,20 @@
+{
+  "ClassName": "Folder",
+  "Children": [
+    {
+      "Name": "MoneyPerSecondGui",
+      "ClassName": "BillboardGui",
+      "Children": [
+        {
+          "Name": "MoneyPerSecond",
+          "ClassName": "TextLabel",
+          "Children": [
+            {"Name": "UIGradient", "ClassName": "UIGradient"},
+            {"Name": "UIStroke", "ClassName": "UIStroke"}
+          ]
+        }
+      ]
+    },
+    {"Name": "Tool", "ClassName": "Tool"}
+  ]
+}

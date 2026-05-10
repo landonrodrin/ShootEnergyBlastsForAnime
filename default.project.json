@@ -9,6 +9,18 @@
         "$className": "Folder",
         "$path": "src/ReplicatedStorage/Shared"
       },
+      "Modules": {
+        "$className": "Folder",
+        "$path": "src/ReplicatedStorage/Modules"
+      },
+      "Configurations": {
+        "$className": "Folder",
+        "$path": "src/ReplicatedStorage/Configurations"
+      },
+      "Network": {
+        "$className": "Folder",
+        "$path": "src/ReplicatedStorage/Network"
+      },
       "Packages": {
         "$className": "Folder",
         "$path": "src/ReplicatedStorage/Packages"
@@ -22,6 +34,11 @@
     "ServerScriptService": {
       "$className": "ServerScriptService",
       "$path": "src/ServerScriptService"
+    },
+
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "$path": "src/ServerStorage"
     },
 
     "StarterPlayer": {

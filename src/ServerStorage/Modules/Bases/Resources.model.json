@@ -1,0 +1,10 @@
+{
+  "ClassName": "Folder",
+  "Children": [
+    {"Name": "BaseLevelGui", "ClassName": "SurfaceGui"},
+    {"Name": "DataGui", "ClassName": "BillboardGui"},
+    {"Name": "LevelGui", "ClassName": "SurfaceGui"},
+    {"Name": "MoneyGui", "ClassName": "SurfaceGui"},
+    {"Name": "PlayerGui", "ClassName": "BillboardGui"}
+  ]
+}
