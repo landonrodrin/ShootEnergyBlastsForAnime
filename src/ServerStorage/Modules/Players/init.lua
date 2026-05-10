@@ -419,8 +419,6 @@ function PlayersModule.Create(Player)
 
 		local YOffset = Character.Humanoid.HipHeight + Character.PrimaryPart.Size.Y / 2
 		
-		Character:PivotTo(Base.Spawn.CFrame + Vector3.new(0, YOffset, 0))
-		
 		local MoneyPerSecondAttachment = Instance.new("Attachment")
 		MoneyPerSecondAttachment.Name = "MoneyPerSecondAttachment"
 		MoneyPerSecondAttachment.Parent = Character.PrimaryPart
@@ -500,8 +498,6 @@ function PlayersModule.Create(Player)
 		if not Player.Character then return end
 
 		local YOffset = Character.Humanoid.HipHeight + Character.PrimaryPart.Size.Y / 2
-		
-		Character:PivotTo(Base.Spawn.CFrame + Vector3.new(0, YOffset, 0))
 		
 		local MoneyPerSecondAttachment = Instance.new("Attachment")
 		MoneyPerSecondAttachment.Name = "MoneyPerSecondAttachment"

@@ -38,7 +38,17 @@
 
     "ServerStorage": {
       "$className": "ServerStorage",
-      "$path": "src/ServerStorage"
+      "Configurations": {
+        "$path": "src/ServerStorage/Configurations"
+      },
+      "Modules": {
+        "$className": "Folder",
+        "$path": "src/ServerStorage/Modules"
+      },
+      "Network": {
+        "$className": "Folder",
+        "$path": "src/ServerStorage/Network"
+      }
     },
 
     "StarterPlayer": {

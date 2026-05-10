@@ -2,9 +2,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PhysicsService = game:GetService("PhysicsService")
 local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local PlayersModule = require(ServerStorage.Modules:WaitForChild("Players"))
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
+
+local shared = ReplicatedStorage:WaitForChild("Shared")
+local PathUtils = require(shared:WaitForChild("PathUtils"))
 
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
@@ -22,6 +26,72 @@ local DropEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Drop")
 local Things = {}
 
 local ThingsData = {}
+local finishLinePlayerSides = {}
+
+local FINISH_LINE_PATH = {"Map", "Finish Line"}
+local FINISH_LINE_SIDE_PADDING = 1
+
+local function getCharacterRoot(Player)
+	local Character = Player.Character
+	if not Character then return end
+
+	return Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function getSpawnZone(Area, AreaConfiguration)
+	if AreaConfiguration and AreaConfiguration.SpawnZonePath then
+		local SpawnZone = PathUtils.FindByPath(workspace, AreaConfiguration.SpawnZonePath)
+		if SpawnZone and SpawnZone:IsA("BasePart") then
+			return SpawnZone
+		end
+
+		warn(string.format("Missing spawn zone for area %s: %s", Area, table.concat(AreaConfiguration.SpawnZonePath, ".")))
+	end
+
+	local AreasFolder = workspace:FindFirstChild("Areas")
+	local AreaModel = AreasFolder and AreasFolder:FindFirstChild(Area)
+	if AreaModel and AreaModel:IsA("Model") and AreaModel.PrimaryPart then
+		return AreaModel.PrimaryPart
+	elseif AreaModel and AreaModel:IsA("BasePart") then
+		return AreaModel
+	end
+
+	warn("Area has no spawn zone:", Area)
+end
+
+local function startFinishLineWatcher()
+	local FinishLine = PathUtils.FindByPath(workspace, FINISH_LINE_PATH)
+	if not FinishLine or not FinishLine:IsA("BasePart") then
+		warn("Missing anime turn-in finish line:", table.concat(FINISH_LINE_PATH, "."))
+		return
+	end
+
+	RunService.Heartbeat:Connect(function()
+		local MainSideX = -FinishLine.Size.X * 0.5 - FINISH_LINE_SIDE_PADDING
+		local StripSideX = FinishLine.Size.X * 0.5 + FINISH_LINE_SIDE_PADDING
+
+		for _, Player in ipairs(Players:GetPlayers()) do
+			local Root = getCharacterRoot(Player)
+			if not Root then
+				finishLinePlayerSides[Player] = nil
+				continue
+			end
+
+			local LocalPosition = FinishLine.CFrame:PointToObjectSpace(Root.Position)
+			local PreviousSide = finishLinePlayerSides[Player]
+
+			if LocalPosition.X > StripSideX then
+				finishLinePlayerSides[Player] = "strip"
+			elseif LocalPosition.X < MainSideX then
+				if PreviousSide == "strip" then
+					Things.Zone(Player)
+				end
+
+				finishLinePlayerSides[Player] = "main"
+			end
+		end
+	end)
+end
 
 function Things.Retrieve(Thing, Name)
 	if not ThingsData[Thing] then return end
@@ -34,11 +104,11 @@ function Things.Retrieve(Thing, Name)
 end
 
 function Things.Setup()
-	local ThingsFolder = Instance.new("Folder")
+	local ThingsFolder = workspace:FindFirstChild("Things") or Instance.new("Folder")
 	ThingsFolder.Name = "Things"
 	ThingsFolder.Parent = workspace
 
-	local LuckyBlocksFolder = Instance.new("Folder")
+	local LuckyBlocksFolder = workspace:FindFirstChild("LuckyBlocks") or Instance.new("Folder")
 	LuckyBlocksFolder.Name = "LuckyBlocks"
 	LuckyBlocksFolder.Parent = workspace
 	
@@ -61,29 +131,24 @@ function Things.Setup()
 		end)
 	end)
 
-	workspace.Zones.Zone.Touched:Connect(function(Hit)
-		local Character = Hit.Parent
-		if not Character then return end
-
-		local Player = Players:GetPlayerFromCharacter(Character)
-		if not Player then return end
-
-		Things.Zone(Player)
-	end)
-
 	DropEvent.OnServerEvent:Connect(function(Player)
 		Things.Drop(Player)
 	end)
 	
 	Players.PlayerRemoving:Connect(function(Player)
 		Things.Drop(Player)
+		finishLinePlayerSides[Player] = nil
 	end)
 	
 	if GameConfigurations.LuckyBlockRollDelay < 0.5 then
 		GameConfigurations.LuckyBlockRollDelay = 0.5
 	end
+
+	startFinishLineWatcher()
 	
 	for Area, AreaConfiguration in pairs(AreasConfigurations) do
+		if AreaConfiguration.Enabled == false then continue end
+
 		task.spawn(function()
 			local Minimum = AreaConfiguration.Rate and AreaConfiguration.Rate.Minimum and math.clamp(AreaConfiguration.Rate.Minimum, 0.01, math.huge) or 0.01
 			local Maximum = AreaConfiguration.Rate and AreaConfiguration.Rate.Maximum and AreaConfiguration.Rate.Maximum or 5
@@ -97,6 +162,7 @@ function Things.Setup()
 				if not Thing then continue end
 
 				local Thing = Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
+				if not Thing then continue end
 
 				ThingsData[Thing]:Spawn()
 			end
@@ -134,6 +200,7 @@ function Things.Setup()
 				if not Thing then continue end
 				
 				local Thing = Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
+				if not Thing then continue end
 
 				ThingsData[Thing]:Spawn()
 			end
@@ -363,13 +430,22 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 
 	local Data = setmetatable({}, {__index = Things})
 
-	local Thing = ServerStorage.Things:FindFirstChild(Mutation):FindFirstChild(Area):FindFirstChild(Thing)
+	local Animes = ServerStorage:FindFirstChild("Animes")
+	local MutationFolder = Animes and Animes:FindFirstChild(Mutation)
+	local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
+	local ThingTemplate = AreaFolder and AreaFolder:FindFirstChild(Thing)
 
-	if not Thing.PrimaryPart then
-		warn(string.format("%s thing has no primary part.", Thing.Name))
+	if not ThingTemplate then
+		warn(string.format("Missing anime asset: %s.%s.%s", tostring(Mutation), tostring(Area), tostring(Thing)))
+		return
 	end
 
-	Thing = Thing:Clone()
+	if not ThingTemplate.PrimaryPart then
+		warn(string.format("%s thing has no primary part.", ThingTemplate.Name))
+		return
+	end
+
+	Thing = ThingTemplate:Clone()
 
 	Data.Thing = Thing
 	Data.Mutation = Mutation
@@ -589,6 +665,7 @@ function Things.LuckyBlock(Player, Area, AreaConfiguration, Name, ThingConfigura
 	end
 	
 	local Thing = Things.Create(Area, AreaConfiguration, Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
+	if not Thing then return end
 
 	Thing.Parent = workspace:WaitForChild("LuckyBlocks")
 
@@ -630,6 +707,7 @@ function Things.LuckyBlock(Player, Area, AreaConfiguration, Name, ThingConfigura
 		end
 		
 		local Thing = Things.Create(Area, AreaConfiguration, Name, ThingConfiguration, Mutation, MutationConfiguration, math.clamp(Level, 1, MaximumLevel))
+		if not Thing then continue end
 		
 		Thing.Parent = workspace:WaitForChild("LuckyBlocks")
 		
@@ -642,6 +720,7 @@ function Things.LuckyBlock(Player, Area, AreaConfiguration, Name, ThingConfigura
 	
 	
 	local Thing = Things.Create(Area, AreaConfiguration, AreaMutationThing, AreaMutationThingConfiguration, Mutation, MutationConfiguration, math.clamp(Level, 1, MaximumLevel))
+	if not Thing then return end
 	
 	Thing.Parent = workspace:WaitForChild("LuckyBlocks")
 
@@ -659,17 +738,13 @@ function Things:Spawn()
 	
 	local ThingConfiguration = ThingsConfigurations[Thing.Name]
 
-	local Area = workspace.Areas:WaitForChild(ThingConfiguration.Area)
-	if not Area.PrimaryPart then
-		warn("Area has no PrimaryPart:", Area.Name)
+	local AreaName = ThingConfiguration.Area
+	local AreaConfiguration = AreasConfigurations[AreaName]
+	local SpawnZone = getSpawnZone(AreaName, AreaConfiguration)
+	if not SpawnZone then return end
 
-		return
-	end
-
-	local AreaConfiguration = AreasConfigurations[Area.Name]
-
-	local AreaCFrame = Area.PrimaryPart.CFrame
-	local AreaSize = Area.PrimaryPart.Size
+	local AreaCFrame = SpawnZone.CFrame
+	local AreaSize = SpawnZone.Size
 
 	local Position
 
@@ -718,7 +793,7 @@ function Things:Spawn()
 
 	Thing.Parent = workspace:WaitForChild("Things")
 
-	local TargetCFrame = CFrame.new(Position) + Vector3.new(0, ThingConfiguration.YOffset - Area.PrimaryPart.Size.Y / 2, 0)
+	local TargetCFrame = CFrame.new(Position) + Vector3.new(0, ThingConfiguration.YOffset - SpawnZone.Size.Y / 2, 0)
 
 	Thing:PivotTo(TargetCFrame)
 
@@ -832,7 +907,8 @@ function Things:Spawn()
 
 		local Humanoid = Character:WaitForChild("Humanoid")
 
-		local CarriedThing = Things.Create(Area.Name, AreaConfiguration, Thing.Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
+		local CarriedThing = Things.Create(AreaName, AreaConfiguration, Thing.Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
+		if not CarriedThing then return end
 
 		CarriedThing.Parent = Character.PrimaryPart
 
