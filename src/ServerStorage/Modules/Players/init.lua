@@ -43,6 +43,23 @@ local PlayersModule = {}
 
 local LuckyBlockZone = {}
 
+local function reconcileIndex(ExistingIndex)
+	local Index = {}
+
+	for Mutation in pairs(MutationsConfigurations) do
+		Index[Mutation] = {}
+
+		for Thing in pairs(ThingsConfigurations) do
+			Index[Mutation][Thing] = ExistingIndex
+				and ExistingIndex[Mutation]
+				and ExistingIndex[Mutation][Thing] == true
+				or false
+		end
+	end
+
+	return Index
+end
+
 function PlayersModule.Setup()
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup("Players")	
@@ -770,31 +787,21 @@ function PlayersModule:Load()
 	if not self.Steals then self.Steals = 0 end
 	if not self.Rebirths then self.Rebirths = 0 end
 	
-	for Index, ToolConfiguration in pairs(self.Tools) do
+	for Index = #self.Tools, 1, -1 do
+		local ToolConfiguration = self.Tools[Index]
 		if ThingsConfigurations[ToolConfiguration.Name] then continue end
 		
 		table.remove(self.Tools, Index)
 	end
 	
-	for Index, ThingConfiguration in pairs(self.Things) do
+	for Index = #self.Things, 1, -1 do
+		local ThingConfiguration = self.Things[Index]
 		if ThingsConfigurations[ThingConfiguration.Name] then continue end
 
 		table.remove(self.Things, Index)
 	end
 	
-	if not self.Index then
-		local Index = {}
-
-		for Mutation, MutationConfiguration in pairs(MutationsConfigurations) do
-			Index[Mutation] = {}
-
-			for Thing, ThingConfiguration in pairs(ThingsConfigurations) do
-				Index[Mutation][Thing] = false
-			end
-		end
-		
-		self.Index = Index
-	end
+	self.Index = reconcileIndex(self.Index)
 	
 	task.delay(1, function()
 		if not PlayersData[Player] then return end

@@ -35,11 +35,11 @@ local DEFAULT_INITIAL_POPULATION = 0
 local DEFAULT_MAX_POPULATION = math.huge
 local DEFAULT_SPAWN_SPACING = 18
 local DEFAULT_SPAWN_JITTER = 5
-local DEFAULT_INITIAL_TIME_SCALE_MIN = 0.35
+local DEFAULT_INITIAL_TIME_SCALE_MIN = 0.3
 local DEFAULT_INITIAL_TIME_SCALE_MAX = 1
-local DEFAULT_SPAWN_TIME_SCALE_MIN = 0.85
-local DEFAULT_SPAWN_TIME_SCALE_MAX = 1.2
-local THING_GUI_MAX_DISTANCE = 45
+local DEFAULT_SPAWN_TIME_SCALE_MIN = 0.3
+local DEFAULT_SPAWN_TIME_SCALE_MAX = 1
+local THING_GUI_MAX_DISTANCE = 100
 
 local function getCharacterRoot(Player)
 	local Character = Player.Character
@@ -378,12 +378,7 @@ function Things.Random(Area)
 		RandomMutation = "Default"
 	end
 
-	local Minimum = RandomConfiguration.Level and RandomConfiguration.Level.Minimum and math.clamp(RandomConfiguration.Level.Minimum, 1, RandomConfiguration.LuckyBlock and math.huge or #RandomConfiguration.Levels) or 1
-	local Maximum = RandomConfiguration.Level and RandomConfiguration.Level.Maximum and math.clamp(RandomConfiguration.Level.Maximum, 1, RandomConfiguration.LuckyBlock and math.huge or #RandomConfiguration.Levels) or 1
-	
-	local RandomLevel =  math.random(Minimum, Maximum) or 1
-	
-	return RandomThing, RandomConfiguration, RandomMutation, RandomMutationConfiguration, RandomLevel
+	return RandomThing, RandomConfiguration, RandomMutation, RandomMutationConfiguration, 1
 end
 
 function Things.Animate(Thing, AnimationId, Bool)
@@ -696,7 +691,7 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 
 	ThingGui = ThingGui:Clone()
 
-	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Thing.Name, Level)
+	ThingGui.Thing.Text = Thing.Name
 	ThingGui.Area.Text = Area
 
 	local Multiplier = MutationConfiguration.Multiplier or 1
