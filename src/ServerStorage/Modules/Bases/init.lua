@@ -5,6 +5,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
+local Grounding = require(ServerStorage.Modules:WaitForChild("Grounding"))
 
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
@@ -560,11 +561,12 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	Thing.Parent = workspace
 
-	local TargetCFrame = Slot.Spawn.CFrame + Vector3.new(0, ThingConfiguration.YOffset - Slot.Spawn.Size.Y, 0)
+	local TargetCFrame = Slot.Spawn.CFrame
 
 	Thing:PivotTo(TargetCFrame)
 
 	AnimateThingEvent:Fire(Thing, ThingConfiguration.AnimationsIds.Idle, true)
+	Grounding.AlignBottomToSurfaceAfterAnimation(Thing, Slot.Spawn, ThingConfiguration)
 
 	local MoneyGui = script.Resources:WaitForChild("MoneyGui")
 

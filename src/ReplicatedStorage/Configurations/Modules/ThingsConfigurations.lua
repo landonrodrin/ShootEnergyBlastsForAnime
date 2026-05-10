@@ -6,6 +6,7 @@ local ThingsConfigurations = {
 
 		Distance = 2,
 		YOffset = 3.5,
+		GroundOffset = 0,
 
 		Level = {Minimum = 1, Maximum = 1},
 
@@ -44,6 +45,7 @@ local ThingsConfigurations = {
 
 		Distance = 2,
 		YOffset = 3.5,
+		GroundOffset = 0,
 
 		Level = {Minimum = 1, Maximum = 1},
 
@@ -82,6 +84,7 @@ local ThingsConfigurations = {
 
 		Distance = 2,
 		YOffset = 3.5,
+		GroundOffset = 0,
 
 		Level = {Minimum = 1, Maximum = 1},
 

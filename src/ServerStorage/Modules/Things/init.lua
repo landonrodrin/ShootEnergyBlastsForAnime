@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 
 local PlayersModule = require(ServerStorage.Modules:WaitForChild("Players"))
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
+local Grounding = require(ServerStorage.Modules:WaitForChild("Grounding"))
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local PathUtils = require(shared:WaitForChild("PathUtils"))
@@ -441,7 +442,12 @@ function Things.Drop(Player)
 	
 	for _, Thing in ipairs(Carrying) do
 		local ThingConfiguration = ThingsConfigurations[Thing.Name]
-		if not ThingConfiguration then return end
+		local ThingData = ThingsData[Thing]
+		if not ThingConfiguration or not ThingData then continue end
+		if not Thing.Parent or not Thing.PrimaryPart then
+			ThingsData[Thing] = nil
+			continue
+		end
 
 		local ThingAttachment = Thing.PrimaryPart:WaitForChild("ThingAttachment")
 		local ThingGui = ThingAttachment:WaitForChild("ThingGui")
@@ -464,7 +470,7 @@ function Things.Drop(Player)
 			SetProperties.AllClients(ProximityPrompt, {Enabled = true, ActionText = "Carry"})
 		end
 
-		ThingsData[Thing].Carried = nil
+		ThingData.Carried = nil
 	end
 
 	for _, Thing in ipairs(Carried) do
@@ -1034,7 +1040,7 @@ local function getGridSpawnPosition(Area, AreaConfiguration, ThingConfiguration,
 end
 
 local function getSpawnCFrame(Position, ThingConfiguration, SpawnZone)
-	local SpawnPosition = Position + Vector3.new(0, ThingConfiguration.YOffset - SpawnZone.Size.Y / 2, 0)
+	local SpawnPosition = Position
 	local FacingTarget = getFacingTarget()
 
 	if not FacingTarget then
@@ -1072,8 +1078,10 @@ function Things:Spawn()
 	local TargetCFrame = getSpawnCFrame(Position, ThingConfiguration, SpawnZone)
 
 	Thing:PivotTo(TargetCFrame)
+	Grounding.AlignBottomToSurface(Thing, SpawnZone, ThingConfiguration)
 
 	local IdleTrack = Things.Animate(Thing, ThingConfiguration.AnimationsIds.Idle, true)
+	Grounding.AlignBottomToSurfaceAfterAnimation(Thing, SpawnZone, ThingConfiguration)
 
 	local ProximityPrompt = Instance.new("ProximityPrompt")
 	ProximityPrompt.Enabled = true
