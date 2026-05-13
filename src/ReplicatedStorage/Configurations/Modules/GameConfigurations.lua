@@ -11,7 +11,7 @@ local GameConfigurations = {
 	},
 	
 	AnimationsIds = {
-		Carry = "rbxassetid://71720976335931"
+		Carry = "rbxassetid://127214102510136"
 	},
 	
 	ProductsIds = {
@@ -24,9 +24,7 @@ local GameConfigurations = {
 		VipPlus = 1692552354
 	},
 	
-	LeaderboardsUpdateDelay = 60,
-	LuckyBlockRollDelay = 1,
-	LuckyBlockRoll = 3
+	LeaderboardsUpdateDelay = 60
 }
 
 return GameConfigurations

@@ -3,10 +3,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 local PhysicsService = game:GetService("PhysicsService")
 local ServerStorage = game:GetService("ServerStorage")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 local Bases = require(ServerStorage.Modules:WaitForChild("Bases"))
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
+local ZoneTracker = require(ServerStorage.Modules:WaitForChild("ZoneTracker"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
@@ -24,7 +26,6 @@ local PlayerDataStore = DataStoreService:GetDataStore("Player")
 local RetrieveThingDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveThingData")
 local RetrievePlayerDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrievePlayerData")
 local ReplacePlayerDataEvent = ServerStorage.Network.BindableEvents:WaitForChild("ReplacePlayerData")
-local LuckyBlockFunction = ServerStorage.Network.BindableFunctions:WaitForChild("LuckyBlock")
 local CreateToolEvent = ServerStorage.Network.BindableEvents:WaitForChild("CreateTool")
 
 local MoneyEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Money")
@@ -36,12 +37,533 @@ local IncrementCarryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild(
 local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Announcement")
 local ToggleSpeedEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("ToggleSpeed")
 local IndexEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Index")
+local InventorySyncEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("InventorySync")
+local SellInventoryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("SellInventory")
+local EquipInventoryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("EquipInventory")
+local UpdateHotbarSlotEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("UpdateHotbarSlot")
 
 local PlayersData = {}
 
 local PlayersModule = {}
 
-local LuckyBlockZone = {}
+local HeldModels = {}
+local HeldInventoryCarry = {}
+
+local SELL_STATION_DISTANCE = 18
+local HOTBAR_MAX_SLOTS = 10
+
+local function makeInventoryId()
+	return HttpService:GenerateGUID(false)
+end
+
+local function registerCollisionGroup(Name)
+	pcall(function()
+		PhysicsService:RegisterCollisionGroup(Name)
+	end)
+end
+
+local function setGroupsCollidable(GroupA, GroupB, Collidable)
+	pcall(function()
+		PhysicsService:CollisionGroupSetCollidable(GroupA, GroupB, Collidable)
+	end)
+end
+
+local function getSellStation()
+	local Sell = workspace:FindFirstChild("Sell")
+	return Sell and Sell:FindFirstChild("Toggle")
+end
+
+local function isNearSellStation(Player)
+	if ZoneTracker.IsInZone(Player, "Sell") then
+		return true
+	end
+
+	local Station = ZoneTracker.GetZonePart("Sell") or getSellStation()
+	if not Station then return false end
+
+	local Character = Player.Character
+	local PrimaryPart = Character and Character.PrimaryPart
+	if not PrimaryPart then return false end
+
+	return (PrimaryPart.Position - Station.Position).Magnitude <= SELL_STATION_DISTANCE
+end
+
+local function getToolSellValue(Name, Mutation, Level)
+	local ThingConfiguration = ThingsConfigurations[Name]
+	if not ThingConfiguration then return 0 end
+
+	local LevelConfiguration = ThingConfiguration.Levels[Level or 1]
+	if not LevelConfiguration then return 0 end
+
+	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
+	local Multiplier = MutationConfiguration.Multiplier or 1
+
+	return math.round((LevelConfiguration.Sell or 0) * Multiplier)
+end
+
+local function normalizeHotbarOrder(PlayerData)
+	if not PlayerData then return {} end
+
+	local Tools = PlayerData.Tools or {}
+	local OwnedIds = {}
+
+	for _, ToolData in ipairs(Tools) do
+		if ThingsConfigurations[ToolData.Name] then
+			ToolData.Id = ToolData.Id or makeInventoryId()
+			OwnedIds[ToolData.Id] = true
+		end
+	end
+
+	local ExistingOrder = typeof(PlayerData.HotbarOrder) == "table" and PlayerData.HotbarOrder or {}
+	local UsedIds = {}
+	local Order = table.create(HOTBAR_MAX_SLOTS)
+
+	for Slot = 1, HOTBAR_MAX_SLOTS do
+		local Id = ExistingOrder[Slot]
+		if Id and OwnedIds[Id] and not UsedIds[Id] then
+			Order[Slot] = Id
+			UsedIds[Id] = true
+		end
+	end
+
+	for _, ToolData in ipairs(Tools) do
+		local Id = ToolData.Id
+		if not Id or UsedIds[Id] or not OwnedIds[Id] then continue end
+
+		for Slot = 1, HOTBAR_MAX_SLOTS do
+			if Order[Slot] then continue end
+
+			Order[Slot] = Id
+			UsedIds[Id] = true
+			break
+		end
+	end
+
+	PlayerData.HotbarOrder = Order
+
+	return Order
+end
+
+local function setHotbarSlot(PlayerData, Slot, Id)
+	if not PlayerData then return false end
+
+	Slot = tonumber(Slot)
+	if not Slot or Slot < 1 or Slot > HOTBAR_MAX_SLOTS or Slot % 1 ~= 0 then return false end
+
+	local Owned = false
+	if Id then
+		for _, ToolData in ipairs(PlayerData.Tools or {}) do
+			if ToolData.Id ~= Id then continue end
+
+			Owned = true
+			break
+		end
+
+		if not Owned then return false end
+	end
+
+	local Order = normalizeHotbarOrder(PlayerData)
+	local ReplacedId = Order[Slot]
+
+	for Index = 1, HOTBAR_MAX_SLOTS do
+		if Order[Index] == Id or (Id == nil and Index == Slot) then
+			Order[Index] = nil
+		end
+	end
+
+	Order[Slot] = Id
+
+	if Id and ReplacedId and ReplacedId ~= Id then
+		for Index = 1, HOTBAR_MAX_SLOTS do
+			if Order[Index] then continue end
+
+			Order[Index] = ReplacedId
+			break
+		end
+	end
+
+	PlayerData.HotbarOrder = Order
+
+	return true
+end
+
+local function findAnimeTemplate(Name, Mutation)
+	local Animes = ServerStorage:FindFirstChild("Animes")
+	if not Animes then return end
+
+	local ThingConfiguration = ThingsConfigurations[Name]
+	local Area = ThingConfiguration and ThingConfiguration.Area
+	if not Area then return end
+
+	local MutationFolder = Animes:FindFirstChild(Mutation or "Default")
+	local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
+	local Template = AreaFolder and AreaFolder:FindFirstChild(Name)
+	if Template then return Template end
+
+	local DefaultFolder = Animes:FindFirstChild("Default")
+	local DefaultAreaFolder = DefaultFolder and DefaultFolder:FindFirstChild(Area)
+	return DefaultAreaFolder and DefaultAreaFolder:FindFirstChild(Name)
+end
+
+local function getHeldPreviewsFolder()
+	local Folder = workspace:FindFirstChild("HeldPreviews")
+	if Folder then return Folder end
+
+	Folder = Instance.new("Folder")
+	Folder.Name = "HeldPreviews"
+	Folder.Parent = workspace
+
+	return Folder
+end
+
+local function cleanVisualModel(Model)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if Descendant:IsA("Script") or Descendant:IsA("LocalScript") or Descendant:IsA("ModuleScript")
+			or Descendant:IsA("ProximityPrompt") or Descendant:IsA("BillboardGui") or Descendant:IsA("SurfaceGui")
+			or Descendant:IsA("Humanoid") or Descendant:IsA("AnimationController")
+			or Descendant:IsA("JointInstance") or Descendant:IsA("Constraint") or Descendant:IsA("BodyMover")
+			or Descendant:IsA("TouchTransmitter") then
+			Descendant:Destroy()
+		elseif Descendant:IsA("BasePart") then
+			Descendant.Anchored = false
+			Descendant.CanCollide = false
+			Descendant.CanTouch = false
+			Descendant.CanQuery = false
+			Descendant.Massless = true
+		end
+	end
+end
+
+local function cleanHeldPreviewModel(Model)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if Descendant:IsA("Script") or Descendant:IsA("LocalScript") or Descendant:IsA("ModuleScript")
+			or Descendant:IsA("ProximityPrompt") or Descendant:IsA("BillboardGui") or Descendant:IsA("SurfaceGui")
+			or Descendant:IsA("ClickDetector") or Descendant:IsA("BodyMover") or Descendant:IsA("TouchTransmitter") then
+			Descendant:Destroy()
+		elseif Descendant:IsA("Humanoid") then
+			Descendant.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			Descendant.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+			Descendant.NameDisplayDistance = 0
+		elseif Descendant:IsA("BasePart") then
+			Descendant.Anchored = false
+			Descendant.CanCollide = false
+			Descendant.CanTouch = false
+			Descendant.CanQuery = false
+			Descendant.Massless = true
+		end
+	end
+end
+
+local function forceVisualOnly(Model)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if not Descendant:IsA("BasePart") then continue end
+
+		Descendant.Anchored = false
+		Descendant.CanCollide = false
+		Descendant.CanTouch = false
+		Descendant.CanQuery = false
+		Descendant.Massless = true
+		pcall(function()
+			Descendant.CollisionGroup = "HeldPreviews"
+		end)
+	end
+end
+
+local function getModelPrimaryPart(Model)
+	if Model.PrimaryPart then return Model.PrimaryPart end
+
+	local PrimaryPart = Model:FindFirstChild("HumanoidRootPart") or Model:FindFirstChildWhichIsA("BasePart", true)
+	if PrimaryPart then
+		Model.PrimaryPart = PrimaryPart
+	end
+
+	return PrimaryPart
+end
+
+local function weldLooseVisualParts(Model, PrimaryPart)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if not Descendant:IsA("BasePart") or Descendant == PrimaryPart then continue end
+		if Descendant:FindFirstAncestorOfClass("Accessory") then continue end
+		if Descendant:FindFirstChildWhichIsA("JointInstance") then continue end
+
+		local HasExistingJoint = false
+		for _, Joint in ipairs(Descendant:GetJoints()) do
+			if Joint.Part0 == PrimaryPart or Joint.Part1 == PrimaryPart then
+				HasExistingJoint = true
+				break
+			end
+		end
+
+		if HasExistingJoint then continue end
+
+		local Weld = Instance.new("WeldConstraint")
+		Weld.Part0 = PrimaryPart
+		Weld.Part1 = Descendant
+		Weld.Parent = PrimaryPart
+	end
+end
+
+local function getHeldMutationAuraParts(Model)
+	local PreferredParts = {
+		"Head",
+		"UpperTorso",
+		"Torso",
+		"LowerTorso",
+		"LeftUpperArm",
+		"Left Arm",
+		"RightUpperArm",
+		"Right Arm",
+		"LeftUpperLeg",
+		"Left Leg",
+		"RightUpperLeg",
+		"Right Leg"
+	}
+
+	local AuraParts = {}
+
+	for _, PartName in ipairs(PreferredParts) do
+		local Part = Model:FindFirstChild(PartName, true)
+		if Part and Part:IsA("BasePart") and Part.Transparency < 0.95 then
+			table.insert(AuraParts, Part)
+		end
+	end
+
+	if #AuraParts == 0 then
+		for _, Descendant in ipairs(Model:GetDescendants()) do
+			if not Descendant:IsA("BasePart") then continue end
+			if Descendant.Transparency >= 0.95 then continue end
+
+			table.insert(AuraParts, Descendant)
+
+			if #AuraParts >= 6 then break end
+		end
+	end
+
+	if #AuraParts == 0 and Model.PrimaryPart then
+		table.insert(AuraParts, Model.PrimaryPart)
+	end
+
+	return AuraParts
+end
+
+local function applyHeldMutationVisual(Model, Mutation)
+	local MutationConfiguration = MutationsConfigurations[Mutation]
+	if not MutationConfiguration or Mutation == "Default" then return end
+
+	local AuraConfiguration = MutationConfiguration.Aura
+	local HighlightConfiguration = AuraConfiguration and AuraConfiguration.Highlight
+
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "HeldMutationHighlight"
+	Highlight.Adornee = Model
+	Highlight.FillColor = HighlightConfiguration and HighlightConfiguration.FillColor or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+	Highlight.FillTransparency = HighlightConfiguration and HighlightConfiguration.FillTransparency or 0.7
+	Highlight.OutlineColor = HighlightConfiguration and HighlightConfiguration.OutlineColor or Highlight.FillColor
+	Highlight.OutlineTransparency = HighlightConfiguration and HighlightConfiguration.OutlineTransparency or 0.25
+	Highlight.Parent = Model
+
+	local ParticleConfiguration = AuraConfiguration and AuraConfiguration.Particle
+	if ParticleConfiguration then
+		for _, Part in ipairs(getHeldMutationAuraParts(Model)) do
+			local AuraAttachment = Instance.new("Attachment")
+			AuraAttachment.Name = "HeldMutationAuraAttachment"
+			AuraAttachment.Parent = Part
+
+			local Particle = Instance.new("ParticleEmitter")
+			Particle.Name = "HeldMutationAura"
+			Particle.Texture = ParticleConfiguration.Texture or "rbxasset://textures/particles/sparkles_main.dds"
+			Particle.Color = ParticleConfiguration.Color or ColorSequence.new(MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255))
+			Particle.LightEmission = ParticleConfiguration.LightEmission or 0.8
+			Particle.Rate = ParticleConfiguration.Rate or 24
+			Particle.Lifetime = ParticleConfiguration.Lifetime or NumberRange.new(1, 1.5)
+			Particle.Speed = ParticleConfiguration.Speed or NumberRange.new(0.8, 1.8)
+			Particle.SpreadAngle = ParticleConfiguration.SpreadAngle or Vector2.new(360, 360)
+			Particle.Size = ParticleConfiguration.Size or NumberSequence.new(0.25)
+			Particle.Transparency = ParticleConfiguration.Transparency or NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.35),
+				NumberSequenceKeypoint.new(1, 1)
+			})
+			Particle.Parent = AuraAttachment
+		end
+	end
+
+	local LightConfiguration = AuraConfiguration and AuraConfiguration.Light
+	if LightConfiguration and Model.PrimaryPart then
+		local Light = Instance.new("PointLight")
+		Light.Name = "HeldMutationAuraLight"
+		Light.Color = LightConfiguration.Color or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		Light.Brightness = LightConfiguration.Brightness or 0.8
+		Light.Range = LightConfiguration.Range or 8
+		Light.Parent = Model.PrimaryPart
+	end
+end
+
+local function removeHeldModel(Player)
+	local Existing = HeldModels[Player]
+	if Existing then
+		Existing:Destroy()
+		HeldModels[Player] = nil
+	end
+
+	if HeldInventoryCarry[Player] then
+		HeldInventoryCarry[Player] = nil
+
+		local PlayerData = PlayersData[Player]
+		if not (PlayerData and PlayerData.Carrying) then
+			PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, false)
+		end
+	end
+end
+
+local function createHeldModel(Player, Name, Mutation)
+	removeHeldModel(Player)
+
+	local Character = Player.Character
+	if not Character then return end
+
+	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+	local Root = Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart")
+	if not Humanoid or not Root then return end
+
+	local Template = findAnimeTemplate(Name, Mutation)
+	if not Template then return end
+
+	local ThingConfiguration = ThingsConfigurations[Name]
+	if not ThingConfiguration then return end
+
+	local Model = Template:Clone()
+	Model.Name = string.format("Held%s", Name)
+	cleanHeldPreviewModel(Model)
+
+	local PrimaryPart = getModelPrimaryPart(Model)
+	if not PrimaryPart then
+		Model:Destroy()
+		return
+	end
+
+	weldLooseVisualParts(Model, PrimaryPart)
+	applyHeldMutationVisual(Model, Mutation)
+
+	local YOffset = Humanoid.HipHeight + Root.Size.Y / 2 + (ThingConfiguration.YOffset or 0) + 1
+	Model:PivotTo(Root.CFrame + Vector3.new(0, YOffset, 0))
+
+	local Weld = Instance.new("WeldConstraint")
+	Weld.Name = "HeldAnimeWeld"
+	Weld.Part0 = Root
+	Weld.Part1 = PrimaryPart
+	Weld.Parent = Root
+
+	Model.Parent = getHeldPreviewsFolder()
+	forceVisualOnly(Model)
+
+	task.defer(function()
+		if Model.Parent then
+			forceVisualOnly(Model)
+		end
+	end)
+
+	HeldModels[Player] = Model
+	HeldInventoryCarry[Player] = true
+
+	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, true)
+end
+
+local function setupAnimePreviews()
+	local Existing = ReplicatedStorage:FindFirstChild("AnimePreviews")
+	if Existing then Existing:Destroy() end
+
+	local Folder = Instance.new("Folder")
+	Folder.Name = "AnimePreviews"
+	Folder.Parent = ReplicatedStorage
+
+	for Name in pairs(ThingsConfigurations) do
+		local Template = findAnimeTemplate(Name, "Default")
+		if not Template then continue end
+
+		local Preview = Template:Clone()
+		Preview.Name = Name
+		cleanVisualModel(Preview)
+
+		for _, Descendant in ipairs(Preview:GetDescendants()) do
+			if Descendant:IsA("BasePart") then
+				Descendant.Anchored = true
+			end
+		end
+
+		Preview.Parent = Folder
+	end
+end
+
+local function getInventorySnapshot(Player)
+	local PlayerData = PlayersData[Player]
+	local Snapshot = {
+		Items = {},
+		EquippedId = nil,
+		HotbarOrder = {},
+		MaxHotbarSlots = HOTBAR_MAX_SLOTS
+	}
+
+	if not PlayerData then return Snapshot end
+
+	Snapshot.HotbarOrder = normalizeHotbarOrder(PlayerData)
+
+	local Character = Player.Character
+	local EquippedTool = Character and Character:FindFirstChildOfClass("Tool")
+
+	for _, ToolData in ipairs(PlayerData.Tools or {}) do
+		if not ThingsConfigurations[ToolData.Name] then continue end
+
+		if not ToolData.Id then
+			ToolData.Id = makeInventoryId()
+		end
+
+		if EquippedTool and ToolData.Tool == EquippedTool then
+			Snapshot.EquippedId = ToolData.Id
+		end
+
+		table.insert(Snapshot.Items, {
+			Id = ToolData.Id,
+			Name = ToolData.Name,
+			Mutation = ToolData.Mutation,
+			Level = ToolData.Level or 1,
+			Sell = getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1)
+		})
+	end
+
+	return Snapshot
+end
+
+local function syncInventory(Player)
+	if not PlayersData[Player] then return end
+
+	InventorySyncEvent:FireClient(Player, getInventorySnapshot(Player))
+end
+
+local function findToolDataById(Player, Id)
+	local PlayerData = PlayersData[Player]
+	if not PlayerData or not Id then return end
+
+	for Index, ToolData in ipairs(PlayerData.Tools or {}) do
+		if ToolData.Id == Id then
+			return Index, ToolData
+		end
+	end
+end
+
+local function removeToolData(Player, Index, ToolData)
+	removeHeldModel(Player)
+
+	if ToolData and ToolData.Tool then
+		ToolData.Tool:Destroy()
+	end
+
+	local PlayerData = PlayersData[Player]
+	if not PlayerData then return end
+
+	table.remove(PlayerData.Tools, Index)
+	normalizeHotbarOrder(PlayerData)
+	syncInventory(Player)
+end
 
 local function reconcileIndex(ExistingIndex)
 	local Index = {}
@@ -61,12 +583,24 @@ local function reconcileIndex(ExistingIndex)
 end
 
 function PlayersModule.Setup()
-	pcall(function()
-		PhysicsService:RegisterCollisionGroup("Players")	
+	setupAnimePreviews()
 
-		PhysicsService:CollisionGroupSetCollidable("Players", "Things", false)
-		PhysicsService:CollisionGroupSetCollidable("Players", "Players", false)
-	end)
+	registerCollisionGroup("Players")
+	registerCollisionGroup("Things")
+	registerCollisionGroup("HeldPreviews")
+	setGroupsCollidable("Players", "Things", false)
+	setGroupsCollidable("Players", "Players", false)
+	setGroupsCollidable("HeldPreviews", "Default", false)
+	setGroupsCollidable("HeldPreviews", "Players", false)
+	setGroupsCollidable("HeldPreviews", "Things", false)
+	setGroupsCollidable("HeldPreviews", "HeldPreviews", false)
+
+	local SellStation = getSellStation()
+	if SellStation then
+		ZoneTracker.RegisterZone("Sell", SellStation)
+	else
+		warn("Missing sell station zone: Workspace.Sell.Toggle")
+	end
 
 	Players.PlayerAdded:Connect(function(Player)
 		PlayersModule.Create(Player)
@@ -77,7 +611,9 @@ function PlayersModule.Setup()
 
 		PlayerData:Save()
 		
-		LuckyBlockZone[Player] = nil
+		ZoneTracker.ClearPlayer(Player)
+		removeHeldModel(Player)
+		HeldInventoryCarry[Player] = nil
 	end)
 
 	game:BindToClose(function()
@@ -221,36 +757,67 @@ function PlayersModule.Setup()
 
 		IndexEvent:FireClient(Player, Index, Mutation)
 	end)
-	
-	workspace.Zones.LuckyBlocks.Touched:Connect(function(Hit)
-		local Character = Hit.Parent
-		
-		local Player = Players:GetPlayerFromCharacter(Character)
-		if not Player then return end
 
-		if not PlayersData[Player] then return end
+	EquipInventoryEvent.OnServerEvent:Connect(function(Player, Id)
+		local _, ToolData = findToolDataById(Player, Id)
+		if not ToolData or not ToolData.Tool then return end
 
-		LuckyBlockZone[Player] = (LuckyBlockZone[Player] or 0) + 1
-		
-		PlayersData[Player].LuckyBlockZone = true
+		local Character = Player.Character
+		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+		if not Humanoid then return end
+
+		if ToolData.Tool.Parent == Character then
+			Humanoid:UnequipTools()
+			removeHeldModel(Player)
+		else
+			ToolData.Tool.Parent = Player:WaitForChild("Backpack")
+			Humanoid:EquipTool(ToolData.Tool)
+			createHeldModel(Player, ToolData.Name, ToolData.Mutation)
+			PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, true)
+		end
+
+		task.defer(syncInventory, Player)
 	end)
 
-	workspace.Zones.LuckyBlocks.TouchEnded:Connect(function(Hit)
-		local Character = Hit.Parent
-		
-		local Player = Players:GetPlayerFromCharacter(Character)
-		if not Player then return end
+	SellInventoryEvent.OnServerEvent:Connect(function(Player, Mode, Id)
+		if not isNearSellStation(Player) then return end
 
-		if not PlayersData[Player] then return end
+		local PlayerData = PlayersData[Player]
+		if not PlayerData then return end
 
-		if LuckyBlockZone[Player] then
-			LuckyBlockZone[Player] -= 1
+		local Total = 0
 
-			if LuckyBlockZone[Player] <= 0 then
-				LuckyBlockZone[Player] = nil
-				
-				PlayersData[Player].LuckyBlockZone = false
+		if Mode == "Single" then
+			local Index, ToolData = findToolDataById(Player, Id)
+			if not Index or not ToolData then return end
+
+			Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1)
+			removeToolData(Player, Index, ToolData)
+		elseif Mode == "All" then
+			for Index = #PlayerData.Tools, 1, -1 do
+				local ToolData = PlayerData.Tools[Index]
+				if not ToolData or not ThingsConfigurations[ToolData.Name] then continue end
+
+				Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1)
+				removeToolData(Player, Index, ToolData)
 			end
+		end
+
+		if Total <= 0 then
+			syncInventory(Player)
+			return
+		end
+
+		PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") + Total)
+		syncInventory(Player)
+	end)
+
+	UpdateHotbarSlotEvent.OnServerEvent:Connect(function(Player, Slot, Id)
+		local PlayerData = PlayersData[Player]
+		if not PlayerData then return end
+
+		if setHotbarSlot(PlayerData, Slot, Id) then
+			syncInventory(Player)
 		end
 	end)
 end
@@ -342,6 +909,10 @@ function PlayersModule.Replace(Player, Name, Value)
 		Bases.Level(PlayerData, Base)
 	elseif Name == "Index" then
 		IndexEvent:FireClient(Player, Value)
+	elseif Name == "Tools" then
+		removeHeldModel(Player)
+		normalizeHotbarOrder(PlayerData)
+		task.defer(syncInventory, Player)
 	end
 
 	PlayersData[Player] = PlayerData
@@ -351,6 +922,7 @@ function PlayersModule.Animate(Player, AnimationId, Bool)
 	local PlayerData = PlayersData[Player]
 
 	if not PlayerData then return end
+	if not AnimationId or AnimationId == "" then return end
 
 	local Character = Player.Character or Player.CharacterAdded:Wait()
 
@@ -372,15 +944,43 @@ function PlayersModule.Animate(Player, AnimationId, Bool)
 		local Animation = Instance.new("Animation")
 		Animation.AnimationId = AnimationId
 
-		AnimationTrack = Animator:LoadAnimation(Animation)
+		local Success, Result = pcall(function()
+			return Animator:LoadAnimation(Animation)
+		end)
+
+		Animation:Destroy()
+
+		if not Success then
+			warn(string.format("Failed to load animation %s for %s: %s", tostring(AnimationId), Player.Name, tostring(Result)))
+			return
+		end
+
+		AnimationTrack = Result
+
+		if AnimationId == GameConfigurations.AnimationsIds.Carry then
+			AnimationTrack.Looped = true
+			AnimationTrack.Priority = Enum.AnimationPriority.Action4
+
+			task.delay(1, function()
+				if AnimationTrack.Length == 0 then
+					warn(string.format("Carry animation %s loaded with length 0 for %s; verify the asset works with this rig.", tostring(AnimationId), Player.Name))
+				end
+			end)
+		end
 
 		Tracks[AnimationId] = AnimationTrack
 	end
 
 	if Bool then
-		AnimationTrack:Play()
+		if AnimationId == GameConfigurations.AnimationsIds.Carry then
+			AnimationTrack.Looped = true
+			AnimationTrack.Priority = Enum.AnimationPriority.Action4
+			AnimationTrack:Play(0.1, 1, 1)
+		else
+			AnimationTrack:Play()
+		end
 	else
-		AnimationTrack:Stop()
+		AnimationTrack:Stop(0.1)
 	end
 
 	return AnimationTrack
@@ -597,7 +1197,10 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 
 	Tool = Tool:Clone()
 
+	local Id = ToolData and ToolData.Id or makeInventoryId()
+
 	Data.Tool = Tool
+	Data.Id = Id
 	Data.Name = Name
 	Data.Mutation = Mutation
 	Data.Level = Level or 1
@@ -610,6 +1213,9 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 	end
 	
 	Tool.Equipped:Connect(function()
+		createHeldModel(Player, Name, Mutation)
+		syncInventory(Player)
+
 		local Base = PlayersData[Player] and PlayersData[Player].Base
 		if not Base then return end
 
@@ -624,8 +1230,6 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
 				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
 
-				if ThingConfiguration.LuckyBlock then return end
-				
 				if BaseConfigurations[PlayersData[Player].Level].Slots < tonumber(Slot.Name) then return end
 
 				if SlotsData[Slot.Name] and SlotsData[Slot.Name].Thing then
@@ -650,18 +1254,10 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 		end
 	end)
 
-	if ThingConfiguration.LuckyBlock then
-		Tool.Activated:Connect(function()
-			local Area = ThingConfiguration.Area
-			
-			local AreaConfiguration = AreasConfigurations[Area]
-			local MutationConfiguration = MutationsConfigurations[Mutation]
-			
-			LuckyBlockFunction:Invoke(Player, Area, AreaConfiguration, Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
-		end)
-	end
-
 	Tool.Unequipped:Connect(function()
+		removeHeldModel(Player)
+		syncInventory(Player)
+
 		local Base = PlayersData[Player].Base
 		if not Base then return end
 
@@ -701,8 +1297,13 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 	Tool.Name = Name
 	Tool.ToolTip = Name
 	Tool.TextureId = ThingConfiguration.Icons[Mutation]
+	Tool.RequiresHandle = false
+	Tool:SetAttribute("InventoryId", Id)
+	Tool:SetAttribute("Mutation", Mutation)
+	Tool:SetAttribute("Level", Data.Level)
 
 	if Index and ToolData then
+		ToolData.Id = Id
 		ToolData.Tool = Tool
 
 		PlayersData[Player].Tools[Index] = ToolData
@@ -716,6 +1317,8 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 	end
 
 	Tool.Parent = Player.Backpack
+	normalizeHotbarOrder(PlayersData[Player])
+	task.defer(syncInventory, Player)
 
 	return Data
 end
@@ -786,13 +1389,19 @@ function PlayersModule:Load()
 	if not self.Things then self.Things = {} end
 	if not self.Steals then self.Steals = 0 end
 	if not self.Rebirths then self.Rebirths = 0 end
+	if not self.HotbarOrder then self.HotbarOrder = {} end
 	
 	for Index = #self.Tools, 1, -1 do
 		local ToolConfiguration = self.Tools[Index]
-		if ThingsConfigurations[ToolConfiguration.Name] then continue end
-		
-		table.remove(self.Tools, Index)
+		if ThingsConfigurations[ToolConfiguration.Name] then
+			ToolConfiguration.Id = ToolConfiguration.Id or makeInventoryId()
+			self.Tools[Index] = ToolConfiguration
+		else
+			table.remove(self.Tools, Index)
+		end
 	end
+
+	normalizeHotbarOrder(self)
 	
 	for Index = #self.Things, 1, -1 do
 		local ThingConfiguration = self.Things[Index]
@@ -827,6 +1436,14 @@ function PlayersModule:Load()
 		CarryEvent:FireClient(Player, PlayersData[Player].Carry)
 	end)
 
+	task.delay(1, function()
+		syncInventory(Player)
+	end)
+
+	task.delay(5, function()
+		syncInventory(Player)
+	end)
+
 	PlayersData[Player] = self
 
 	task.spawn(function()
@@ -845,11 +1462,19 @@ function PlayersModule:Load()
 			end)
 		end
 
+		task.defer(syncInventory, Player)
+
 		Player.CharacterAdded:Connect(function()
 			task.wait()
 
 			local PlayerData = PlayersData[Player]
 			if not PlayerData then return end
+
+			for _, Tool in ipairs(Player.Backpack:GetChildren()) do
+				if Tool:IsA("Tool") then
+					Tool:Destroy()
+				end
+			end
 
 			for Index, ToolData in ipairs(PlayerData.Tools or {}) do
 				task.spawn(function()
@@ -859,6 +1484,13 @@ function PlayersModule:Load()
 					PlayersModule.Tool(Player, Thing, ThingConfiguration, ToolData.Mutation, ToolData.Level, Index, ToolData)
 				end)
 			end
+
+			task.defer(syncInventory, Player)
+		end)
+
+		Player.CharacterRemoving:Connect(function()
+			removeHeldModel(Player)
+			task.defer(syncInventory, Player)
 		end)
 	end)
 
@@ -890,10 +1522,14 @@ function PlayersModule:Save()
 	for Index, ToolData in ipairs(self.Tools) do
 		if not ToolData.Tool then continue end
 
+		ToolData.Id = ToolData.Id or makeInventoryId()
 		ToolData.Tool = nil
+		ToolData.HeldModel = nil
 
 		self.Tools[Index] = ToolData
 	end
+
+	normalizeHotbarOrder(self)
 
 	local Data = {
 		Carry = self.Carry,
@@ -902,7 +1538,8 @@ function PlayersModule:Save()
 		Things = self.Things,
 		Steals = self.Steals,
 		Rebirths = self.Rebirths,
-		Index = self.Index
+		Index = self.Index,
+		HotbarOrder = self.HotbarOrder
 	}
 
 	pcall(function()

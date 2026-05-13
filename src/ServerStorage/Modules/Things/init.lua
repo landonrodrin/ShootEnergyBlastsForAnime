@@ -19,7 +19,6 @@ local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules
 
 local RetrieveThingDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveThingData")
 local CreateThingFunction = ServerStorage.Network.BindableFunctions:WaitForChild("CreateThing")
-local LuckyBlockFunction = ServerStorage.Network.BindableFunctions:WaitForChild("LuckyBlock")
 local AnimateThingEvent = ServerStorage.Network.BindableEvents:WaitForChild("AnimateThing")
 
 local DropEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Drop")
@@ -40,7 +39,7 @@ local DEFAULT_INITIAL_TIME_SCALE_MIN = 0.3
 local DEFAULT_INITIAL_TIME_SCALE_MAX = 1
 local DEFAULT_SPAWN_TIME_SCALE_MIN = 0.3
 local DEFAULT_SPAWN_TIME_SCALE_MAX = 1
-local THING_GUI_MAX_DISTANCE = 100
+local THING_GUI_MAX_DISTANCE = 50
 
 local function getCharacterRoot(Player)
 	local Character = Player.Character
@@ -108,6 +107,18 @@ local function canSpawnInArea(Area, AreaConfiguration)
 	return getAreaThingCount(Area) < MaxPopulation
 end
 
+local function registerCollisionGroup(Name)
+	pcall(function()
+		PhysicsService:RegisterCollisionGroup(Name)
+	end)
+end
+
+local function setGroupsCollidable(GroupA, GroupB, Collidable)
+	pcall(function()
+		PhysicsService:CollisionGroupSetCollidable(GroupA, GroupB, Collidable)
+	end)
+end
+
 local function hasThingTemplate(Area, Thing, Mutation)
 	local Animes = ServerStorage:FindFirstChild("Animes")
 
@@ -123,6 +134,24 @@ local function hasThingTemplate(Area, Thing, Mutation)
 	end
 
 	return Mutation ~= "Default" and hasInMutation("Default")
+end
+
+local function areaHasSpawnableThings(Area)
+	for Thing, ThingConfiguration in pairs(ThingsConfigurations) do
+		if ThingConfiguration.Area ~= Area then continue end
+
+		for Mutation in pairs(MutationsConfigurations) do
+			if hasThingTemplate(Area, Thing, Mutation) then
+				return true
+			end
+		end
+
+		if hasThingTemplate(Area, Thing, "Default") then
+			return true
+		end
+	end
+
+	return false
 end
 
 local function startFinishLineWatcher()
@@ -180,6 +209,21 @@ local function getRandomTimeScale(Range, DefaultMinimum, DefaultMaximum)
 	return Minimum + (math.random() * (Maximum - Minimum))
 end
 
+local function getRandomLevel(ThingConfiguration)
+	local MaximumConfiguredLevel = 1
+	for Level in pairs(ThingConfiguration.Levels or {}) do
+		if Level > MaximumConfiguredLevel then
+			MaximumConfiguredLevel = Level
+		end
+	end
+
+	local LevelRange = ThingConfiguration.Level or {}
+	local Minimum = math.clamp(LevelRange.Minimum or 1, 1, MaximumConfiguredLevel)
+	local Maximum = math.clamp(LevelRange.Maximum or MaximumConfiguredLevel, Minimum, MaximumConfiguredLevel)
+
+	return math.random(Minimum, Maximum)
+end
+
 local function spawnRandomThing(Area, AreaConfiguration, SpawnOptions)
 	if not canSpawnInArea(Area, AreaConfiguration) then return end
 
@@ -211,22 +255,14 @@ function Things.Setup()
 	ThingsFolder.Name = "Things"
 	ThingsFolder.Parent = workspace
 	ThingsFolder:ClearAllChildren()
-
-	local LuckyBlocksFolder = workspace:FindFirstChild("LuckyBlocks") or Instance.new("Folder")
-	LuckyBlocksFolder.Name = "LuckyBlocks"
-	LuckyBlocksFolder.Parent = workspace
-	LuckyBlocksFolder:ClearAllChildren()
 	
-	pcall(function()
-		PhysicsService:RegisterCollisionGroup("Things")	
-
-		PhysicsService:CollisionGroupSetCollidable("Things", "Players", false)
-		PhysicsService:CollisionGroupSetCollidable("Things", "Things", false)
-	end)
+	registerCollisionGroup("Things")
+	registerCollisionGroup("Players")
+	setGroupsCollidable("Things", "Players", false)
+	setGroupsCollidable("Things", "Things", false)
 
 	RetrieveThingDataFunction.OnInvoke = Things.Retrieve
 	CreateThingFunction.OnInvoke = Things.Create
-	LuckyBlockFunction.OnInvoke = Things.LuckyBlock
 	
 	AnimateThingEvent.Event:Connect(Things.Animate)
 
@@ -244,15 +280,15 @@ function Things.Setup()
 		Things.Drop(Player)
 		finishLinePlayerSides[Player] = nil
 	end)
-	
-	if GameConfigurations.LuckyBlockRollDelay < 0.5 then
-		GameConfigurations.LuckyBlockRollDelay = 0.5
-	end
 
 	startFinishLineWatcher()
 	
 	for Area, AreaConfiguration in pairs(AreasConfigurations) do
 		if AreaConfiguration.Enabled == false then continue end
+		if not areaHasSpawnableThings(Area) then
+			warn(string.format("Skipping anime area %s: no configured anime templates found.", Area))
+			continue
+		end
 
 		local InitialPopulation = AreaConfiguration.InitialPopulation or DEFAULT_INITIAL_POPULATION
 		for Index = 1, InitialPopulation do
@@ -331,6 +367,10 @@ function Things.Random(Area)
 		AreaThings[Thing] = ThingConfiguration
 	end
 
+	if TotalChance <= 0 then
+		return
+	end
+
 	local RandomThing = nil
 	local RandomConfiguration = nil
 
@@ -379,7 +419,7 @@ function Things.Random(Area)
 		RandomMutation = "Default"
 	end
 
-	return RandomThing, RandomConfiguration, RandomMutation, RandomMutationConfiguration, 1
+	return RandomThing, RandomConfiguration, RandomMutation, RandomMutationConfiguration, getRandomLevel(RandomConfiguration)
 end
 
 function Things.Animate(Thing, AnimationId, Bool)
@@ -503,7 +543,7 @@ function Things.Drop(Player)
 		end)
 	end
 
-	PlayersModule.Animate(Player, "rbxassetid://71720976335931", false)
+	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, false)
 
 	PlayersModule.Replace(Player, "Carrying", nil)
 	PlayersModule.Replace(Player, "Carried", nil)
@@ -697,16 +737,13 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 
 	ThingGui = ThingGui:Clone()
 
-	ThingGui.Thing.Text = Thing.Name
+	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Thing.Name, Level)
 	ThingGui.Area.Text = Area
 
 	local Multiplier = MutationConfiguration.Multiplier or 1
-	
-	if not ThingConfiguration.LuckyBlock then
-		ThingGui.Money.Text = string.format("$%s/s", Format.Number((ThingConfiguration.Levels[Level].Money or 0) * Multiplier))
-		
-		ThingGui.Money.Visible = true
-	end
+
+	ThingGui.Money.Text = string.format("$%s/s", Format.Number((ThingConfiguration.Levels[Level].Money or 0) * Multiplier))
+	ThingGui.Money.Visible = true
 	
 	ThingGui.Area.TextColor3 = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 
@@ -727,236 +764,6 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 	ThingsData[Thing] = Data
 
 	return Thing
-end
-
-function Things.LuckyBlock(Player, Area, AreaConfiguration, Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
-	if not PlayersModule.Retrieve(Player, "LuckyBlockZone") then return end
-	
-	local Character = Player.Character or Player.CharacterAdded:Wait()
-	
-	local AreaMutationThings = {}
-
-	local Indexs = 0
-
-	local TotalChance = 0
-
-	local MaximumDistance = ThingConfiguration.Distance
-
-	for Thing, ThingConfiguration in pairs(ThingsConfigurations) do
-		if ThingConfiguration.Area ~= Area then continue end
-		if ThingConfiguration.LuckyBlock then continue end
-
-		TotalChance += ThingConfiguration.Chance or 1
-
-		local Distance = ThingConfiguration.Distance or 0
-		if Distance > MaximumDistance then
-			MaximumDistance = Distance
-		end
-
-		AreaMutationThings[Thing] = ThingConfiguration
-
-		Indexs += 1
-	end
-
-	local Roll = math.random() * TotalChance
-	local Sum = 0
-
-	local AreaMutationThing
-	local AreaMutationThingConfiguration
-
-	for Thing, ThingConfiguration in pairs(AreaMutationThings) do
-		Sum += ThingConfiguration.Chance or 1
-
-		if Roll > Sum then continue end
-
-		AreaMutationThing = Thing
-		AreaMutationThingConfiguration = ThingConfiguration
-
-		break
-	end
-
-	local IndexsToRemove = Indexs - math.clamp(GameConfigurations.LuckyBlockRoll, 1, Indexs)
-	if IndexsToRemove > 0 then
-		for Index = 1, IndexsToRemove, 1 do
-			local Keys = {}
-
-			for Thing in pairs(AreaMutationThings) do
-				table.insert(Keys, Thing)
-			end
-
-			if #Keys == 0 then break end
-
-			local RandomIndex
-
-			repeat
-				RandomIndex = math.random(1, #Keys)
-			until Keys[RandomIndex] ~= AreaMutationThing
-
-			local RandomThing = Keys[RandomIndex]
-
-			AreaMutationThings[RandomThing] = nil
-		end
-	end
-
-	AreaMutationThings[AreaMutationThing] = nil
-	
-	local Size = workspace.Zones.LuckyBlocks.Size
-
-	local Position
-
-	local NearestDistance = math.huge
-
-	for Attempt = 1, 100 do
-		local HalfX = (Size.X / 2) - MaximumDistance
-		local HalfZ = (Size.Z / 2) - MaximumDistance
-
-		local X = (math.random() - 0.5) * 2 * HalfX
-		local Z = (math.random() - 0.5) * 2 * HalfZ
-
-		local Candidate = workspace.Zones.LuckyBlocks.CFrame.Position + Vector3.new(X, Size.Y / 2, Z)
-
-		local Valid = true
-
-		for _, OtherThing in ipairs(workspace.LuckyBlocks:GetChildren()) do
-			local OtherConfiguration = ThingsConfigurations[OtherThing.Name]
-			if not OtherConfiguration then continue end
-
-			local RequiredDistance = MaximumDistance + (OtherConfiguration.Distance or 0)
-
-			local Delta = OtherThing.PrimaryPart.Position - Candidate
-			local Distance = Vector2.new(Delta.X, Delta.Z).Magnitude
-
-			if Distance < RequiredDistance then
-				Valid = false
-				break
-			end
-		end
-
-		if Valid then
-			local DeltaToPlayer = Character.PrimaryPart.Position - Candidate
-			local DistanceToPlayer = Vector2.new(DeltaToPlayer.X, DeltaToPlayer.Z).Magnitude
-
-			if DistanceToPlayer >= (MaximumDistance + 2) and DistanceToPlayer < NearestDistance then
-				NearestDistance = DistanceToPlayer
-				Position = Candidate
-			end
-		end
-	end
-
-	if not Position then return end
-
-	local Tool = Character:FindFirstChildOfClass("Tool")
-	if not Tool then return end
-
-	local MaximumLevel = 1
-
-	for Level, _ in pairs(AreaMutationThingConfiguration.Levels) do
-		if Level <= MaximumLevel then continue end
-
-		MaximumLevel = Level
-	end
-
-	local ToolData = {}
-
-	ToolData.Name = AreaMutationThing
-	ToolData.Mutation = Mutation
-	ToolData.Level = math.clamp(Level, 1, MaximumLevel)
-
-	local Tools = PlayersModule.Retrieve(Player, "Tools")
-	if not Tools then Tools = {} end
-
-	table.insert(Tools, ToolData)
-
-	local Index = #Tools
-
-	PlayersModule.Replace(Player, "Tools", Tools)
-	
-	for Index, ToolData in pairs(Tools) do
-		if ToolData.Tool ~= Tool then continue end
-
-		local Name = ToolData.Name
-		local Mutation = ToolData.Mutation
-		local Level = ToolData.Level
-
-		local ThingConfiguration = ThingsConfigurations[Name]
-		if not ThingConfiguration then return end
-
-		table.remove(Tools, Index)
-
-		PlayersModule.Replace(Player, "Tools", Tools)
-
-		Tool:Destroy()
-
-		break
-	end
-	
-	local Thing = Things.Create(Area, AreaConfiguration, Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
-	if not Thing then return end
-
-	Thing.Parent = workspace:WaitForChild("LuckyBlocks")
-
-	local TargetCFrame = CFrame.new(Position) + Vector3.new(0, ThingConfiguration.YOffset - Size.Y / 2, 0)
-
-	Thing:PivotTo(TargetCFrame)
-
-	local Length = 0
-	
-	local RollTrack = Things.Animate(Thing, ThingConfiguration.AnimationsIds.Roll)
-	if RollTrack then
-		RollTrack:Play()
-
-		Length = RollTrack.Length
-
-		if Length == 0 then
-			RollTrack:GetPropertyChangedSignal("Length"):Wait()
-			Length = RollTrack.Length
-		end
-
-		task.wait(Length)
-
-		RollTrack:Stop()
-	end
-	
-	if Length < GameConfigurations.LuckyBlockRollDelay then
-		task.wait(GameConfigurations.LuckyBlockRollDelay - Length)
-	end
-	
-	ThingsData[Thing]:Destroy()
-	
-	for Name, ThingConfiguration in pairs(AreaMutationThings) do
-		local MaximumLevel = 1
-		
-		for Level, _ in pairs(ThingConfiguration.Levels) do
-			if Level <= MaximumLevel then continue end
-			
-			MaximumLevel = Level
-		end
-		
-		local Thing = Things.Create(Area, AreaConfiguration, Name, ThingConfiguration, Mutation, MutationConfiguration, math.clamp(Level, 1, MaximumLevel))
-		if not Thing then continue end
-		
-		Thing.Parent = workspace:WaitForChild("LuckyBlocks")
-		
-		Thing:PivotTo(TargetCFrame)
-		
-		task.wait(GameConfigurations.LuckyBlockRollDelay)
-		
-		ThingsData[Thing]:Destroy()
-	end
-	
-	
-	local Thing = Things.Create(Area, AreaConfiguration, AreaMutationThing, AreaMutationThingConfiguration, Mutation, MutationConfiguration, math.clamp(Level, 1, MaximumLevel))
-	if not Thing then return end
-	
-	Thing.Parent = workspace:WaitForChild("LuckyBlocks")
-
-	Thing:PivotTo(TargetCFrame)
-	
-	task.wait(GameConfigurations.LuckyBlockRollDelay)
-
-	ThingsData[Thing]:Destroy()
-	
-	PlayersModule.Tool(Player, AreaMutationThing, AreaMutationThingConfiguration, Mutation, math.clamp(Level, 1, MaximumLevel), Index, ToolData)
 end
 
 local function getCandidateSpacing(AreaConfiguration, ThingConfiguration)

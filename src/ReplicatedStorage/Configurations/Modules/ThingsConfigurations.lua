@@ -8,7 +8,7 @@ local ThingsConfigurations = {
 		YOffset = 3.5,
 		GroundOffset = 0,
 
-		Level = {Minimum = 1, Maximum = 1},
+		Level = {Minimum = 1, Maximum = 2},
 
 		Time = 60,
 
@@ -47,7 +47,7 @@ local ThingsConfigurations = {
 		YOffset = 3.5,
 		GroundOffset = 0,
 
-		Level = {Minimum = 1, Maximum = 1},
+		Level = {Minimum = 1, Maximum = 2},
 
 		Time = 60,
 
@@ -86,7 +86,7 @@ local ThingsConfigurations = {
 		YOffset = 3.5,
 		GroundOffset = 0,
 
-		Level = {Minimum = 1, Maximum = 1},
+		Level = {Minimum = 1, Maximum = 2},
 
 		Time = 60,
 

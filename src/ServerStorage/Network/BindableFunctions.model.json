@@ -2,7 +2,6 @@
   "ClassName": "Folder",
   "Children": [
     {"Name": "CreateThing", "ClassName": "BindableFunction"},
-    {"Name": "LuckyBlock", "ClassName": "BindableFunction"},
     {"Name": "RetrievePlayerData", "ClassName": "BindableFunction"},
     {"Name": "RetrieveThingData", "ClassName": "BindableFunction"}
   ]

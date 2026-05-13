@@ -7,12 +7,16 @@
     {"Name": "IncrementCarry", "ClassName": "RemoteEvent"},
     {"Name": "IncrementSpeed", "ClassName": "RemoteEvent"},
     {"Name": "Index", "ClassName": "RemoteEvent"},
+    {"Name": "InventorySync", "ClassName": "RemoteEvent"},
     {"Name": "Level", "ClassName": "RemoteEvent"},
     {"Name": "Money", "ClassName": "RemoteEvent"},
     {"Name": "Rebirth", "ClassName": "RemoteEvent"},
     {"Name": "SetProperties", "ClassName": "RemoteEvent"},
     {"Name": "ShootWall", "ClassName": "RemoteEvent"},
     {"Name": "Speed", "ClassName": "RemoteEvent"},
+    {"Name": "SellInventory", "ClassName": "RemoteEvent"},
+    {"Name": "EquipInventory", "ClassName": "RemoteEvent"},
+    {"Name": "UpdateHotbarSlot", "ClassName": "RemoteEvent"},
     {"Name": "ToggleSpeed", "ClassName": "RemoteEvent"},
     {"Name": "WallDebris", "ClassName": "RemoteEvent"}
   ]
