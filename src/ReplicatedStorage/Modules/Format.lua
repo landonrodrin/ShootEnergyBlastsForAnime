@@ -13,7 +13,7 @@ function Format.Number(Number)
 	end
 
 	local ScaledNumber = Number / (1000 ^ Tier)
-	local Formatted = string.format("%.3f", ScaledNumber)
+	local Formatted = string.format("%.2f", ScaledNumber)
 		:gsub("%.0+$", "")
 		:gsub("(%.%d-)0+$", "%1")
 

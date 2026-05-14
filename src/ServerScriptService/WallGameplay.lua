@@ -1,11 +1,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
 local PhysicsService = game:GetService("PhysicsService")
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
 local PathUtils = require(shared:WaitForChild("PathUtils"))
+local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"))
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local shootRemote = remotes:WaitForChild("ShootWall")
@@ -17,9 +18,6 @@ local started = false
 local wallStates = {}
 local wallsByPart = {}
 local lastShotAt = {}
-local lastResetAt = 0
-local finishLinePlayerSides = {}
-local FINISH_LINE_SIDE_PADDING = 1
 local PLAYER_COLLISION_GROUP = "Players"
 local LOCAL_DEBRIS_COLLISION_GROUP = "LocalWallDebris"
 
@@ -401,17 +399,6 @@ local function fireResult(player, result)
 	shootRemote:FireClient(player, result)
 end
 
-local function resetWallsForPlayer(player)
-	local now = os.clock()
-	if now - lastResetAt < WallConfig.ResetCooldown then
-		return
-	end
-
-	lastResetAt = now
-	resetAllWalls()
-	fireResult(player, { hit = false, reason = "walls_reset" })
-end
-
 local function canShoot(player, origin)
 	local now = os.clock()
 	local previous = lastShotAt[player]
@@ -541,39 +528,6 @@ local function onShoot(player, targetPoint)
 	})
 end
 
-local function startFinishLineWatcher()
-	local finishLine = PathUtils.FindByPath(workspace, WallConfig.FinishLinePath)
-	if not finishLine or not finishLine:IsA("BasePart") then
-		warn("Missing finish line:", table.concat(WallConfig.FinishLinePath, "."))
-		return
-	end
-
-	RunService.Heartbeat:Connect(function()
-		local mainSideX = -finishLine.Size.X * 0.5 - FINISH_LINE_SIDE_PADDING
-		local stripSideX = finishLine.Size.X * 0.5 + FINISH_LINE_SIDE_PADDING
-
-		for _, player in ipairs(Players:GetPlayers()) do
-			local root = getCharacterRoot(player)
-			if not root then
-				finishLinePlayerSides[player] = nil
-				continue
-			end
-
-			local localPosition = finishLine.CFrame:PointToObjectSpace(root.Position)
-			local previousSide = finishLinePlayerSides[player]
-
-			if localPosition.X > stripSideX then
-				finishLinePlayerSides[player] = "strip"
-			elseif localPosition.X < mainSideX then
-				if previousSide == "strip" then
-					resetWallsForPlayer(player)
-				end
-				finishLinePlayerSides[player] = "main"
-			end
-		end
-	end)
-end
-
 function WallGameplay.Start()
 	if started then
 		return
@@ -590,13 +544,17 @@ function WallGameplay.Start()
 
 	Players.PlayerRemoving:Connect(function(player)
 		lastShotAt[player] = nil
-		finishLinePlayerSides[player] = nil
 	end)
 
 	registerDamageableWalls()
 
-	startFinishLineWatcher()
+	FinishBarrier.OnReturn(WallGameplay.ResetForFinishBarrier)
 	print("Wall shooting server ready")
+end
+
+function WallGameplay.ResetForFinishBarrier(player)
+	resetAllWalls()
+	fireResult(player, { hit = false, reason = "walls_reset" })
 end
 
 return WallGameplay

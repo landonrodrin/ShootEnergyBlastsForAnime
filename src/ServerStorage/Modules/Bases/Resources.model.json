@@ -1,10 +1,75 @@
 {
   "ClassName": "Folder",
   "Children": [
-    {"Name": "BaseLevelGui", "ClassName": "SurfaceGui"},
-    {"Name": "DataGui", "ClassName": "BillboardGui"},
-    {"Name": "LevelGui", "ClassName": "SurfaceGui"},
-    {"Name": "MoneyGui", "ClassName": "SurfaceGui"},
-    {"Name": "PlayerGui", "ClassName": "BillboardGui"}
+    {
+      "Name": "BaseLevelGui",
+      "ClassName": "SurfaceGui",
+      "Children": [
+        {
+          "Name": "Level",
+          "ClassName": "TextButton",
+          "Children": [
+            {"Name": "UICorner", "ClassName": "UICorner"},
+            {"Name": "UIStroke", "ClassName": "UIStroke"},
+            {"Name": "UIGradient", "ClassName": "UIGradient"},
+            {"Name": "Level", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]},
+            {"Name": "Arrow", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]},
+            {"Name": "Money", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]}
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "DataGui",
+      "ClassName": "SurfaceGui",
+      "Children": [
+        {"Name": "Background", "ClassName": "Frame", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]},
+        {"Name": "Rebirths", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]},
+        {"Name": "MoneyPerSecond", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]}
+      ]
+    },
+    {
+      "Name": "LevelGui",
+      "ClassName": "SurfaceGui",
+      "Children": [
+        {
+          "Name": "Level",
+          "ClassName": "TextButton",
+          "Children": [
+            {"Name": "UICorner", "ClassName": "UICorner"},
+            {"Name": "UIStroke", "ClassName": "UIStroke"},
+            {"Name": "UIGradient", "ClassName": "UIGradient"},
+            {"Name": "Level", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]},
+            {"Name": "Arrow", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]},
+            {"Name": "Money", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]}
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "MoneyGui",
+      "ClassName": "SurfaceGui",
+      "Children": [
+        {
+          "Name": "Money",
+          "ClassName": "Frame",
+          "Children": [
+            {"Name": "UICorner", "ClassName": "UICorner"},
+            {"Name": "UIStroke", "ClassName": "UIStroke"},
+            {"Name": "UIGradient", "ClassName": "UIGradient"},
+            {"Name": "Money", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]}
+          ]
+        }
+      ]
+    },
+    {
+      "Name": "PlayerGui",
+      "ClassName": "SurfaceGui",
+      "Children": [
+        {"Name": "Background", "ClassName": "Frame", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]},
+        {"Name": "Icon", "ClassName": "ImageLabel", "Children": [{"Name": "UICorner", "ClassName": "UICorner"}, {"Name": "UIStroke", "ClassName": "UIStroke"}]},
+        {"Name": "Player", "ClassName": "TextLabel", "Children": [{"Name": "UIStroke", "ClassName": "UIStroke"}]}
+      ]
+    }
   ]
 }

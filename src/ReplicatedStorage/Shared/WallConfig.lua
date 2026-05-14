@@ -39,6 +39,7 @@ WallConfig.ClientDebris = {
 }
 
 WallConfig.FinishLinePath = { "Map", "Finish Line" }
+WallConfig.FinishBarrierPath = { "Map", "Finish Line", "AnimeReturnBarrier" }
 
 WallConfig.Walls = {
 	{

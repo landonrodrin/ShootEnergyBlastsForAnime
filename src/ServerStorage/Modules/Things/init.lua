@@ -2,11 +2,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PhysicsService = game:GetService("PhysicsService")
 local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 
 local PlayersModule = require(ServerStorage.Modules:WaitForChild("Players"))
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
 local Grounding = require(ServerStorage.Modules:WaitForChild("Grounding"))
+local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"))
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local PathUtils = require(shared:WaitForChild("PathUtils"))
@@ -26,11 +26,8 @@ local DropEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Drop")
 local Things = {}
 
 local ThingsData = {}
-local finishLinePlayerSides = {}
 
-local FINISH_LINE_PATH = {"Map", "Finish Line"}
 local FACING_TARGET_PATH = {"Map", "Main Floor"}
-local FINISH_LINE_SIDE_PADDING = 1
 local DEFAULT_INITIAL_POPULATION = 0
 local DEFAULT_MAX_POPULATION = math.huge
 local DEFAULT_SPAWN_SPACING = 18
@@ -40,13 +37,7 @@ local DEFAULT_INITIAL_TIME_SCALE_MAX = 1
 local DEFAULT_SPAWN_TIME_SCALE_MIN = 0.3
 local DEFAULT_SPAWN_TIME_SCALE_MAX = 1
 local THING_GUI_MAX_DISTANCE = 50
-
-local function getCharacterRoot(Player)
-	local Character = Player.Character
-	if not Character then return end
-
-	return Character:FindFirstChild("HumanoidRootPart")
-end
+local THING_CARRY_HOLD_DURATION = 0.5
 
 local function getSpawnZone(Area, AreaConfiguration)
 	if AreaConfiguration and AreaConfiguration.SpawnZonePath then
@@ -154,40 +145,6 @@ local function areaHasSpawnableThings(Area)
 	return false
 end
 
-local function startFinishLineWatcher()
-	local FinishLine = PathUtils.FindByPath(workspace, FINISH_LINE_PATH)
-	if not FinishLine or not FinishLine:IsA("BasePart") then
-		warn("Missing anime turn-in finish line:", table.concat(FINISH_LINE_PATH, "."))
-		return
-	end
-
-	RunService.Heartbeat:Connect(function()
-		local MainSideX = -FinishLine.Size.X * 0.5 - FINISH_LINE_SIDE_PADDING
-		local StripSideX = FinishLine.Size.X * 0.5 + FINISH_LINE_SIDE_PADDING
-
-		for _, Player in ipairs(Players:GetPlayers()) do
-			local Root = getCharacterRoot(Player)
-			if not Root then
-				finishLinePlayerSides[Player] = nil
-				continue
-			end
-
-			local LocalPosition = FinishLine.CFrame:PointToObjectSpace(Root.Position)
-			local PreviousSide = finishLinePlayerSides[Player]
-
-			if LocalPosition.X > StripSideX then
-				finishLinePlayerSides[Player] = "strip"
-			elseif LocalPosition.X < MainSideX then
-				if PreviousSide == "strip" then
-					Things.Zone(Player)
-				end
-
-				finishLinePlayerSides[Player] = "main"
-			end
-		end
-	end)
-end
-
 function Things.Retrieve(Thing, Name)
 	if not ThingsData[Thing] then return end
 
@@ -278,10 +235,11 @@ function Things.Setup()
 	
 	Players.PlayerRemoving:Connect(function(Player)
 		Things.Drop(Player)
-		finishLinePlayerSides[Player] = nil
 	end)
 
-	startFinishLineWatcher()
+	FinishBarrier.OnReturn(function(Player)
+		Things.Zone(Player)
+	end)
 	
 	for Area, AreaConfiguration in pairs(AreasConfigurations) do
 		if AreaConfiguration.Enabled == false then continue end
@@ -737,6 +695,19 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 
 	ThingGui = ThingGui:Clone()
 
+	ThingGui.Mutation.LayoutOrder = 0
+	ThingGui.Thing.LayoutOrder = 1
+	ThingGui.Area.LayoutOrder = 2
+	ThingGui.Money.LayoutOrder = 3
+	ThingGui.Time.LayoutOrder = 4
+
+	for _, LabelName in ipairs({"Mutation", "Thing", "Area", "Money", "Time"}) do
+		local Label = ThingGui:FindFirstChild(LabelName)
+		if Label and Label:IsA("TextLabel") then
+			Label.Size = UDim2.new(0.9, 0, Label.Size.Y.Scale, Label.Size.Y.Offset)
+		end
+	end
+
 	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Thing.Name, Level)
 	ThingGui.Area.Text = Area
 
@@ -893,7 +864,7 @@ function Things:Spawn()
 	local ProximityPrompt = Instance.new("ProximityPrompt")
 	ProximityPrompt.Enabled = true
 	ProximityPrompt.ActionText = "Carry"
-	ProximityPrompt.HoldDuration = 1
+	ProximityPrompt.HoldDuration = THING_CARRY_HOLD_DURATION
 	ProximityPrompt.ObjectText = Thing.Name
 	ProximityPrompt.RequiresLineOfSight = false
 	ProximityPrompt.Parent = Thing.PrimaryPart

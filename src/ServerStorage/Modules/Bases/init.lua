@@ -25,6 +25,9 @@ local CreateToolEvent = ServerStorage.Network.BindableEvents:WaitForChild("Creat
 local LevelEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Level")
 local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Announcement")
 
+local BASE_GUI_MAX_DISTANCE = 200
+local BASE_SLOT_PROMPT_HOLD_DURATION = 0.5
+
 local BasesData = {}
 
 local Bases = {}
@@ -50,7 +53,7 @@ function Bases.Setup()
 				local GrabProximityPrompt = Instance.new("ProximityPrompt")
 				GrabProximityPrompt.Enabled = false
 				GrabProximityPrompt.ActionText = "Grab"
-				GrabProximityPrompt.HoldDuration = 1
+				GrabProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				GrabProximityPrompt.ObjectText = ""
 				GrabProximityPrompt.RequiresLineOfSight = false
 				GrabProximityPrompt.UIOffset = Vector2.new(0, 40)
@@ -60,7 +63,7 @@ function Bases.Setup()
 				local PlaceProximityPrompt = Instance.new("ProximityPrompt")
 				PlaceProximityPrompt.Enabled = false
 				PlaceProximityPrompt.ActionText = "Place"
-				PlaceProximityPrompt.HoldDuration = 1
+				PlaceProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				PlaceProximityPrompt.ObjectText = ""
 				PlaceProximityPrompt.RequiresLineOfSight = false
 				PlaceProximityPrompt.Name = "PlaceProximityPrompt"
@@ -69,7 +72,7 @@ function Bases.Setup()
 				local SwapProximityPrompt = Instance.new("ProximityPrompt")
 				SwapProximityPrompt.Enabled = false
 				SwapProximityPrompt.ActionText = "Swap"
-				SwapProximityPrompt.HoldDuration = 1
+				SwapProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				SwapProximityPrompt.ObjectText = ""
 				SwapProximityPrompt.RequiresLineOfSight = false
 				SwapProximityPrompt.Name = "SwapProximityPrompt"
@@ -78,7 +81,7 @@ function Bases.Setup()
 				local StealProximityPrompt = Instance.new("ProximityPrompt")
 				StealProximityPrompt.Enabled = false
 				StealProximityPrompt.ActionText = "Steal"
-				StealProximityPrompt.HoldDuration = 1
+				StealProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				StealProximityPrompt.ObjectText = ""
 				StealProximityPrompt.RequiresLineOfSight = false
 				StealProximityPrompt.Name = "StealProximityPrompt"
@@ -88,7 +91,7 @@ function Bases.Setup()
 				SellProximityPrompt.Enabled = false
 				SellProximityPrompt.ActionText = "Sell"
 				SellProximityPrompt.GamepadKeyCode = Enum.KeyCode.ButtonY
-				SellProximityPrompt.HoldDuration = 1
+				SellProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				SellProximityPrompt.KeyboardKeyCode = Enum.KeyCode.F
 				SellProximityPrompt.ObjectText = ""
 				SellProximityPrompt.RequiresLineOfSight = false
@@ -316,8 +319,9 @@ function Bases.Create(PlayerData)
 
 	PlayerGui.Icon.Image = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%s&width=512&height=512&format=png", Player.UserId)
 	PlayerGui.Player.Text = Player.Name
+	PlayerGui.MaxDistance = BASE_GUI_MAX_DISTANCE
 
-	SetProperties.AllClients(PlayerGui, {MaxDistance = 28})
+	SetProperties.AllClients(PlayerGui, {MaxDistance = BASE_GUI_MAX_DISTANCE})
 
 	SetProperties.Client(Player, PlayerGui, {MaxDistance = math.huge})
 
@@ -330,6 +334,7 @@ function Bases.Create(PlayerData)
 
 	DataGui.Rebirths.Text = string.format("Rebirth %s (%sx $)", PlayerData.Rebirths, RebirthsConfigurations[PlayerData.Rebirths] and RebirthsConfigurations[PlayerData.Rebirths].Multiplier or 1)
 	DataGui.MoneyPerSecond.Text = "0/s"
+	DataGui.MaxDistance = BASE_GUI_MAX_DISTANCE
 
 	DataGui.Parent = Base:WaitForChild("Data")
 	DataGui.Enabled = true
@@ -385,6 +390,8 @@ function Bases.Level(PlayerData, Base)
 
 			BaseLevelGui.Level.Money.Text = string.format("$%s", Format.Number(Money))
 			BaseLevelGui.Level.Level.Text = string.format("Level %s > Level %s", Level, Level + 1)
+			BaseLevelGui.MaxDistance = BASE_GUI_MAX_DISTANCE
+			BaseLevelGui.Enabled = true
 
 			BaseLevelGui.Parent = Base:WaitForChild("Level")
 
@@ -422,68 +429,34 @@ function Bases.Level(PlayerData, Base)
 		end
 	end
 
-	for BaseLevel, BaseConfiguration in pairs(BaseConfigurations) do
-		if BaseLevel > Level then
-			if BaseConfiguration.Slots and BaseConfiguration.Slots >= 1 then
-				for Index = 1, BaseConfiguration.Slots do
-					local Slot = Base.Slots[Index]
+	local Configuration = BaseConfigurations[Level] or {}
+	local UnlockedSlots = Configuration.Slots or 0
+	local UnlockedFloors = Configuration.Floors or 0
 
-					for _, Descendant in ipairs(Slot:GetDescendants()) do
-						if not Descendant:IsA("BasePart") then continue end
+	local function setModelVisible(Model, Visible)
+		if not Model then return end
 
-						if Descendant.Transparency == 1 then continue end
+		for _, Descendant in ipairs(Model:GetDescendants()) do
+			if not Descendant:IsA("BasePart") then continue end
 
-						Descendant:SetAttribute("Transparency", Descendant.Transparency)
-
-						Descendant.Transparency = 1
-					end
+			if Visible then
+				local Transparency = Descendant:GetAttribute("Transparency")
+				if Transparency ~= nil then
+					Descendant.Transparency = Transparency
 				end
-			end
-
-			if not BaseConfiguration.Floors or BaseConfiguration.Floors < 1 then continue end
-
-			for Index = 1, BaseConfiguration.Floors do
-				local Floor = Base.Floors[Index]
-
-				for _, Descendant in ipairs(Floor:GetDescendants()) do
-					if not Descendant:IsA("BasePart") then continue end
-
-					if Descendant.Transparency == 1 then continue end
-
-					Descendant:SetAttribute("Transparency", Descendant.Transparency)
-
-					Descendant.Transparency = 1
-				end
-			end
-		else
-			if BaseConfiguration.Slots and BaseConfiguration.Slots >= 1 then
-				for Index = 1, BaseConfiguration.Slots do
-					local Slot = Base.Slots[Index]
-
-					for _, Descendant in ipairs(Slot:GetDescendants()) do
-						if not Descendant:IsA("BasePart") then continue end
-
-						if not Descendant:GetAttribute("Transparency") then continue end
-
-						Descendant.Transparency = Descendant:GetAttribute("Transparency")
-					end
-				end
-			end
-
-			if not BaseConfiguration.Floors or BaseConfiguration.Floors < 1 then continue end
-
-			for Index = 1, BaseConfiguration.Floors do
-				local Floor = Base.Floors[Index]
-
-				for _, Descendant in ipairs(Floor:GetDescendants()) do
-					if not Descendant:IsA("BasePart") then continue end
-
-					if not Descendant:GetAttribute("Transparency") then continue end
-
-					Descendant.Transparency = Descendant:GetAttribute("Transparency")
-				end
+			elseif Descendant.Transparency < 1 then
+				Descendant:SetAttribute("Transparency", Descendant.Transparency)
+				Descendant.Transparency = 1
 			end
 		end
+	end
+
+	for _, Slot in ipairs(Base.Slots:GetChildren()) do
+		setModelVisible(Slot, (tonumber(Slot.Name) or math.huge) <= UnlockedSlots)
+	end
+
+	for _, Floor in ipairs(Base.Floors:GetChildren()) do
+		setModelVisible(Floor, (tonumber(Floor.Name) or math.huge) <= UnlockedFloors)
 	end
 end
 
@@ -573,6 +546,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	MoneyGui = MoneyGui:Clone()
 
 	MoneyGui.Money.Money.Text = string.format("$%s", Format.Number(Money))
+	MoneyGui.MaxDistance = BASE_GUI_MAX_DISTANCE
 
 	MoneyGui.Parent = Slot:WaitForChild("Money")
 	MoneyGui.Enabled = true
@@ -580,6 +554,8 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	local LevelGui = script.Resources:WaitForChild("LevelGui")
 
 	LevelGui = LevelGui:Clone()
+	LevelGui.MaxDistance = BASE_GUI_MAX_DISTANCE
+	LevelGui.Enabled = true
 
 	if ThingConfiguration.Levels[Level + 1] then
 		LevelGui.Level.Money.Text = string.format("$%s", Format.Number(ThingConfiguration.Levels[Level + 1].Upgrade))
