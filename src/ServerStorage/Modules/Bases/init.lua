@@ -28,6 +28,8 @@ local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("A
 local BASE_GUI_MAX_DISTANCE = 200
 local BASE_LEVEL_BIND_DELAY = 0.15
 local BASE_SLOT_PROMPT_HOLD_DURATION = 0.5
+local BASE_INFO_GUI_NAME = "BaseInfoGui"
+local BASE_INFO_ANCHOR_NAME = "BaseInfoAnchor"
 local PICK_UP_PROMPT_TEXT = "Pick Up"
 local INSUFFICIENT_FUNDS_TEXT = "Insufficient Funds"
 local INSUFFICIENT_FUNDS_COLOUR = Color3.fromRGB(255, 0, 0)
@@ -84,6 +86,107 @@ local function updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutatio
 	if not SellProximityPrompt then return end
 
 	SellProximityPrompt.ActionText = getBaseSellPromptText(ThingConfiguration, Level, Mutation, RebirthMultiplier)
+end
+
+local function setSlotLevelVisible(Slot, Visible)
+	local LevelPart = Slot and Slot:FindFirstChild("Level")
+	if not (LevelPart and LevelPart:IsA("BasePart")) then return end
+
+	if Visible then
+		local Transparency = LevelPart:GetAttribute("Transparency")
+		if Transparency ~= nil then
+			LevelPart.Transparency = Transparency
+		end
+	elseif LevelPart.Transparency < 1 then
+		LevelPart:SetAttribute("Transparency", LevelPart.Transparency)
+		LevelPart.Transparency = 1
+	end
+end
+
+local function getPlayerDisplayName(Player)
+	return (Player.DisplayName and Player.DisplayName ~= "" and Player.DisplayName) or Player.Name
+end
+
+local function getBaseInfoAnchor(Base)
+	if not Base then return end
+
+	local Anchor = Base:FindFirstChild(BASE_INFO_ANCHOR_NAME)
+	if Anchor and Anchor:IsA("BasePart") then
+		return Anchor
+	end
+
+	warn(string.format("%s is missing a %s BasePart for BaseInfoGui.", Base:GetFullName(), BASE_INFO_ANCHOR_NAME))
+end
+
+local function getBaseInfoGui(Base)
+	local Anchor = Base and Base:FindFirstChild(BASE_INFO_ANCHOR_NAME)
+	local BaseInfoGui = Anchor and Anchor:FindFirstChild(BASE_INFO_GUI_NAME)
+
+	if BaseInfoGui then return BaseInfoGui end
+
+	return Base and Base:FindFirstChild(BASE_INFO_GUI_NAME, true)
+end
+
+local function updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
+	local BaseInfoGui = getBaseInfoGui(Base)
+	local MoneyPerSecondLabel = BaseInfoGui and BaseInfoGui:FindFirstChild("MoneyPerSecond", true)
+	if not (MoneyPerSecondLabel and MoneyPerSecondLabel:IsA("TextLabel")) then return end
+
+	MoneyPerSecondLabel.Text = string.format("%s/s", Format.Number(MoneyPerSecond or 0))
+end
+
+local function removeLegacyBaseInfoGuis(Base)
+	local PlayerPart = Base and Base:FindFirstChild("Player")
+	local PlayerGui = PlayerPart and PlayerPart:FindFirstChild("PlayerGui")
+	if PlayerGui then
+		PlayerGui:Destroy()
+	end
+
+	local DataPart = Base and Base:FindFirstChild("Data")
+	local DataGui = DataPart and DataPart:FindFirstChild("DataGui")
+	if DataGui then
+		DataGui:Destroy()
+	end
+end
+
+local function createBaseInfoGui(Player, Base)
+	removeLegacyBaseInfoGuis(Base)
+
+	local Anchor = getBaseInfoAnchor(Base)
+	if not Anchor then return end
+
+	local ExistingBaseInfoGui = Anchor:FindFirstChild(BASE_INFO_GUI_NAME)
+	if ExistingBaseInfoGui then
+		ExistingBaseInfoGui:Destroy()
+	end
+
+	local Resources = script:WaitForChild("Resources")
+	local BaseInfoGui = Resources:WaitForChild(BASE_INFO_GUI_NAME):Clone()
+	BaseInfoGui.Name = BASE_INFO_GUI_NAME
+	BaseInfoGui.MaxDistance = BASE_GUI_MAX_DISTANCE
+	BaseInfoGui.Enabled = true
+
+	local Icon = BaseInfoGui:FindFirstChild("Icon", true)
+	if Icon and Icon:IsA("ImageLabel") then
+		Icon.Image = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%s&width=512&height=512&format=png", Player.UserId)
+	end
+
+	local PlayerLabel = BaseInfoGui:FindFirstChild("Player", true)
+	if PlayerLabel and PlayerLabel:IsA("TextLabel") then
+		PlayerLabel.Text = getPlayerDisplayName(Player)
+	end
+
+	local RebirthsLabel = BaseInfoGui:FindFirstChild("Rebirths", true)
+	if RebirthsLabel and RebirthsLabel:IsA("GuiObject") then
+		RebirthsLabel.Visible = false
+	end
+
+	BaseInfoGui.Parent = Anchor
+	updateBaseInfoMoneyPerSecond(Base, 0)
+
+	SetProperties.AllClients(BaseInfoGui, {MaxDistance = BASE_GUI_MAX_DISTANCE})
+
+	return BaseInfoGui
 end
 
 local function getBaseConfiguration(Level)
@@ -476,31 +579,7 @@ function Bases.Create(PlayerData)
 		Bases.Level(PlayerData, Base)
 	end)
 
-	local PlayerGui = script.Resources:WaitForChild("PlayerGui")
-
-	PlayerGui = PlayerGui:Clone()
-
-	PlayerGui.Icon.Image = string.format("https://www.roblox.com/headshot-thumbnail/image?userId=%s&width=512&height=512&format=png", Player.UserId)
-	PlayerGui.Player.Text = Player.Name
-	PlayerGui.MaxDistance = BASE_GUI_MAX_DISTANCE
-
-	SetProperties.AllClients(PlayerGui, {MaxDistance = BASE_GUI_MAX_DISTANCE})
-
-	SetProperties.Client(Player, PlayerGui, {MaxDistance = math.huge})
-
-	PlayerGui.Parent = Base:WaitForChild("Player")
-	PlayerGui.Enabled = true
-
-	local DataGui = script.Resources:WaitForChild("DataGui")
-
-	DataGui = DataGui:Clone()
-
-	DataGui.Rebirths.Text = string.format("Rebirth %s (%sx $)", PlayerData.Rebirths, RebirthsConfigurations[PlayerData.Rebirths] and RebirthsConfigurations[PlayerData.Rebirths].Multiplier or 1)
-	DataGui.MoneyPerSecond.Text = "0/s"
-	DataGui.MaxDistance = BASE_GUI_MAX_DISTANCE
-
-	DataGui.Parent = Base:WaitForChild("Data")
-	DataGui.Enabled = true
+	createBaseInfoGui(Player, Base)
 
 	BasesData[Base] = Data
 
@@ -618,7 +697,13 @@ function Bases.Level(PlayerData, Base)
 	end
 
 	for _, Slot in ipairs(Base.Slots:GetChildren()) do
-		setModelVisible(Slot, (tonumber(Slot.Name) or math.huge) <= UnlockedSlots)
+		local IsUnlocked = (tonumber(Slot.Name) or math.huge) <= UnlockedSlots
+		setModelVisible(Slot, IsUnlocked)
+
+		if IsUnlocked then
+			local SlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
+			setSlotLevelVisible(Slot, SlotData and SlotData.Thing ~= nil)
+		end
 	end
 
 	for _, Floor in ipairs(Base.Floors:GetChildren()) do
@@ -719,6 +804,8 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	MoneyGui.Parent = Slot:WaitForChild("Money")
 	MoneyGui.Enabled = true
+
+	setSlotLevelVisible(Slot, true)
 
 	local LevelGui = script.Resources:WaitForChild("LevelGui")
 
@@ -864,7 +951,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		
 		ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
 
-		Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
+		updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 	end)
 
 	task.delay(5, function()
@@ -891,10 +978,14 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		
 		ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
 
-		Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
+		updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 	end)
 
 	return Thing
+end
+
+function Bases.UpdateIncomeDisplay(Base, MoneyPerSecond)
+	updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 end
 
 function Bases.RefreshPlayerEconomyDisplays(Player)
@@ -948,6 +1039,8 @@ function Bases.Remove(Base, Slot, Save)
 	if LevelGui then
 		LevelGui:Destroy()
 	end
+
+	setSlotLevelVisible(Slot, false)
 
 	local Thing = BasesData[Base].SlotsData[Slot.Name].Thing
 	if Thing and Thing.Parent then
@@ -1019,7 +1112,7 @@ function Bases.Remove(Base, Slot, Save)
 			
 			ReplacePlayerDataEvent:Fire(BasesData[Base].Player, "MoneyPerSecond", MoneyPerSecond)
 
-			Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
+			updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 		end)
 
 		task.delay(5, function()
@@ -1046,7 +1139,7 @@ function Bases.Remove(Base, Slot, Save)
 			
 			ReplacePlayerDataEvent:Fire(BasesData[Base].Player, "MoneyPerSecond", MoneyPerSecond)
 
-			Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
+			updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 		end)
 	end
 end
@@ -1054,18 +1147,13 @@ end
 function Bases.Destroy(Base)
 	local BaseData = BasesData[Base]
 
-	local PlayerGui = Base.Player:FindFirstChild("PlayerGui")
-
-	if PlayerGui then
-		PlayerGui:Destroy()
+	local BaseInfoAnchor = Base:FindFirstChild(BASE_INFO_ANCHOR_NAME)
+	local BaseInfoGui = BaseInfoAnchor and BaseInfoAnchor:FindFirstChild(BASE_INFO_GUI_NAME)
+	if BaseInfoGui then
+		BaseInfoGui:Destroy()
 	end
 
-	local DataGui = Base.Data:FindFirstChild("DataGui")
-
-	if DataGui then
-		DataGui:Destroy()
-	end
-
+	removeLegacyBaseInfoGuis(Base)
 	removeBaseLevelGuis(Base)
 
 	if BasesData[Base].Connection then

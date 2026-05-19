@@ -45,7 +45,33 @@
       },
       "Modules": {
         "$className": "Folder",
-        "$path": "src/ServerStorage/Modules"
+        "Bases": {
+          "$path": "src/ServerStorage/Modules/Bases"
+        },
+        "FinishBarrier": {
+          "$path": "src/ServerStorage/Modules/FinishBarrier.lua"
+        },
+        "Grounding": {
+          "$path": "src/ServerStorage/Modules/Grounding.lua"
+        },
+        "Players": {
+          "$path": "src/ServerStorage/Modules/Players"
+        },
+        "SetProperties": {
+          "$path": "src/ServerStorage/Modules/SetProperties.lua"
+        },
+        "Things": {
+          "$path": "src/ServerStorage/Modules/Things"
+        },
+        "Tools": {
+          "$path": "src/ServerStorage/Modules/Tools.lua"
+        },
+        "Vip": {
+          "$path": "src/ServerStorage/Modules/Vip"
+        },
+        "ZoneTracker": {
+          "$path": "src/ServerStorage/Modules/ZoneTracker.lua"
+        }
       },
       "Network": {
         "$className": "Folder",

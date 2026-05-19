@@ -57,6 +57,9 @@ local AdminCommandDebounces = {}
 local SELL_STATION_DISTANCE = 18
 local HOTBAR_MAX_SLOTS = 10
 local HELD_THING_GUI_MAX_DISTANCE = 50
+local PLAYER_SPAWN_BASE_NAME = "1"
+local PLAYER_SPAWN_PART_NAME = "Spawn"
+local PLAYER_SPAWN_VERTICAL_OFFSET = 4
 local HELD_ANIME_WELD_NAME = "HeldAnimeWeld"
 local HELD_ANIME_SIDE_OFFSET = 1
 local HELD_ANIME_FORWARD_OFFSET = -1.55
@@ -114,6 +117,26 @@ local function isNearSellStation(Player)
 	if not PrimaryPart then return false end
 
 	return (PrimaryPart.Position - Station.Position).Magnitude <= SELL_STATION_DISTANCE
+end
+
+local function getPlayerSpawnPart()
+	local BasesFolder = workspace:FindFirstChild("Bases")
+	local Base = BasesFolder and BasesFolder:FindFirstChild(PLAYER_SPAWN_BASE_NAME)
+	local Spawn = Base and Base:FindFirstChild(PLAYER_SPAWN_PART_NAME)
+
+	if Spawn and Spawn:IsA("BasePart") then
+		return Spawn
+	end
+end
+
+local function moveCharacterToPlayerSpawn(Character)
+	local Spawn = getPlayerSpawnPart()
+	if not Spawn then return end
+
+	local Root = Character:FindFirstChild("HumanoidRootPart") or Character:WaitForChild("HumanoidRootPart", 5)
+	if not Root then return end
+
+	Character:PivotTo(Spawn.CFrame * CFrame.new(0, (Spawn.Size.Y / 2) + PLAYER_SPAWN_VERTICAL_OFFSET, 0))
 end
 
 local function getRebirthMultiplier(Rebirths)
@@ -1192,6 +1215,10 @@ function PlayersModule.Replace(Player, Name, Value)
 		local MoneyPerSecond = Leaderstats:WaitForChild("$/s")
 
 		MoneyPerSecond.Value = string.format("%s/s", Format.Number(PlayerData.MoneyPerSecond))
+
+		if PlayerData.Base then
+			Bases.UpdateIncomeDisplay(PlayerData.Base, PlayerData.MoneyPerSecond)
+		end
 	elseif Name == "Speed" then
 		SpeedEvent:FireClient(Player, Value)
 		RebirthEvent:FireClient(Player, PlayerData.Rebirths, Value)
@@ -1201,12 +1228,6 @@ function PlayersModule.Replace(Player, Name, Value)
 		CarryEvent:FireClient(Player, Value)
 	elseif Name == "Rebirths" then
 		RebirthEvent:FireClient(Player, Value, PlayerData.Speed)
-		
-		local RebirthMultiplier = getRebirthMultiplier(PlayerData.Rebirths)
-
-		if PlayerData.Base and PlayerData.Base:FindFirstChild("Data") and PlayerData.Base.Data:FindFirstChild("DataGui") then
-			PlayerData.Base.Data.DataGui.Rebirths.Text = string.format("Rebirth %s (%sx $)", PlayerData.Rebirths, RebirthMultiplier)
-		end
 		
 		local MoneyPerSecond = 0
 
@@ -1228,10 +1249,6 @@ function PlayersModule.Replace(Player, Name, Value)
 		MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
 
 		ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
-
-		if PlayerData.Base and PlayerData.Base:FindFirstChild("Data") and PlayerData.Base.Data:FindFirstChild("DataGui") then
-			PlayerData.Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
-		end
 
 		Bases.RefreshPlayerEconomyDisplays(Player)
 		syncInventory(Player)
@@ -1354,6 +1371,8 @@ function PlayersModule.Create(Player)
 		Descendant.CollisionGroup = "Players"
 	end
 
+	moveCharacterToPlayerSpawn(Character)
+
 	Player.CharacterAdded:Connect(function(Character)
 		local Humanoid = Character:WaitForChild("Humanoid")
 
@@ -1364,6 +1383,8 @@ function PlayersModule.Create(Player)
 
 			Descendant.CollisionGroup = "Players"
 		end
+
+		moveCharacterToPlayerSpawn(Character)
 
 		local Base = PlayersData[Player].Base
 		if not Base then return end
