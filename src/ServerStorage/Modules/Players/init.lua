@@ -2,6 +2,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 local PhysicsService = game:GetService("PhysicsService")
+local TextChatService = game:GetService("TextChatService")
 local ServerStorage = game:GetService("ServerStorage")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
@@ -18,6 +19,7 @@ local UpgradesConfigurations = require(ReplicatedStorage.Configurations.Modules:
 local AreasConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AreasConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("RebirthsConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
+local CommandsConfigurations = require(ServerStorage.Configurations.Modules:WaitForChild("CommandsConfigurations"))
 
 local MoneyDataStore = DataStoreService:GetOrderedDataStore("Money")
 local SpeedDataStore = DataStoreService:GetOrderedDataStore("Speed")
@@ -32,11 +34,13 @@ local MoneyEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Money")
 local SpeedEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Speed")
 local CarryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Carry")
 local RebirthEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Rebirth")
+local AdminCommandEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("AdminCommand")
 local IncrementSpeedEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("IncrementSpeed")
 local IncrementCarryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("IncrementCarry")
 local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Announcement")
 local ToggleSpeedEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("ToggleSpeed")
 local IndexEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Index")
+local AnimeUnlockedEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("AnimeUnlocked")
 local InventorySyncEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("InventorySync")
 local SellInventoryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("SellInventory")
 local EquipInventoryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("EquipInventory")
@@ -48,9 +52,28 @@ local PlayersModule = {}
 
 local HeldModels = {}
 local HeldInventoryCarry = {}
+local AdminCommandDebounces = {}
 
 local SELL_STATION_DISTANCE = 18
 local HOTBAR_MAX_SLOTS = 10
+local HELD_THING_GUI_MAX_DISTANCE = 50
+local HELD_ANIME_WELD_NAME = "HeldAnimeWeld"
+local HELD_ANIME_SIDE_OFFSET = 1
+local HELD_ANIME_FORWARD_OFFSET = -1.55
+local HELD_ANIME_VERTICAL_OFFSET = 3.1
+local ADMIN_RICH_MONEY = 1000000000000000
+local ADMIN_FAST_SPEED = 250
+local RESET_COMMAND_NAME = "OwnerResetCommand"
+local RICH_COMMAND_NAME = "OwnerRichCommand"
+local FAST_COMMAND_NAME = "OwnerFastCommand"
+local BASE_PROGRESSION_VERSION = 2
+local LEGACY_BASE_LEVEL_TO_CURRENT = {
+	[1] = 2,
+	[2] = 4,
+	[3] = 6,
+	[4] = 8,
+	[5] = 10
+}
 
 local function makeInventoryId()
 	return HttpService:GenerateGUID(false)
@@ -66,6 +89,11 @@ local function setGroupsCollidable(GroupA, GroupB, Collidable)
 	pcall(function()
 		PhysicsService:CollisionGroupSetCollidable(GroupA, GroupB, Collidable)
 	end)
+end
+
+local function isHoldAnimation(AnimationId)
+	return AnimationId == GameConfigurations.AnimationsIds.Carry
+		or AnimationId == GameConfigurations.AnimationsIds.OwnedHold
 end
 
 local function getSellStation()
@@ -187,6 +215,24 @@ local function setHotbarSlot(PlayerData, Slot, Id)
 	return true
 end
 
+local function migrateBaseProgression(PlayerData, HasLoadedData)
+	local SavedVersion = PlayerData.BaseProgressionVersion
+	if not SavedVersion then
+		SavedVersion = HasLoadedData and 1 or BASE_PROGRESSION_VERSION
+	end
+
+	if SavedVersion < BASE_PROGRESSION_VERSION then
+		PlayerData.Level = LEGACY_BASE_LEVEL_TO_CURRENT[PlayerData.Level] or PlayerData.Level or 0
+	end
+
+	PlayerData.BaseProgressionVersion = BASE_PROGRESSION_VERSION
+end
+
+local function getBaseSlotCount(Level)
+	local Configuration = BaseConfigurations[Level] or BaseConfigurations[0] or {}
+	return Configuration.Slots or 0
+end
+
 local function findAnimeTemplate(Name, Mutation)
 	local Animes = ServerStorage:FindFirstChild("Animes")
 	if not Animes then return end
@@ -269,6 +315,10 @@ local function forceVisualOnly(Model)
 	end
 end
 
+local function getHeldAnimeCFrame(Root)
+	return Root.CFrame * CFrame.new(HELD_ANIME_SIDE_OFFSET, HELD_ANIME_VERTICAL_OFFSET, HELD_ANIME_FORWARD_OFFSET)
+end
+
 local function getModelPrimaryPart(Model)
 	if Model.PrimaryPart then return Model.PrimaryPart end
 
@@ -331,6 +381,7 @@ local function getHeldMutationAuraParts(Model)
 	if #AuraParts == 0 then
 		for _, Descendant in ipairs(Model:GetDescendants()) do
 			if not Descendant:IsA("BasePart") then continue end
+			if Descendant == Model.PrimaryPart then continue end
 			if Descendant.Transparency >= 0.95 then continue end
 
 			table.insert(AuraParts, Descendant)
@@ -351,18 +402,22 @@ local function applyHeldMutationVisual(Model, Mutation)
 	if not MutationConfiguration or Mutation == "Default" then return end
 
 	local AuraConfiguration = MutationConfiguration.Aura
-	local HighlightConfiguration = AuraConfiguration and AuraConfiguration.Highlight
+	if not AuraConfiguration then return end
 
-	local Highlight = Instance.new("Highlight")
-	Highlight.Name = "HeldMutationHighlight"
-	Highlight.Adornee = Model
-	Highlight.FillColor = HighlightConfiguration and HighlightConfiguration.FillColor or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
-	Highlight.FillTransparency = HighlightConfiguration and HighlightConfiguration.FillTransparency or 0.7
-	Highlight.OutlineColor = HighlightConfiguration and HighlightConfiguration.OutlineColor or Highlight.FillColor
-	Highlight.OutlineTransparency = HighlightConfiguration and HighlightConfiguration.OutlineTransparency or 0.25
-	Highlight.Parent = Model
+	local HighlightConfiguration = AuraConfiguration.Highlight
+	if HighlightConfiguration then
+		local Highlight = Instance.new("Highlight")
+		Highlight.Name = "HeldMutationHighlight"
+		Highlight.Adornee = Model
+		Highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+		Highlight.FillColor = HighlightConfiguration.FillColor or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		Highlight.FillTransparency = HighlightConfiguration.FillTransparency or 0.65
+		Highlight.OutlineColor = HighlightConfiguration.OutlineColor or Highlight.FillColor
+		Highlight.OutlineTransparency = HighlightConfiguration.OutlineTransparency or 0.15
+		Highlight.Parent = Model
+	end
 
-	local ParticleConfiguration = AuraConfiguration and AuraConfiguration.Particle
+	local ParticleConfiguration = AuraConfiguration.Particle
 	if ParticleConfiguration then
 		for _, Part in ipairs(getHeldMutationAuraParts(Model)) do
 			local AuraAttachment = Instance.new("Attachment")
@@ -373,10 +428,11 @@ local function applyHeldMutationVisual(Model, Mutation)
 			Particle.Name = "HeldMutationAura"
 			Particle.Texture = ParticleConfiguration.Texture or "rbxasset://textures/particles/sparkles_main.dds"
 			Particle.Color = ParticleConfiguration.Color or ColorSequence.new(MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255))
-			Particle.LightEmission = ParticleConfiguration.LightEmission or 0.8
-			Particle.Rate = ParticleConfiguration.Rate or 24
-			Particle.Lifetime = ParticleConfiguration.Lifetime or NumberRange.new(1, 1.5)
-			Particle.Speed = ParticleConfiguration.Speed or NumberRange.new(0.8, 1.8)
+			Particle.LightEmission = ParticleConfiguration.LightEmission or 0.75
+			Particle.LightInfluence = ParticleConfiguration.LightInfluence or 0
+			Particle.Rate = ParticleConfiguration.Rate or 12
+			Particle.Lifetime = ParticleConfiguration.Lifetime or NumberRange.new(0.8, 1.3)
+			Particle.Speed = ParticleConfiguration.Speed or NumberRange.new(0.5, 1.2)
 			Particle.SpreadAngle = ParticleConfiguration.SpreadAngle or Vector2.new(360, 360)
 			Particle.Size = ParticleConfiguration.Size or NumberSequence.new(0.25)
 			Particle.Transparency = ParticleConfiguration.Transparency or NumberSequence.new({
@@ -387,18 +443,97 @@ local function applyHeldMutationVisual(Model, Mutation)
 		end
 	end
 
-	local LightConfiguration = AuraConfiguration and AuraConfiguration.Light
+	local LightConfiguration = AuraConfiguration.Light
 	if LightConfiguration and Model.PrimaryPart then
 		local Light = Instance.new("PointLight")
 		Light.Name = "HeldMutationAuraLight"
 		Light.Color = LightConfiguration.Color or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
-		Light.Brightness = LightConfiguration.Brightness or 0.8
+		Light.Brightness = LightConfiguration.Brightness or 0.6
 		Light.Range = LightConfiguration.Range or 8
 		Light.Parent = Model.PrimaryPart
 	end
 end
 
+local function createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level)
+	local PrimaryPart = Model.PrimaryPart
+	if not PrimaryPart then return end
+
+	local ThingsModule = ServerStorage.Modules:WaitForChild("Things")
+	local Resources = ThingsModule:WaitForChild("Resources")
+	local ThingGui = Resources:WaitForChild("ThingGui"):Clone()
+
+	local TimeLabel = ThingGui:FindFirstChild("Time")
+	if TimeLabel then
+		TimeLabel:Destroy()
+	end
+
+	local CarriedLabel = ThingGui:FindFirstChild("Carried")
+	if CarriedLabel then
+		CarriedLabel:Destroy()
+	end
+
+	ThingGui.Mutation.LayoutOrder = 0
+	ThingGui.Area.LayoutOrder = 1
+	ThingGui.Thing.LayoutOrder = 2
+	ThingGui.Money.LayoutOrder = 3
+
+	for _, LabelName in ipairs({"Mutation", "Thing", "Area", "Money"}) do
+		local Label = ThingGui:FindFirstChild(LabelName)
+		if Label and Label:IsA("TextLabel") then
+			Label.Size = UDim2.new(0.9, 0, Label.Size.Y.Scale, Label.Size.Y.Offset)
+		end
+	end
+
+	local Area = ThingConfiguration.Area
+	local AreaConfiguration = Area and AreasConfigurations[Area]
+	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
+	local Multiplier = MutationConfiguration.Multiplier or 1
+	local LevelConfiguration = ThingConfiguration.Levels and ThingConfiguration.Levels[Level] or {}
+
+	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Name, Level)
+	ThingGui.Area.Text = Area or ""
+	ThingGui.Area.TextColor3 = AreaConfiguration and AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+	ThingGui.Money.Text = string.format("$%s/s", Format.Number((LevelConfiguration.Money or 0) * Multiplier))
+	ThingGui.Money.Visible = true
+
+	if Mutation and Mutation ~= "Default" then
+		ThingGui.Mutation.Text = Mutation
+		ThingGui.Mutation.TextColor3 = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		ThingGui.Mutation.Visible = true
+	else
+		ThingGui.Mutation.Visible = false
+	end
+
+	local ExistingAttachment = PrimaryPart:FindFirstChild("ThingAttachment")
+	if ExistingAttachment then
+		ExistingAttachment:Destroy()
+	end
+
+	local ThingAttachment = Instance.new("Attachment")
+	ThingAttachment.Name = "ThingAttachment"
+	ThingAttachment.CFrame = CFrame.new(Vector3.new(0, (ThingConfiguration.YOffset or 0) + ThingGui.Size.Y.Scale / 2 + 1, 0))
+	ThingAttachment.Parent = PrimaryPart
+
+	ThingGui.Parent = ThingAttachment
+	ThingGui.MaxDistance = HELD_THING_GUI_MAX_DISTANCE
+	ThingGui.Enabled = true
+end
+
+local function removeHeldAnimeWeld(Player)
+	local Character = Player.Character
+	local Root = Character and (Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart"))
+	if not Root then return end
+
+	for _, Child in ipairs(Root:GetChildren()) do
+		if Child:IsA("WeldConstraint") and Child.Name == HELD_ANIME_WELD_NAME then
+			Child:Destroy()
+		end
+	end
+end
+
 local function removeHeldModel(Player)
+	removeHeldAnimeWeld(Player)
+
 	local Existing = HeldModels[Player]
 	if Existing then
 		Existing:Destroy()
@@ -408,14 +543,11 @@ local function removeHeldModel(Player)
 	if HeldInventoryCarry[Player] then
 		HeldInventoryCarry[Player] = nil
 
-		local PlayerData = PlayersData[Player]
-		if not (PlayerData and PlayerData.Carrying) then
-			PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, false)
-		end
+		PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.OwnedHold, false)
 	end
 end
 
-local function createHeldModel(Player, Name, Mutation)
+local function createHeldModel(Player, Name, Mutation, Level)
 	removeHeldModel(Player)
 
 	local Character = Player.Character
@@ -430,6 +562,7 @@ local function createHeldModel(Player, Name, Mutation)
 
 	local ThingConfiguration = ThingsConfigurations[Name]
 	if not ThingConfiguration then return end
+	Level = Level or 1
 
 	local Model = Template:Clone()
 	Model.Name = string.format("Held%s", Name)
@@ -443,12 +576,12 @@ local function createHeldModel(Player, Name, Mutation)
 
 	weldLooseVisualParts(Model, PrimaryPart)
 	applyHeldMutationVisual(Model, Mutation)
+	createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level)
 
-	local YOffset = Humanoid.HipHeight + Root.Size.Y / 2 + (ThingConfiguration.YOffset or 0) + 1
-	Model:PivotTo(Root.CFrame + Vector3.new(0, YOffset, 0))
+	Model:PivotTo(getHeldAnimeCFrame(Root))
 
 	local Weld = Instance.new("WeldConstraint")
-	Weld.Name = "HeldAnimeWeld"
+	Weld.Name = HELD_ANIME_WELD_NAME
 	Weld.Part0 = Root
 	Weld.Part1 = PrimaryPart
 	Weld.Parent = Root
@@ -465,33 +598,21 @@ local function createHeldModel(Player, Name, Mutation)
 	HeldModels[Player] = Model
 	HeldInventoryCarry[Player] = true
 
-	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, true)
+	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.OwnedHold, true)
 end
 
-local function setupAnimePreviews()
-	local Existing = ReplicatedStorage:FindFirstChild("AnimePreviews")
-	if Existing then Existing:Destroy() end
+local function equipInventoryTool(Player, ToolData)
+	if not ToolData or not ToolData.Tool then return false end
 
-	local Folder = Instance.new("Folder")
-	Folder.Name = "AnimePreviews"
-	Folder.Parent = ReplicatedStorage
+	local Character = Player.Character
+	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+	if not Humanoid then return false end
 
-	for Name in pairs(ThingsConfigurations) do
-		local Template = findAnimeTemplate(Name, "Default")
-		if not Template then continue end
+	ToolData.Tool.Parent = Player:WaitForChild("Backpack")
+	Humanoid:EquipTool(ToolData.Tool)
+	createHeldModel(Player, ToolData.Name, ToolData.Mutation, ToolData.Level)
 
-		local Preview = Template:Clone()
-		Preview.Name = Name
-		cleanVisualModel(Preview)
-
-		for _, Descendant in ipairs(Preview:GetDescendants()) do
-			if Descendant:IsA("BasePart") then
-				Descendant.Anchored = true
-			end
-		end
-
-		Preview.Parent = Folder
-	end
+	return true
 end
 
 local function getInventorySnapshot(Player)
@@ -582,8 +703,204 @@ local function reconcileIndex(ExistingIndex)
 	return Index
 end
 
+local function trim(Value)
+	return (Value or ""):match("^%s*(.-)%s*$")
+end
+
+local function isWhitelistedCommandPlayer(Player)
+	for _, UserId in ipairs(CommandsConfigurations.Whitelist or {}) do
+		if Player.UserId == UserId then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function isAdminCommandDebounced(Player, Command)
+	local Now = os.clock()
+
+	AdminCommandDebounces[Player] = AdminCommandDebounces[Player] or {}
+
+	if AdminCommandDebounces[Player][Command] and Now - AdminCommandDebounces[Player][Command] < 1 then
+		return true
+	end
+
+	AdminCommandDebounces[Player][Command] = Now
+
+	return false
+end
+
+local function destroyPlayerTools(Player, PlayerData)
+	for _, ToolData in ipairs(PlayerData.Tools or {}) do
+		if ToolData.Tool then
+			ToolData.Tool:Destroy()
+			ToolData.Tool = nil
+		end
+
+		ToolData.HeldModel = nil
+	end
+
+	local Backpack = Player:FindFirstChildOfClass("Backpack")
+	if Backpack then
+		for _, Child in ipairs(Backpack:GetChildren()) do
+			if Child:IsA("Tool") then
+				Child:Destroy()
+			end
+		end
+	end
+
+	local Character = Player.Character
+	if Character then
+		for _, Child in ipairs(Character:GetChildren()) do
+			if Child:IsA("Tool") then
+				Child:Destroy()
+			end
+		end
+	end
+end
+
+local function clearBaseProgress(PlayerData)
+	local Base = PlayerData.Base
+	if not Base then return end
+
+	local Slots = Base:FindFirstChild("Slots")
+	if Slots then
+		for _, Slot in ipairs(Slots:GetChildren()) do
+			Bases.Remove(Base, Slot, true)
+		end
+	end
+
+	local Level = Base:FindFirstChild("Level")
+	if Level then
+		for _, GuiName in ipairs({"BaseLevelGui", "BaseLevelGuiFront", "BaseLevelGuiBack"}) do
+			local BaseLevelGui = Level:FindFirstChild(GuiName)
+			if BaseLevelGui then
+				BaseLevelGui:Destroy()
+			end
+		end
+
+		local LevelGui = Level:FindFirstChild("LevelGui")
+		if LevelGui then
+			LevelGui:Destroy()
+		end
+	end
+end
+
+local function resetPlayerProgress(Player)
+	local PlayerData = PlayersData[Player]
+	if not PlayerData then return end
+
+	if isAdminCommandDebounced(Player, "reset") then return end
+
+	removeHeldModel(Player)
+	destroyPlayerTools(Player, PlayerData)
+	clearBaseProgress(PlayerData)
+
+	PlayersModule.Replace(Player, "Things", {})
+	PlayersModule.Replace(Player, "Tools", {})
+	PlayersModule.Replace(Player, "HotbarOrder", {})
+	PlayersModule.Replace(Player, "Index", reconcileIndex(nil))
+	PlayersModule.Replace(Player, "Steals", 0)
+	PlayersModule.Replace(Player, "Money", GameConfigurations.Defaults.Money)
+	PlayersModule.Replace(Player, "Speed", GameConfigurations.Defaults.Speed)
+	PlayersModule.Replace(Player, "Carry", GameConfigurations.Defaults.Carry)
+	PlayersModule.Replace(Player, "Rebirths", 0)
+	PlayersModule.Replace(Player, "Level", 0)
+	PlayersModule.Replace(Player, "MoneyPerSecond", 0)
+	PlayerData.BaseProgressionVersion = BASE_PROGRESSION_VERSION
+
+	local Character = Player.Character
+	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+	if Humanoid then
+		Humanoid.WalkSpeed = GameConfigurations.Defaults.Speed
+	end
+
+	print(string.format("Owner reset executed for %s (%d)", Player.Name, Player.UserId))
+	AnnouncementEvent:FireClient(Player, "Testing progress reset.", Color3.fromRGB(0, 255, 0))
+end
+
+local function grantRichMoney(Player)
+	local PlayerData = PlayersData[Player]
+	if not PlayerData then return end
+	if isAdminCommandDebounced(Player, "rich") then return end
+
+	PlayersModule.Replace(Player, "Money", ADMIN_RICH_MONEY)
+
+	print(string.format("Owner rich command executed for %s (%d)", Player.Name, Player.UserId))
+	AnnouncementEvent:FireClient(Player, string.format("Money set to $%s.", Format.Number(ADMIN_RICH_MONEY)), Color3.fromRGB(0, 255, 0))
+end
+
+local function grantFastSpeed(Player)
+	local PlayerData = PlayersData[Player]
+	if not PlayerData then return end
+	if isAdminCommandDebounced(Player, "fast") then return end
+
+	PlayersModule.Replace(Player, "Speed", ADMIN_FAST_SPEED)
+
+	local Character = Player.Character
+	local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+	if Humanoid then
+		Humanoid.WalkSpeed = ADMIN_FAST_SPEED
+	end
+
+	print(string.format("Owner fast command executed for %s (%d)", Player.Name, Player.UserId))
+	AnnouncementEvent:FireClient(Player, string.format("Speed set to %s.", ADMIN_FAST_SPEED), Color3.fromRGB(0, 255, 0))
+end
+
+local function handlePlayerCommand(Player, Message)
+	local Prefix = CommandsConfigurations.Prefix or "/"
+	local Command = string.lower(trim(Message))
+	local ResetCommand = string.lower(Prefix .. "reset")
+	local RichCommand = string.lower(Prefix .. "rich")
+	local FastCommand = string.lower(Prefix .. "fast")
+
+	if not isWhitelistedCommandPlayer(Player) then return end
+
+	if Command == ResetCommand or Command == "reset" then
+		resetPlayerProgress(Player)
+	elseif Command == RichCommand or Command == "rich" then
+		grantRichMoney(Player)
+	elseif Command == FastCommand or Command == "fast" then
+		grantFastSpeed(Player)
+	end
+end
+
+local function setupOwnerTextChatCommand(CommandName, PrimaryAlias, SecondaryAlias)
+	local CommandsFolder = TextChatService:WaitForChild("TextChatCommands", 5) or TextChatService
+
+	local Command = CommandsFolder:FindFirstChild(CommandName) or TextChatService:FindFirstChild(CommandName)
+	if not Command then
+		Command = Instance.new("TextChatCommand")
+		Command.Name = CommandName
+	end
+
+	Command.PrimaryAlias = PrimaryAlias
+	Command.SecondaryAlias = SecondaryAlias or ""
+	Command.AutocompleteVisible = false
+	Command.Enabled = true
+	Command.Parent = CommandsFolder
+	print(string.format("Owner admin command registered as %s", PrimaryAlias))
+
+	Command.Triggered:Connect(function(TextSource, UnfilteredText)
+		local UserId = TextSource and TextSource.UserId
+		local Player = UserId and Players:GetPlayerByUserId(UserId)
+		if not Player then return end
+
+		handlePlayerCommand(Player, UnfilteredText or PrimaryAlias)
+	end)
+end
+
+local function setupOwnerTextChatCommands()
+	local Prefix = CommandsConfigurations.Prefix or "/"
+
+	setupOwnerTextChatCommand(RESET_COMMAND_NAME, Prefix .. "reset", "reset")
+	setupOwnerTextChatCommand(RICH_COMMAND_NAME, Prefix .. "rich", "rich")
+	setupOwnerTextChatCommand(FAST_COMMAND_NAME, Prefix .. "fast", "fast")
+end
+
 function PlayersModule.Setup()
-	setupAnimePreviews()
+	setupOwnerTextChatCommands()
 
 	registerCollisionGroup("Players")
 	registerCollisionGroup("Things")
@@ -603,17 +920,24 @@ function PlayersModule.Setup()
 	end
 
 	Players.PlayerAdded:Connect(function(Player)
+		Player.Chatted:Connect(function(Message)
+			handlePlayerCommand(Player, Message)
+		end)
+
 		PlayersModule.Create(Player)
 	end)
 
 	Players.PlayerRemoving:Connect(function(Player)
 		local PlayerData = PlayersData[Player]
 
-		PlayerData:Save()
+		if PlayerData then
+			PlayerData:Save()
+		end
 		
 		ZoneTracker.ClearPlayer(Player)
 		removeHeldModel(Player)
 		HeldInventoryCarry[Player] = nil
+		AdminCommandDebounces[Player] = nil
 	end)
 
 	game:BindToClose(function()
@@ -626,6 +950,9 @@ function PlayersModule.Setup()
 
 	ReplacePlayerDataEvent.Event:Connect(PlayersModule.Replace)
 	CreateToolEvent.Event:Connect(PlayersModule.Tool)
+	AdminCommandEvent.OnServerEvent:Connect(function(Player, Message)
+		handlePlayerCommand(Player, Message or "")
+	end)
 
 	IncrementSpeedEvent.OnServerEvent:Connect(function(Player, Speed)
 		local Money = math.round(UpgradesConfigurations["Speed1"].Money * UpgradesConfigurations["Speed1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Speed") + Speed - 1))
@@ -770,10 +1097,7 @@ function PlayersModule.Setup()
 			Humanoid:UnequipTools()
 			removeHeldModel(Player)
 		else
-			ToolData.Tool.Parent = Player:WaitForChild("Backpack")
-			Humanoid:EquipTool(ToolData.Tool)
-			createHeldModel(Player, ToolData.Name, ToolData.Mutation)
-			PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, true)
+			equipInventoryTool(Player, ToolData)
 		end
 
 		task.defer(syncInventory, Player)
@@ -859,16 +1183,6 @@ function PlayersModule.Replace(Player, Name, Value)
 		local MoneyPerSecond = Leaderstats:WaitForChild("$/s")
 
 		MoneyPerSecond.Value = string.format("%s/s", Format.Number(PlayerData.MoneyPerSecond))
-		
-		local Character = Player.Character
-		if not Character then return end
-		
-		local MoneyPerSecondAttachment = Character.PrimaryPart:FindFirstChild("MoneyPerSecondAttachment")
-		local MoneyPerSecondGui = MoneyPerSecondAttachment and MoneyPerSecondAttachment:FindFirstChild("MoneyPerSecondGui")
-		
-		if not MoneyPerSecondGui then return end
-
-		MoneyPerSecondGui.MoneyPerSecond.Text = MoneyPerSecond.Value
 	elseif Name == "Speed" then
 		SpeedEvent:FireClient(Player, Value)
 		RebirthEvent:FireClient(Player, PlayerData.Rebirths, Value)
@@ -879,7 +1193,12 @@ function PlayersModule.Replace(Player, Name, Value)
 	elseif Name == "Rebirths" then
 		RebirthEvent:FireClient(Player, Value, PlayerData.Speed)
 		
-		PlayerData.Base.Data.DataGui.Rebirths.Text = string.format("Rebirth %s (%sx $)", PlayerData.Rebirths, RebirthsConfigurations[PlayerData.Rebirths].Multiplier)
+		local RebirthConfiguration = RebirthsConfigurations[PlayerData.Rebirths]
+		local RebirthMultiplier = RebirthConfiguration and RebirthConfiguration.Multiplier or 1
+
+		if PlayerData.Base and PlayerData.Base:FindFirstChild("Data") and PlayerData.Base.Data:FindFirstChild("DataGui") then
+			PlayerData.Base.Data.DataGui.Rebirths.Text = string.format("Rebirth %s (%sx $)", PlayerData.Rebirths, RebirthMultiplier)
+		end
 		
 		local MoneyPerSecond = 0
 
@@ -902,11 +1221,15 @@ function PlayersModule.Replace(Player, Name, Value)
 
 		ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
 
-		PlayerData.Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
+		if PlayerData.Base and PlayerData.Base:FindFirstChild("Data") and PlayerData.Base.Data:FindFirstChild("DataGui") then
+			PlayerData.Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
+		end
 	elseif Name == "Level" then
 		local Base = PlayerData.Base
 
-		Bases.Level(PlayerData, Base)
+		if Base then
+			Bases.Level(PlayerData, Base)
+		end
 	elseif Name == "Index" then
 		IndexEvent:FireClient(Player, Value)
 	elseif Name == "Tools" then
@@ -957,13 +1280,13 @@ function PlayersModule.Animate(Player, AnimationId, Bool)
 
 		AnimationTrack = Result
 
-		if AnimationId == GameConfigurations.AnimationsIds.Carry then
+		if isHoldAnimation(AnimationId) then
 			AnimationTrack.Looped = true
 			AnimationTrack.Priority = Enum.AnimationPriority.Action4
 
 			task.delay(1, function()
 				if AnimationTrack.Length == 0 then
-					warn(string.format("Carry animation %s loaded with length 0 for %s; verify the asset works with this rig.", tostring(AnimationId), Player.Name))
+					warn(string.format("Hold animation %s loaded with length 0 for %s; verify the asset works with this rig.", tostring(AnimationId), Player.Name))
 				end
 			end)
 		end
@@ -972,7 +1295,7 @@ function PlayersModule.Animate(Player, AnimationId, Bool)
 	end
 
 	if Bool then
-		if AnimationId == GameConfigurations.AnimationsIds.Carry then
+		if isHoldAnimation(AnimationId) then
 			AnimationTrack.Looped = true
 			AnimationTrack.Priority = Enum.AnimationPriority.Action4
 			AnimationTrack:Play(0.1, 1, 1)
@@ -1034,23 +1357,6 @@ function PlayersModule.Create(Player)
 		local Base = PlayersData[Player].Base
 		if not Base then return end
 
-		local YOffset = Character.Humanoid.HipHeight + Character.PrimaryPart.Size.Y / 2
-		
-		local MoneyPerSecondAttachment = Instance.new("Attachment")
-		MoneyPerSecondAttachment.Name = "MoneyPerSecondAttachment"
-		MoneyPerSecondAttachment.Parent = Character.PrimaryPart
-		
-		local MoneyPerSecondGui = script.Resources:WaitForChild("MoneyPerSecondGui")
-		
-		MoneyPerSecondGui = MoneyPerSecondGui:Clone()
-		
-		MoneyPerSecondGui.MoneyPerSecond.Text = MoneyPerSecond.Value
-		
-		MoneyPerSecondGui.Parent = MoneyPerSecondAttachment
-		MoneyPerSecondGui.Enabled = true
-		
-		MoneyPerSecondAttachment.Position = Vector3.new(0, YOffset + MoneyPerSecondGui.Size.Y.Scale / 2 + 1, 0)
-		
 		local ProximityPrompt = Instance.new("ProximityPrompt")
 		ProximityPrompt.Enabled = false
 		ProximityPrompt.ActionText = "Give"
@@ -1114,23 +1420,6 @@ function PlayersModule.Create(Player)
 
 		if not Player.Character then return end
 
-		local YOffset = Character.Humanoid.HipHeight + Character.PrimaryPart.Size.Y / 2
-		
-		local MoneyPerSecondAttachment = Instance.new("Attachment")
-		MoneyPerSecondAttachment.Name = "MoneyPerSecondAttachment"
-		MoneyPerSecondAttachment.Parent = Character.PrimaryPart
-
-		local MoneyPerSecondGui = script.Resources:WaitForChild("MoneyPerSecondGui")
-
-		MoneyPerSecondGui = MoneyPerSecondGui:Clone()
-
-		MoneyPerSecondGui.MoneyPerSecond.Text = MoneyPerSecond.Value
-
-		MoneyPerSecondGui.Parent = MoneyPerSecondAttachment
-		MoneyPerSecondGui.Enabled = true
-		
-		MoneyPerSecondAttachment.Position = Vector3.new(0, YOffset + MoneyPerSecondGui.Size.Y.Scale / 2 + 1, 0)
-		
 		local ProximityPrompt = Instance.new("ProximityPrompt")
 		ProximityPrompt.Enabled = false
 		ProximityPrompt.ActionText = "Give"
@@ -1190,8 +1479,14 @@ function PlayersModule.Create(Player)
 	return PlayerData
 end
 
-function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, Index, ToolData)
+function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, ToolIndex, ToolData, AutoEquip)
+	if typeof(ToolIndex) == "boolean" and ToolData == nil and AutoEquip == nil then
+		AutoEquip = ToolIndex
+		ToolIndex = nil
+	end
+
 	local Data = {}
+	Mutation = Mutation or "Default"
 
 	local Tool = script.Resources:WaitForChild("Tool")
 
@@ -1205,15 +1500,26 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 	Data.Mutation = Mutation
 	Data.Level = Level or 1
 
-	local Index = PlayersData[Player] and PlayersData[Player].Index
-	if Index and Index[Mutation] and not Index[Mutation][Name] then
-		PlayersData[Player].Index[Mutation][Name] = true
+	local IndexData = PlayersData[Player] and PlayersData[Player].Index
+	if IndexData then
+		IndexData[Mutation] = IndexData[Mutation] or {}
+	end
+
+	if IndexData and not IndexData[Mutation][Name] then
+		IndexData[Mutation][Name] = true
 		
-		IndexEvent:FireClient(Player, PlayersData[Player].Index)
+		IndexEvent:FireClient(Player, IndexData)
+		if not ToolData then
+			task.defer(function()
+				if not Player.Parent then return end
+
+				AnimeUnlockedEvent:FireClient(Player, Name, Mutation)
+			end)
+		end
 	end
 	
 	Tool.Equipped:Connect(function()
-		createHeldModel(Player, Name, Mutation)
+		createHeldModel(Player, Name, Mutation, Data.Level)
 		syncInventory(Player)
 
 		local Base = PlayersData[Player] and PlayersData[Player].Base
@@ -1230,7 +1536,7 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
 				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
 
-				if BaseConfigurations[PlayersData[Player].Level].Slots < tonumber(Slot.Name) then return end
+				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
 
 				if SlotsData[Slot.Name] and SlotsData[Slot.Name].Thing then
 					SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = true})
@@ -1273,7 +1579,7 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
 
 				if not (SlotsData[Slot.Name] and SlotsData[Slot.Name].Thing) then return end
-				if BaseConfigurations[PlayersData[Player].Level].Slots < tonumber(Slot.Name) then return end
+				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
 
 				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
 				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = true})
@@ -1302,11 +1608,11 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 	Tool:SetAttribute("Mutation", Mutation)
 	Tool:SetAttribute("Level", Data.Level)
 
-	if Index and ToolData then
+	if ToolIndex and ToolData then
 		ToolData.Id = Id
 		ToolData.Tool = Tool
 
-		PlayersData[Player].Tools[Index] = ToolData
+		PlayersData[Player].Tools[ToolIndex] = ToolData
 	else
 		local Tools = PlayersData[Player].Tools
 		if not Tools then Tools = {} end
@@ -1318,7 +1624,17 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, I
 
 	Tool.Parent = Player.Backpack
 	normalizeHotbarOrder(PlayersData[Player])
-	task.defer(syncInventory, Player)
+	if AutoEquip and not ToolData then
+		task.defer(function()
+			if not Player.Parent then return end
+			if not Tool.Parent then return end
+
+			equipInventoryTool(Player, Data)
+			syncInventory(Player)
+		end)
+	else
+		task.defer(syncInventory, Player)
+	end
 
 	return Data
 end
@@ -1390,6 +1706,8 @@ function PlayersModule:Load()
 	if not self.Steals then self.Steals = 0 end
 	if not self.Rebirths then self.Rebirths = 0 end
 	if not self.HotbarOrder then self.HotbarOrder = {} end
+
+	migrateBaseProgression(self, Success and Data ~= nil)
 	
 	for Index = #self.Tools, 1, -1 do
 		local ToolConfiguration = self.Tools[Index]
@@ -1539,7 +1857,8 @@ function PlayersModule:Save()
 		Steals = self.Steals,
 		Rebirths = self.Rebirths,
 		Index = self.Index,
-		HotbarOrder = self.HotbarOrder
+		HotbarOrder = self.HotbarOrder,
+		BaseProgressionVersion = self.BaseProgressionVersion
 	}
 
 	pcall(function()

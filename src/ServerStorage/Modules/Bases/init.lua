@@ -26,11 +26,140 @@ local LevelEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Level")
 local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Announcement")
 
 local BASE_GUI_MAX_DISTANCE = 200
+local BASE_LEVEL_BIND_DELAY = 0.15
 local BASE_SLOT_PROMPT_HOLD_DURATION = 0.5
+local PICK_UP_PROMPT_TEXT = "Pick Up"
+local INSUFFICIENT_FUNDS_TEXT = "Insufficient Funds"
+local INSUFFICIENT_FUNDS_COLOUR = Color3.fromRGB(255, 0, 0)
+local BASE_LEVEL_GUI_SIDES = {
+	{Face = Enum.NormalId.Front, Name = "BaseLevelGuiFront"},
+	{Face = Enum.NormalId.Back, Name = "BaseLevelGuiBack"}
+}
 
 local BasesData = {}
 
 local Bases = {}
+
+local function getBaseSellPromptText(ThingConfiguration, Level)
+	local LevelConfiguration = ThingConfiguration and ThingConfiguration.Levels and ThingConfiguration.Levels[Level]
+	local Sell = LevelConfiguration and LevelConfiguration.Sell or 0
+
+	return string.format("Sell: $%s", Format.Number(Sell))
+end
+
+local function getBaseConfiguration(Level)
+	return BaseConfigurations[Level] or BaseConfigurations[0] or {}
+end
+
+local function getUnlockedSlots(Level)
+	return getBaseConfiguration(Level).Slots or 0
+end
+
+local function applyToBaseParts(Instance, Callback)
+	if Instance:IsA("BasePart") then
+		Callback(Instance)
+	end
+
+	for _, Descendant in ipairs(Instance:GetDescendants()) do
+		if Descendant:IsA("BasePart") then
+			Callback(Descendant)
+		end
+	end
+end
+
+local function showBaseLevelPartForPlayer(Player, Base)
+	if Base.Level:GetAttribute("Transparency") then
+		SetProperties.Client(Player, Base.Level, {Transparency = Base.Level:GetAttribute("Transparency")})
+	else
+		Base.Level:SetAttribute("Transparency", Base.Level.Transparency)
+
+		SetProperties.AllClients(Base.Level, {Transparency = 1})
+		SetProperties.Client(Player, Base.Level, {Transparency = Base.Level:GetAttribute("Transparency")})
+	end
+end
+
+local function removeBaseLevelGuis(Base)
+	for _, Side in ipairs(BASE_LEVEL_GUI_SIDES) do
+		local BaseLevelGui = Base.Level:FindFirstChild(Side.Name)
+		if BaseLevelGui then
+			BaseLevelGui:Destroy()
+		end
+	end
+
+	local LegacyBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
+	if LegacyBaseLevelGui then
+		LegacyBaseLevelGui:Destroy()
+	end
+end
+
+local function getBaseLevelGuis(Base)
+	local Guis = {}
+
+	for _, Side in ipairs(BASE_LEVEL_GUI_SIDES) do
+		local BaseLevelGui = Base.Level:FindFirstChild(Side.Name)
+		if not BaseLevelGui then
+			BaseLevelGui = script.Resources:WaitForChild("BaseLevelGui"):Clone()
+			BaseLevelGui.Name = Side.Name
+			BaseLevelGui.Face = Side.Face
+			BaseLevelGui.Parent = Base:WaitForChild("Level")
+		end
+
+		BaseLevelGui.Face = Side.Face
+		table.insert(Guis, BaseLevelGui)
+	end
+
+	local LegacyBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
+	if LegacyBaseLevelGui then
+		LegacyBaseLevelGui:Destroy()
+	end
+
+	return Guis
+end
+
+local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
+	BaseLevelGui.MaxDistance = BASE_GUI_MAX_DISTANCE
+	BaseLevelGui.Enabled = true
+
+	local Button = BaseLevelGui:FindFirstChild("Level")
+	if not Button or not Button:IsA("GuiButton") then return end
+
+	local LevelLabel = Button:FindFirstChild("Level")
+	local MoneyLabel = Button:FindFirstChild("Money")
+	local ArrowLabel = Button:FindFirstChild("Arrow")
+
+	if State == "Max" then
+		Button.Active = false
+		Button.AutoButtonColor = false
+
+		if LevelLabel and LevelLabel:IsA("TextLabel") then
+			LevelLabel.Text = "Max Level"
+		end
+
+		if MoneyLabel and MoneyLabel:IsA("GuiObject") then
+			MoneyLabel.Visible = false
+		end
+
+		if ArrowLabel and ArrowLabel:IsA("GuiObject") then
+			ArrowLabel.Visible = false
+		end
+	else
+		Button.Active = true
+		Button.AutoButtonColor = true
+
+		if LevelLabel and LevelLabel:IsA("TextLabel") then
+			LevelLabel.Text = string.format("Level %s > Level %s", Level, Level + 1)
+		end
+
+		if MoneyLabel and MoneyLabel:IsA("TextLabel") then
+			MoneyLabel.Text = string.format("$%s", Format.Number(Money))
+			MoneyLabel.Visible = true
+		end
+
+		if ArrowLabel and ArrowLabel:IsA("GuiObject") then
+			ArrowLabel.Visible = true
+		end
+	end
+end
 
 function Bases.Retrieve(Base, Name)
 	if not BasesData[Base] then return end
@@ -52,7 +181,7 @@ function Bases.Setup()
 
 				local GrabProximityPrompt = Instance.new("ProximityPrompt")
 				GrabProximityPrompt.Enabled = false
-				GrabProximityPrompt.ActionText = "Grab"
+				GrabProximityPrompt.ActionText = PICK_UP_PROMPT_TEXT
 				GrabProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				GrabProximityPrompt.ObjectText = ""
 				GrabProximityPrompt.RequiresLineOfSight = false
@@ -89,7 +218,7 @@ function Bases.Setup()
 
 				local SellProximityPrompt = Instance.new("ProximityPrompt")
 				SellProximityPrompt.Enabled = false
-				SellProximityPrompt.ActionText = "Sell"
+				SellProximityPrompt.ActionText = "Sell: $0"
 				SellProximityPrompt.GamepadKeyCode = Enum.KeyCode.ButtonY
 				SellProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				SellProximityPrompt.KeyboardKeyCode = Enum.KeyCode.F
@@ -121,7 +250,7 @@ function Bases.Setup()
 					local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
 					if not Level then Level = 1 end
 
-					CreateToolEvent:Fire(Player, Name, ThingConfiguration, Mutation, Level)
+					CreateToolEvent:Fire(Player, Name, ThingConfiguration, Mutation, Level, true)
 
 					Bases.Remove(Base, Slot)
 				end)
@@ -200,7 +329,7 @@ function Bases.Setup()
 
 						ReplacePlayerDataEvent:Fire(Player, "Tools", ToolsData)
 
-						CreateToolEvent:Fire(Player, Name, ThingConfiguration, Mutation, Level)
+						CreateToolEvent:Fire(Player, Name, ThingConfiguration, Mutation, Level, true)
 
 						local Name = ToolData.Name
 						local Mutation = ToolData.Mutation
@@ -360,85 +489,94 @@ end
 function Bases.Level(PlayerData, Base)
 	local Player = PlayerData.Player
 	local Level = PlayerData.Level
+	local BaseLevelGuis = getBaseLevelGuis(Base)
 
-	if Level >= #BaseConfigurations or not BaseConfigurations[Level + 1] then
-		Base.Level:SetAttribute("Transparency", Base.Level.Transparency)
+	if not BaseConfigurations[Level + 1] then
+		if BasesData[Base] then
+			BasesData[Base].LevelUpgradePending = false
 
-		Base.Level.Transparency = 1
+			if BasesData[Base].Connection then
+				BasesData[Base].Connection:Disconnect()
+				BasesData[Base].Connection = nil
+			end
+		end
 
-		local BaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
-		if BaseLevelGui then
-			BaseLevelGui:Destroy()
+		showBaseLevelPartForPlayer(Player, Base)
+
+		for _, BaseLevelGui in ipairs(BaseLevelGuis) do
+			configureBaseLevelGui(BaseLevelGui, "Max")
+			SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
+			LevelEvent:FireClient(Player, BaseLevelGui)
 		end
 	elseif BaseConfigurations[Level + 1] then
-		if Base.Level:GetAttribute("Transparency") then
-			SetProperties.Client(Player, Base.Level, {Transparency = Base.Level:GetAttribute("Transparency")})
-		else
-			Base.Level:SetAttribute("Transparency", Base.Level.Transparency)
+		showBaseLevelPartForPlayer(Player, Base)
 
-			SetProperties.AllClients(Base.Level, {Transparency = 1})
-			SetProperties.Client(Player, Base.Level, {Transparency = Base.Level:GetAttribute("Transparency")})
+		local Money = BaseConfigurations[Level + 1].Money
+
+		for _, BaseLevelGui in ipairs(BaseLevelGuis) do
+			configureBaseLevelGui(BaseLevelGui, "Upgrade", Level, Money)
+			SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
 		end
 
-		local BaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
-		if not BaseLevelGui then
-			BaseLevelGui = script.Resources:WaitForChild("BaseLevelGui")
+		task.delay(BASE_LEVEL_BIND_DELAY, function()
+			if not BasesData[Base] or BasesData[Base].Player ~= Player then return end
+			if RetrievePlayerDataFunction:Invoke(Player, "Level") ~= Level then return end
 
-			BaseLevelGui = BaseLevelGui:Clone()
+			BasesData[Base].LevelUpgradePending = false
 
-			local Money = BaseConfigurations[Level + 1].Money
+			local Identifier = HttpService:GenerateGUID(false)
 
-			BaseLevelGui.Level.Money.Text = string.format("$%s", Format.Number(Money))
-			BaseLevelGui.Level.Level.Text = string.format("Level %s > Level %s", Level, Level + 1)
-			BaseLevelGui.MaxDistance = BASE_GUI_MAX_DISTANCE
-			BaseLevelGui.Enabled = true
+			if BasesData[Base].Connection then
+				BasesData[Base].Connection:Disconnect()
+				BasesData[Base].Connection = nil
+			end
 
-			BaseLevelGui.Parent = Base:WaitForChild("Level")
+			BasesData[Base].Connection = LevelEvent.OnServerEvent:Connect(function(EventPlayer, EventIdentifier)
+				if EventPlayer ~= Player then return end
+				if EventIdentifier ~= Identifier then return end
+				if not BasesData[Base] or BasesData[Base].LevelUpgradePending then return end
 
-			SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
+				local Level = RetrievePlayerDataFunction:Invoke(Player, "Level") + 1
 
-			task.delay(1, function()
-				local Identifier = HttpService:GenerateGUID(false)
+				if not BaseConfigurations[Level] then return end
+
+				local Money = BaseConfigurations[Level].Money
+
+				if RetrievePlayerDataFunction:Invoke(Player, "Money") < Money then
+					AnnouncementEvent:FireClient(Player, INSUFFICIENT_FUNDS_TEXT, INSUFFICIENT_FUNDS_COLOUR)
+					return
+				end
+
+				BasesData[Base].LevelUpgradePending = true
 
 				if BasesData[Base].Connection then
 					BasesData[Base].Connection:Disconnect()
 					BasesData[Base].Connection = nil
 				end
 
-				BasesData[Base].Connection = LevelEvent.OnServerEvent:Connect(function(EventPlayer, EventIdentifier)
-					if EventPlayer ~= Player then return end
-					if EventIdentifier ~= Identifier then return end
+				LevelEvent:FireClient(Player, nil, Identifier, true)
 
-					local Level = RetrievePlayerDataFunction:Invoke(Player, "Level") + 1
+				ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") - Money)
 
-					if not BaseConfigurations[Level] then return end
-
-					local Money = BaseConfigurations[Level].Money
-
-					if RetrievePlayerDataFunction:Invoke(Player, "Money") < Money then return end
-
-					LevelEvent:FireClient(Player, nil, Identifier, true)
-
-					ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") - Money)
-
-					ReplacePlayerDataEvent:Fire(Player, "Level", Level)
-				end)
-
-				LevelEvent:FireClient(Player, BaseLevelGui, Identifier)
+				ReplacePlayerDataEvent:Fire(Player, "Level", Level)
 			end)
-		end
+
+			for _, BaseLevelGui in ipairs(BaseLevelGuis) do
+				if BaseLevelGui.Parent then
+					LevelEvent:FireClient(Player, BaseLevelGui, Identifier)
+				end
+			end
+		end)
 	end
 
-	local Configuration = BaseConfigurations[Level] or {}
+	local Configuration = getBaseConfiguration(Level)
 	local UnlockedSlots = Configuration.Slots or 0
 	local UnlockedFloors = Configuration.Floors or 0
 
 	local function setModelVisible(Model, Visible)
 		if not Model then return end
 
-		for _, Descendant in ipairs(Model:GetDescendants()) do
-			if not Descendant:IsA("BasePart") then continue end
-
+		applyToBaseParts(Model, function(Descendant)
 			if Visible then
 				local Transparency = Descendant:GetAttribute("Transparency")
 				if Transparency ~= nil then
@@ -448,7 +586,7 @@ function Bases.Level(PlayerData, Base)
 				Descendant:SetAttribute("Transparency", Descendant.Transparency)
 				Descendant.Transparency = 1
 			end
-		end
+		end)
 	end
 
 	for _, Slot in ipairs(Base.Slots:GetChildren()) do
@@ -479,7 +617,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		for _, PossibleSlot in ipairs(Slots) do
 			if BasesData[Base].SlotsData[PossibleSlot.Name] and BasesData[Base].SlotsData[PossibleSlot.Name].Thing then continue end
 
-			if BaseConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Level")].Slots < tonumber(PossibleSlot.Name) then continue end
+			if getUnlockedSlots(RetrievePlayerDataFunction:Invoke(Player, "Level")) < tonumber(PossibleSlot.Name) then continue end
 
 			Slot = PossibleSlot
 
@@ -496,7 +634,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	end
 
 	if BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Thing then return end
-	if BaseConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Level")].Slots < tonumber(Slot.Name) then return end
+	if getUnlockedSlots(RetrievePlayerDataFunction:Invoke(Player, "Level")) < tonumber(Slot.Name) then return end
 
 	Money = Money or 0
 
@@ -658,6 +796,9 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	Slot.Spawn.Attachment.Position = Vector3.new(0, (ThingConfiguration.YOffset or 3) - Slot.Spawn.Size.Y / 2, 0)
 
+	Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
+	Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt").ActionText = getBaseSellPromptText(ThingConfiguration, Level)
+
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
@@ -788,6 +929,9 @@ function Bases.Remove(Base, Slot, Save)
 
 	Slot.Spawn.Attachment.Position = Vector3.new(0, 3 - Slot.Spawn.Size.Y / 2, 0)
 
+	Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
+	Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt").ActionText = "Sell: $0"
+
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
@@ -866,11 +1010,7 @@ function Bases.Destroy(Base)
 		DataGui:Destroy()
 	end
 
-	local LevelGui = Base.Level:FindFirstChild("LevelGui")
-
-	if LevelGui then
-		LevelGui:Destroy()
-	end
+	removeBaseLevelGuis(Base)
 
 	if BasesData[Base].Connection then
 		BasesData[Base].Connection:Disconnect()

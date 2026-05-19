@@ -20,9 +20,11 @@ LevelEvent.OnClientEvent:Connect(function(Gui, Identifier, Purchased)
 		return
 	end
 
-	if not Gui or not Identifier then return end
+	if not Gui then return end
 
 	disconnect(Gui)
+
+	if not Identifier then return end
 
 	local Button = Gui:FindFirstChild("Level", true)
 	if not Button or not Button:IsA("GuiButton") then return end

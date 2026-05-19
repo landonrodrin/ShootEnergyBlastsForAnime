@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
+local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 
 local RemoteEvents = ReplicatedStorage.Network:WaitForChild("RemoteEvents")
 local InventorySyncEvent = RemoteEvents:WaitForChild("InventorySync")
@@ -210,35 +211,6 @@ local function getVisibleHotbarItems()
 	return Items
 end
 
-local function renderPreview(Viewport, Name, Mutation)
-	local Previews = ReplicatedStorage:FindFirstChild("AnimePreviews")
-	local Template = Previews and Previews:FindFirstChild(Name)
-	if not Template then return end
-
-	local World = Instance.new("WorldModel")
-	World.Parent = Viewport
-
-	local Model = Template:Clone()
-	Model.Parent = World
-
-	local Highlight = Instance.new("Highlight")
-	Highlight.FillColor = getMutationColour(Mutation)
-	Highlight.FillTransparency = Mutation == "Default" and 1 or 0.75
-	Highlight.OutlineColor = getMutationColour(Mutation)
-	Highlight.OutlineTransparency = Mutation == "Default" and 1 or 0.15
-	Highlight.Parent = Model
-
-	local Camera = Instance.new("Camera")
-	Camera.Parent = Viewport
-	Viewport.CurrentCamera = Camera
-
-	local CFrameValue, Size = Model:GetBoundingBox()
-	local MaxSize = math.max(Size.X, Size.Y, Size.Z, 1)
-	local Center = CFrameValue.Position
-
-	Camera.CFrame = CFrame.new(Center + Vector3.new(0, Size.Y * 0.15, MaxSize * 2.2), Center)
-end
-
 local function pointInside(Frame, Position)
 	local AbsolutePosition = Frame.AbsolutePosition
 	local AbsoluteSize = Frame.AbsoluteSize
@@ -368,12 +340,14 @@ local function createItemButton(Item, Slot, Parent)
 		Number.Parent = Button
 	end
 
-	local Viewport = Instance.new("ViewportFrame")
-	Viewport.BackgroundTransparency = 1
-	Viewport.Position = UDim2.new(0, 5, 0, 4)
-	Viewport.Size = UDim2.new(1, -10, 1, -20)
-	Viewport.Parent = Button
-	renderPreview(Viewport, Item.Name, Item.Mutation)
+	local Viewport = AnimeViewports.Clone(Item.Name, Item.Mutation)
+	if Viewport then
+		Viewport.Name = "Preview"
+		Viewport.BackgroundTransparency = 1
+		Viewport.Position = UDim2.new(0, 5, 0, 4)
+		Viewport.Size = UDim2.new(1, -10, 1, -20)
+		Viewport.Parent = Button
+	end
 
 	local NameLabel = Instance.new("TextLabel")
 	NameLabel.BackgroundTransparency = 1

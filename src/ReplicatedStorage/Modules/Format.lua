@@ -3,21 +3,33 @@ local Format = {}
 local Suffixes = {"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"}
 
 function Format.Number(Number)
-	if Number < 1000 then
+	Number = tonumber(Number) or 0
+
+	if math.abs(Number) < 1000 then
 		return tostring(Number)
 	end
 
-	local Tier = math.floor(math.log10(Number) / 3)
-	if Tier > #Suffixes - 1 then
-		Tier = #Suffixes - 1
+	local Sign = Number < 0 and -1 or 1
+	local ScaledNumber = math.abs(Number)
+	local Tier = 1
+
+	while ScaledNumber >= 1000 and Tier < #Suffixes do
+		ScaledNumber /= 1000
+		Tier += 1
 	end
 
-	local ScaledNumber = Number / (1000 ^ Tier)
+	if ScaledNumber >= 999.995 and Tier < #Suffixes then
+		ScaledNumber /= 1000
+		Tier += 1
+	end
+
+	ScaledNumber *= Sign
+
 	local Formatted = string.format("%.2f", ScaledNumber)
 		:gsub("%.0+$", "")
 		:gsub("(%.%d-)0+$", "%1")
 
-	return Formatted .. Suffixes[Tier + 1]
+	return Formatted .. Suffixes[Tier]
 end
 
 function Format.Time(Seconds)

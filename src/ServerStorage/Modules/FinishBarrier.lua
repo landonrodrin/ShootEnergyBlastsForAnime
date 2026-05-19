@@ -1,5 +1,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
@@ -8,25 +9,12 @@ local PathUtils = require(shared:WaitForChild("PathUtils"))
 local FinishBarrier = {}
 
 local callbacks = {}
-local playerTriggeredAt = {}
+local playerCrossingStates = {}
 local started = false
 
-local RETURN_DEBOUNCE = 0.75
-local MIN_RETURN_SPEED = 2
 local ANIME_SIDE_MIN_X = 0
-
-local function getPlayerFromHit(hit)
-	if not hit then
-		return nil
-	end
-
-	local character = hit:FindFirstAncestorOfClass("Model")
-	if not character then
-		return nil
-	end
-
-	return Players:GetPlayerFromCharacter(character)
-end
+local ANIME_SIDE_RESET_X = 1
+local DEFAULT_CALLBACK_PRIORITY = 0
 
 local function getCharacterRoot(player)
 	local character = player.Character
@@ -45,32 +33,87 @@ local function getBarrier()
 	return PathUtils.FindByPath(workspace, WallConfig.FinishBarrierPath)
 end
 
-local function isReturningFromAnimeSide(player, finishLine)
+local function getLocalX(player, finishLine)
 	local root = getCharacterRoot(player)
 	if not root then
-		return false
-	end
-
-	local localVelocity = finishLine.CFrame:VectorToObjectSpace(root.AssemblyLinearVelocity)
-	if localVelocity.X > -MIN_RETURN_SPEED then
-		return false
+		return nil
 	end
 
 	local localPosition = finishLine.CFrame:PointToObjectSpace(root.Position)
 
-	return localPosition.X >= ANIME_SIDE_MIN_X
+	return localPosition.X
+end
+
+local function initializePlayerCrossing(player, finishLine)
+	local localX = getLocalX(player, finishLine)
+	if not localX then return end
+
+	playerCrossingStates[player] = {
+		PreviousLocalX = localX,
+		Armed = localX >= ANIME_SIDE_MIN_X
+	}
+end
+
+local function bindPlayerCrossing(player, finishLine)
+	if player.Character then
+		task.defer(function()
+			initializePlayerCrossing(player, finishLine)
+		end)
+	end
+
+	player.CharacterAdded:Connect(function()
+		task.defer(function()
+			initializePlayerCrossing(player, finishLine)
+		end)
+	end)
 end
 
 local function notifyReturn(player)
-	for _, callback in ipairs(callbacks) do
-		task.spawn(callback, player)
+	for _, callbackData in ipairs(callbacks) do
+		local success, err = pcall(callbackData.Callback, player)
+		if not success then
+			warn(string.format("Finish barrier return callback failed for %s: %s", player.Name, tostring(err)))
+		end
 	end
 end
 
-function FinishBarrier.OnReturn(callback)
+local function updatePlayerCrossing(player, finishLine)
+	local localX = getLocalX(player, finishLine)
+	if not localX then
+		playerCrossingStates[player] = nil
+		return
+	end
+
+	local state = playerCrossingStates[player]
+	if not state then
+		initializePlayerCrossing(player, finishLine)
+		return
+	end
+
+	if localX >= ANIME_SIDE_RESET_X then
+		state.Armed = true
+	end
+
+	if state.Armed and localX < ANIME_SIDE_MIN_X then
+		state.Armed = false
+		notifyReturn(player)
+	end
+
+	state.PreviousLocalX = localX
+end
+
+function FinishBarrier.OnReturn(callback, priority)
 	assert(typeof(callback) == "function", "Finish barrier callback must be a function")
 
-	table.insert(callbacks, callback)
+	table.insert(callbacks, {
+		Callback = callback,
+		Priority = priority or DEFAULT_CALLBACK_PRIORITY
+	})
+
+	table.sort(callbacks, function(A, B)
+		return A.Priority > B.Priority
+	end)
+
 	FinishBarrier.Start()
 end
 
@@ -92,25 +135,23 @@ function FinishBarrier.Start()
 		return
 	end
 
-	barrier.Touched:Connect(function(hit)
-		local player = getPlayerFromHit(hit)
-		if not player or not isReturningFromAnimeSide(player, finishLine) then
-			return
-		end
+	for _, player in ipairs(Players:GetPlayers()) do
+		bindPlayerCrossing(player, finishLine)
+	end
 
-		local now = os.clock()
-		local lastTriggered = playerTriggeredAt[player]
-		if lastTriggered and now - lastTriggered < RETURN_DEBOUNCE then
-			return
-		end
+	Players.PlayerAdded:Connect(function(player)
+		bindPlayerCrossing(player, finishLine)
+	end)
 
-		playerTriggeredAt[player] = now
-		notifyReturn(player)
+	RunService.Heartbeat:Connect(function()
+		for _, player in ipairs(Players:GetPlayers()) do
+			updatePlayerCrossing(player, finishLine)
+		end
 	end)
 end
 
 Players.PlayerRemoving:Connect(function(player)
-	playerTriggeredAt[player] = nil
+	playerCrossingStates[player] = nil
 end)
 
 return FinishBarrier

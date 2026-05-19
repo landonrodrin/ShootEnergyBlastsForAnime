@@ -38,6 +38,12 @@ local DEFAULT_SPAWN_TIME_SCALE_MIN = 0.3
 local DEFAULT_SPAWN_TIME_SCALE_MAX = 1
 local THING_GUI_MAX_DISTANCE = 50
 local THING_CARRY_HOLD_DURATION = 0.5
+local PICK_UP_PROMPT_TEXT = "Pick Up"
+local CARRIED_THING_WELD_NAME = "CarriedThingWeld"
+local CARRIED_FORWARD_OFFSET = 0
+local CARRIED_BASE_VERTICAL_OFFSET = 6
+local CARRIED_STACK_PADDING = 2.75
+local CARRIED_PHYSICS_ATTRIBUTE_PREFIX = "CarriedOriginal"
 
 local function getSpawnZone(Area, AreaConfiguration)
 	if AreaConfiguration and AreaConfiguration.SpawnZonePath then
@@ -239,7 +245,7 @@ function Things.Setup()
 
 	FinishBarrier.OnReturn(function(Player)
 		Things.Zone(Player)
-	end)
+	end, 100)
 	
 	for Area, AreaConfiguration in pairs(AreasConfigurations) do
 		if AreaConfiguration.Enabled == false then continue end
@@ -430,11 +436,156 @@ function Things.Animate(Thing, AnimationId, Bool)
 	return AnimationTrack
 end
 
-function Things.Drop(Player)
-	local Carrying = PlayersModule.Retrieve(Player, "Carrying")
-	local Carried = PlayersModule.Retrieve(Player, "Carried")
+local function getThingGui(Thing)
+	local PrimaryPart = Thing and Thing.PrimaryPart
+	local ThingAttachment = PrimaryPart and PrimaryPart:FindFirstChild("ThingAttachment")
+	return ThingAttachment and ThingAttachment:FindFirstChild("ThingGui")
+end
 
-	if not Carrying or not Carried then return end
+local function resetThingTimer(Thing, ThingData, ThingConfiguration)
+	if not ThingData or not ThingConfiguration then return end
+
+	local BaseTime = ThingConfiguration.Time or 10
+	local TimeScale = ThingData.TimeScale or 1
+	local Time = math.max(1, math.floor(BaseTime * TimeScale))
+	ThingData.Time = Time
+
+	local ThingGui = getThingGui(Thing)
+	if ThingGui and ThingGui:FindFirstChild("Time") then
+		ThingGui.Time.Text = Format.Time(Time)
+		ThingGui.Time.Visible = true
+	end
+end
+
+local function removeCarryWelds(Player, Thing)
+	if Thing then
+		for _, Descendant in ipairs(Thing:GetDescendants()) do
+			if Descendant:IsA("WeldConstraint") and Descendant.Name == CARRIED_THING_WELD_NAME then
+				Descendant:Destroy()
+			end
+		end
+	end
+
+	local Character = Player.Character
+	local Root = Character and Character.PrimaryPart
+	if Root then
+		for _, Child in ipairs(Root:GetChildren()) do
+			if Child:IsA("WeldConstraint") and Child.Name == CARRIED_THING_WELD_NAME then
+				Child:Destroy()
+			end
+		end
+	end
+end
+
+local function setCarriedPhysics(Thing)
+	for _, Descendant in ipairs(Thing:GetDescendants()) do
+		if not Descendant:IsA("BasePart") then continue end
+
+		if Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Anchored") == nil then
+			Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Anchored", Descendant.Anchored)
+			Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanCollide", Descendant.CanCollide)
+			Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanTouch", Descendant.CanTouch)
+			Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanQuery", Descendant.CanQuery)
+			Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Massless", Descendant.Massless)
+		end
+
+		Descendant.Anchored = false
+		Descendant.CanCollide = false
+		Descendant.CanTouch = false
+		Descendant.CanQuery = false
+		Descendant.Massless = true
+	end
+end
+
+local function restoreThingPhysics(Thing)
+	for _, Descendant in ipairs(Thing:GetDescendants()) do
+		if not Descendant:IsA("BasePart") then continue end
+
+		local OriginalAnchored = Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Anchored")
+		local OriginalCanCollide = Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanCollide")
+		local OriginalCanTouch = Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanTouch")
+		local OriginalCanQuery = Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanQuery")
+		local OriginalMassless = Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Massless")
+
+		if OriginalAnchored ~= nil then Descendant.Anchored = OriginalAnchored end
+		if OriginalCanCollide ~= nil then Descendant.CanCollide = OriginalCanCollide end
+		if OriginalCanTouch ~= nil then Descendant.CanTouch = OriginalCanTouch end
+		if OriginalCanQuery ~= nil then Descendant.CanQuery = OriginalCanQuery end
+		if OriginalMassless ~= nil then Descendant.Massless = OriginalMassless end
+
+		Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Anchored", nil)
+		Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanCollide", nil)
+		Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanTouch", nil)
+		Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanQuery", nil)
+		Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Massless", nil)
+
+		Descendant.CollisionGroup = "Things"
+	end
+end
+
+local function getCarryCFrame(Character, Thing, StackIndex)
+	local Root = Character and Character.PrimaryPart
+	if not Root then return end
+
+	local _, Size = Thing:GetBoundingBox()
+	local StackOffset = math.max(Size.Y * 0.55 + CARRIED_STACK_PADDING, 1.25) * math.max((StackIndex or 1) - 1, 0)
+	local Position = (Root.CFrame * CFrame.new(0, CARRIED_BASE_VERTICAL_OFFSET + StackOffset, CARRIED_FORWARD_OFFSET)).Position
+
+	return CFrame.lookAt(Position, Position + Root.CFrame.LookVector)
+end
+
+local function weldThingToPlayer(Player, Thing, StackIndex)
+	local Character = Player.Character
+	local Root = Character and Character.PrimaryPart
+	if not Root or not Thing.PrimaryPart then return end
+
+	removeCarryWelds(Player, Thing)
+	setCarriedPhysics(Thing)
+
+	local CarryCFrame = getCarryCFrame(Character, Thing, StackIndex)
+	if CarryCFrame then
+		Thing:PivotTo(CarryCFrame)
+	end
+
+	local WeldConstraint = Instance.new("WeldConstraint")
+	WeldConstraint.Name = CARRIED_THING_WELD_NAME
+	WeldConstraint.Part0 = Thing.PrimaryPart
+	WeldConstraint.Part1 = Root
+	WeldConstraint.Parent = Thing.PrimaryPart
+end
+
+local function refreshCarriedThingPositions(Player, Carrying)
+	for Index, Thing in ipairs(Carrying or {}) do
+		if Thing and Thing.Parent and Thing.PrimaryPart then
+			weldThingToPlayer(Player, Thing, Index)
+		end
+	end
+end
+
+local function alignDroppedThingToGround(Player, Thing, ThingConfiguration)
+	local Character = Player.Character
+	local Root = Character and Character.PrimaryPart
+	local Origin = (Thing:GetPivot().Position) + Vector3.new(0, 8, 0)
+	local RaycastParameters = RaycastParams.new()
+	RaycastParameters.FilterType = Enum.RaycastFilterType.Exclude
+	RaycastParameters.FilterDescendantsInstances = {Thing, Character}
+
+	local Result = workspace:Raycast(Origin, Vector3.new(0, -80, 0), RaycastParameters)
+	if Result then
+		Grounding.AlignBottomToY(Thing, Result.Position.Y, ThingConfiguration)
+	elseif Root then
+		Thing:PivotTo(CFrame.lookAt(Root.Position + Root.CFrame.LookVector * 2, Root.Position + Root.CFrame.LookVector * 3))
+	end
+end
+
+function Things.Drop(Player, ResetTimers)
+	if ResetTimers == nil then
+		ResetTimers = true
+	end
+
+	local Carrying = PlayersModule.Retrieve(Player, "Carrying")
+
+	if not Carrying then return end
 
 	DropEvent:FireClient(Player, false)
 	
@@ -447,50 +598,40 @@ function Things.Drop(Player)
 			continue
 		end
 
-		local ThingAttachment = Thing.PrimaryPart:WaitForChild("ThingAttachment")
-		local ThingGui = ThingAttachment:WaitForChild("ThingGui")
+		removeCarryWelds(Player, Thing)
 
-		ThingGui.Carried.Visible = false
-
-		for _, Descendant in ipairs(Thing:GetDescendants()) do
-			if not Descendant:IsA("BasePart") then continue end
-
-			local Transparency = Descendant:GetAttribute("Transparency")
-			if not Transparency then continue end
-
-			Descendant.Transparency = Transparency
-
-			Descendant:SetAttribute("Transparency", nil)
+		local ThingsFolder = workspace:FindFirstChild("Things")
+		if ThingsFolder then
+			Thing.Parent = ThingsFolder
 		end
+
+		restoreThingPhysics(Thing)
+		alignDroppedThingToGround(Player, Thing, ThingConfiguration)
 
 		local ProximityPrompt = Thing.PrimaryPart:FindFirstChild("ProximityPrompt")
 		if ProximityPrompt then
-			SetProperties.AllClients(ProximityPrompt, {Enabled = true, ActionText = "Carry"})
+			SetProperties.AllClients(ProximityPrompt, {Enabled = true, ActionText = PICK_UP_PROMPT_TEXT})
+		end
+
+		local ThingGui = getThingGui(Thing)
+		if ThingGui and ThingGui:FindFirstChild("Carried") then
+			ThingGui.Carried.Visible = false
 		end
 
 		ThingData.Carried = nil
-	end
-
-	for _, Thing in ipairs(Carried) do
-		local Data = ThingsData[Thing]
-		if not Data then continue end
-
-		local Character = Player.Character or Player.CharacterAdded:Wait()
-
-		local WeldConstraint = Character.PrimaryPart:FindFirstChild("WeldConstraint")
-		if WeldConstraint then
-			WeldConstraint:Destroy()
+		if ResetTimers then
+			resetThingTimer(Thing, ThingData, ThingConfiguration)
 		end
-
-		Data:Destroy()
 	end
 
 	for _, Thing in ipairs(workspace.Things:GetChildren()) do
 		task.spawn(function()
+			if not Thing.PrimaryPart then return end
+
 			local OtherProximityPrompt = Thing.PrimaryPart:FindFirstChild("ProximityPrompt")
 			if not OtherProximityPrompt then return end
 
-			SetProperties.Client(Player, OtherProximityPrompt, {Enabled = true, ActionText = "Carry"})
+			SetProperties.Client(Player, OtherProximityPrompt, {Enabled = true, ActionText = PICK_UP_PROMPT_TEXT})
 
 			for _, OtherPlayer in ipairs(Players:GetPlayers()) do
 				local Carrying = PlayersModule.Retrieve(OtherPlayer, "Carrying")
@@ -511,23 +652,32 @@ function Things.Zone(Player)
 	local Carrying = PlayersModule.Retrieve(Player, "Carrying")
 	if not Carrying then return end
 
-	Things.Drop(Player)
-
+	local ReturningThings = {}
 	for _, Thing in ipairs(Carrying) do
-		task.spawn(function()
-			local Name = Thing.Name
-			local ThingConfiguration = ThingsConfigurations[Name]
+		local Name = Thing.Name
+		local ThingConfiguration = ThingsConfigurations[Name]
+		local Data = ThingsData[Thing]
 
-			local Data = ThingsData[Thing]
-			if not Data then return end
+		if ThingConfiguration and Data then
+			table.insert(ReturningThings, {
+				Thing = Thing,
+				Name = Name,
+				ThingConfiguration = ThingConfiguration,
+				Mutation = Data.Mutation,
+				Level = Data.Level or 1
+			})
+		end
+	end
 
-			local Mutation = Data.Mutation
-			local Level = Data.Level or 1
-			
-			Data:Destroy()
+	Things.Drop(Player, false)
 
-			PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level)
-		end)
+	for _, ThingData in ipairs(ReturningThings) do
+		local Data = ThingsData[ThingData.Thing]
+		if not Data then continue end
+
+		Data:Destroy()
+
+		PlayersModule.Tool(Player, ThingData.Name, ThingData.ThingConfiguration, ThingData.Mutation, ThingData.Level, true)
 	end
 end
 
@@ -695,11 +845,11 @@ function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutat
 
 	ThingGui = ThingGui:Clone()
 
-	ThingGui.Mutation.LayoutOrder = 0
-	ThingGui.Thing.LayoutOrder = 1
+	ThingGui.Time.LayoutOrder = 0
+	ThingGui.Mutation.LayoutOrder = 1
 	ThingGui.Area.LayoutOrder = 2
-	ThingGui.Money.LayoutOrder = 3
-	ThingGui.Time.LayoutOrder = 4
+	ThingGui.Thing.LayoutOrder = 3
+	ThingGui.Money.LayoutOrder = 4
 
 	for _, LabelName in ipairs({"Mutation", "Thing", "Area", "Money", "Time"}) do
 		local Label = ThingGui:FindFirstChild(LabelName)
@@ -858,29 +1008,26 @@ function Things:Spawn()
 	Thing:PivotTo(TargetCFrame)
 	Grounding.AlignBottomToSurface(Thing, SpawnZone, ThingConfiguration)
 
-	local IdleTrack = Things.Animate(Thing, ThingConfiguration.AnimationsIds.Idle, true)
+	local _IdleTrack = Things.Animate(Thing, ThingConfiguration.AnimationsIds.Idle, true)
 	Grounding.AlignBottomToSurfaceAfterAnimation(Thing, SpawnZone, ThingConfiguration)
 
 	local ProximityPrompt = Instance.new("ProximityPrompt")
 	ProximityPrompt.Enabled = true
-	ProximityPrompt.ActionText = "Carry"
+	ProximityPrompt.ActionText = PICK_UP_PROMPT_TEXT
 	ProximityPrompt.HoldDuration = THING_CARRY_HOLD_DURATION
 	ProximityPrompt.ObjectText = Thing.Name
 	ProximityPrompt.RequiresLineOfSight = false
 	ProximityPrompt.Parent = Thing.PrimaryPart
 
-	SetProperties.AllClients(ProximityPrompt, {Enabled = true, ActionText = "Carry"})
+	SetProperties.AllClients(ProximityPrompt, {Enabled = true, ActionText = PICK_UP_PROMPT_TEXT})
 
 	for _, Player in ipairs(Players:GetPlayers()) do
 		local Carrying = PlayersModule.Retrieve(Player, "Carrying")
 		if not Carrying then continue end
 
-		local Carried = PlayersModule.Retrieve(Player, "Carried")
-		if not Carried then continue end
-
 		if #Carrying < PlayersModule.Retrieve(Player, "Carry") then continue end
 
-		SetProperties.Client(Player, ProximityPrompt, {ActionText = "Drop"})
+		SetProperties.Client(Player, ProximityPrompt, {Enabled = false, ActionText = PICK_UP_PROMPT_TEXT})
 	end
 
 	ProximityPrompt.Triggered:Connect(function(Player)
@@ -896,19 +1043,17 @@ function Things:Spawn()
 		end
 
 		local Carrying = PlayersModule.Retrieve(Player, "Carrying")
-		local Carried = PlayersModule.Retrieve(Player, "Carried")
 
-		if Carrying and #Carrying >= PlayersModule.Retrieve(Player, "Carry") and Carried and #Carried >= PlayersModule.Retrieve(Player, "Carry") then
+		if Carrying and table.find(Carrying, Thing) then
 			Things.Drop(Player)
 
 			return
-		elseif Carrying and table.find(Carrying, Thing) and #Carrying < PlayersModule.Retrieve(Player, "Carry") then
+		elseif Carrying and #Carrying >= PlayersModule.Retrieve(Player, "Carry") then
 			Things.Drop(Player)
 
 			return
-		elseif not Carrying and not Carried then
+		elseif not Carrying then
 			Carrying = {}
-			Carried = {}
 		end
 
 		table.insert(Carrying, Thing)
@@ -921,117 +1066,31 @@ function Things:Spawn()
 
 		PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, true)
 
-		local ThingAttachment = Thing.PrimaryPart:WaitForChild("ThingAttachment")
-		local ThingGui = ThingAttachment:WaitForChild("ThingGui")
-
-		ThingGui.Carried.Visible = true
+		local ThingGui = getThingGui(Thing)
+		if ThingGui and ThingGui:FindFirstChild("Time") then
+			ThingGui.Time.Visible = false
+		end
 
 		for _, OtherThing in ipairs(workspace.Things:GetChildren()) do
 			task.spawn(function()
+				if not OtherThing.PrimaryPart then return end
+
 				local OtherProximityPrompt = OtherThing.PrimaryPart:FindFirstChild("ProximityPrompt")
 				if not OtherProximityPrompt then return end
 
 				if OtherProximityPrompt == ProximityPrompt then
-					SetProperties.AllClients(OtherProximityPrompt, {Enabled = false})
-
-					SetProperties.Client(Player, OtherProximityPrompt, {ActionText = "Drop"})
-
-					SetProperties.Client(Player, OtherProximityPrompt, {Enabled = true})
+					SetProperties.AllClients(OtherProximityPrompt, {Enabled = false, ActionText = PICK_UP_PROMPT_TEXT})
 
 					return
 				end
 
 				if #Carrying < PlayersModule.Retrieve(Player, "Carry") then return end
 
-				SetProperties.Client(Player, OtherProximityPrompt, {Enabled = false, ActionText = "Drop"})
-
-				task.wait()
-
-				SetProperties.Client(Player, OtherProximityPrompt, {Enabled = true})
+				SetProperties.Client(Player, OtherProximityPrompt, {Enabled = false, ActionText = PICK_UP_PROMPT_TEXT})
 			end)
 		end
 
-		for _, Descendant in ipairs(Thing:GetDescendants()) do
-			if not Descendant:IsA("BasePart") then continue end
-
-			if Descendant.Transparency >= 0.5 then continue end
-
-			Descendant:SetAttribute("Transparency", Descendant.Transparency)
-
-			Descendant.Transparency = 0.5
-		end
-
-		local Mutation = self.Mutation
-		local MutationConfiguration = MutationsConfigurations[Mutation]
-		
-		local Level = self.Level or 1
-		
-		local Character = Player.Character or Player.CharacterAdded:Wait()
-
-		local Humanoid = Character:WaitForChild("Humanoid")
-
-		local CarriedThing = Things.Create(AreaName, AreaConfiguration, Thing.Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
-		if not CarriedThing then return end
-
-		CarriedThing.Parent = Character.PrimaryPart
-
-		local YOffset = 0
-
-		if Carried and #Carried > 0 then
-			for _, OtherThing in ipairs(Carried) do
-				local ThingConfiguration = ThingsConfigurations[OtherThing.Name]
-
-				local ThingAttachment = OtherThing.PrimaryPart:WaitForChild("ThingAttachment")
-				local ThingGui = ThingAttachment:WaitForChild("ThingGui")
-
-				ThingGui.Enabled = false
-
-				YOffset += ThingConfiguration.YOffset * 2 + 1
-			end
-		end
-
-		local TargetCFrame = Character.PrimaryPart.CFrame + Vector3.new(0, Humanoid.HipHeight + Character.PrimaryPart.Size.Y / 2 + ThingConfiguration.YOffset + YOffset + 1, 0)
-
-		CarriedThing:PivotTo(TargetCFrame)
-
-		local IdleTrack = Things.Animate(CarriedThing, ThingConfiguration.AnimationsIds.Idle, true)
-
-		local WeldConstraint = Instance.new("WeldConstraint")
-		WeldConstraint.Part0 = CarriedThing.PrimaryPart
-		WeldConstraint.Part1 = Character.PrimaryPart
-		WeldConstraint.Parent = Character.PrimaryPart
-
-		for _, Descendant in ipairs(CarriedThing:GetDescendants()) do
-			if Descendant:IsA("BasePart") then
-				if not IdleTrack and Descendant ~= CarriedThing.PrimaryPart then
-					local WeldConstraint = Instance.new("WeldConstraint")
-					WeldConstraint.Part0 = Descendant
-					WeldConstraint.Part1 = CarriedThing.PrimaryPart
-					WeldConstraint.Parent = Descendant
-				end
-
-				Descendant.Massless = true
-				Descendant.Anchored = false
-				Descendant.CanCollide = false
-
-				if Descendant.Transparency >= 0.5 then continue end
-
-				Descendant.Transparency = 0.5
-			elseif Descendant:IsA("Motor6D") then
-				if not IdleTrack then
-					Descendant.Enabled = false
-				end
-			end
-		end
-
-		local ThingAttachment = CarriedThing.PrimaryPart:WaitForChild("ThingAttachment")
-		local ThingGui = ThingAttachment:WaitForChild("ThingGui")
-
-		ThingGui.Carried.Visible = true
-
-		table.insert(Carried, CarriedThing)
-
-		PlayersModule.Replace(Player, "Carried", Carried)
+		refreshCarriedThingPositions(Player, Carrying)
 		
 		DropEvent:FireClient(Player, true)
 	end)
@@ -1041,11 +1100,9 @@ function Things:Spawn()
 
 	local BaseTime = ThingConfiguration.Time or 10
 	local TimeScale = self.TimeScale or 1
-	local Time = math.max(1, math.floor(BaseTime * TimeScale))
+	self.Time = math.max(1, math.floor(BaseTime * TimeScale))
 
-	ThingGui.Time.Text = Format.Time(Time)
-
-	self.Time = Time
+	ThingGui.Time.Text = Format.Time(self.Time)
 
 	task.spawn(function()
 		while Thing and Thing.Parent do
@@ -1059,15 +1116,15 @@ function Things:Spawn()
 
 			if not Thing or not Thing.Parent then break end
 
-			Time -= 1
+			self.Time = (self.Time or 0) - 1
 
-			if Time <= 0 then
+			if self.Time <= 0 then
 				self:Destroy()
 
 				break
 			end
 
-			ThingGui.Time.Text = Format.Time(Time)
+			ThingGui.Time.Text = Format.Time(self.Time)
 		end
 	end)
 
@@ -1076,13 +1133,11 @@ end
 
 function Things:Destroy()
 	local Thing = self.Thing
-
-	Thing:Destroy()
-	Thing = nil
-
-	if not ThingsData[Thing] then return end
+	if not Thing then return end
 
 	ThingsData[Thing] = nil
+	Thing:Destroy()
+	self.Thing = nil
 end
 
 return Things

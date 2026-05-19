@@ -2,6 +2,7 @@
   "ClassName": "Folder",
   "Children": [
     {"Name": "Announcement", "ClassName": "RemoteEvent"},
+    {"Name": "AnimeUnlocked", "ClassName": "RemoteEvent"},
     {"Name": "Carry", "ClassName": "RemoteEvent"},
     {"Name": "Drop", "ClassName": "RemoteEvent"},
     {"Name": "IncrementCarry", "ClassName": "RemoteEvent"},
@@ -11,6 +12,7 @@
     {"Name": "Level", "ClassName": "RemoteEvent"},
     {"Name": "Money", "ClassName": "RemoteEvent"},
     {"Name": "Rebirth", "ClassName": "RemoteEvent"},
+    {"Name": "AdminCommand", "ClassName": "RemoteEvent"},
     {"Name": "SetProperties", "ClassName": "RemoteEvent"},
     {"Name": "ShootWall", "ClassName": "RemoteEvent"},
     {"Name": "Speed", "ClassName": "RemoteEvent"},

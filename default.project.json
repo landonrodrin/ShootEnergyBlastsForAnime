@@ -5,6 +5,7 @@
 
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
+      "$ignoreUnknownInstances": true,
       "Shared": {
         "$className": "Folder",
         "$path": "src/ReplicatedStorage/Shared"
@@ -49,6 +50,25 @@
       "Network": {
         "$className": "Folder",
         "$path": "src/ServerStorage/Network"
+      }
+    },
+
+    "StarterGui": {
+      "$className": "StarterGui",
+      "$ignoreUnknownInstances": true,
+      "AnnouncementGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Announcement": {
+          "$path": "src/StarterGui/Announcement.client.lua"
+        }
+      },
+      "AnimeUnlockGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "AnimeUnlock": {
+          "$path": "src/StarterGui/AnimeUnlock.client.lua"
+        }
       }
     },
 

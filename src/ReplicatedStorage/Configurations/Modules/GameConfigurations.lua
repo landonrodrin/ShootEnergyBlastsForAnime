@@ -11,7 +11,8 @@ local GameConfigurations = {
 	},
 	
 	AnimationsIds = {
-		Carry = "rbxassetid://127214102510136"
+		Carry = "rbxassetid://127214102510136",
+		OwnedHold = "rbxassetid://121708008252120"
 	},
 	
 	ProductsIds = {
