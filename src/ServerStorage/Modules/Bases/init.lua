@@ -31,10 +31,6 @@ local BASE_SLOT_PROMPT_HOLD_DURATION = 0.5
 local PICK_UP_PROMPT_TEXT = "Pick Up"
 local INSUFFICIENT_FUNDS_TEXT = "Insufficient Funds"
 local INSUFFICIENT_FUNDS_COLOUR = Color3.fromRGB(255, 0, 0)
-local BASE_LEVEL_GUI_SIDES = {
-	{Face = Enum.NormalId.Front, Name = "BaseLevelGuiFront"},
-	{Face = Enum.NormalId.Back, Name = "BaseLevelGuiBack"}
-}
 
 local BasesData = {}
 
@@ -79,41 +75,33 @@ local function showBaseLevelPartForPlayer(Player, Base)
 end
 
 local function removeBaseLevelGuis(Base)
-	for _, Side in ipairs(BASE_LEVEL_GUI_SIDES) do
-		local BaseLevelGui = Base.Level:FindFirstChild(Side.Name)
-		if BaseLevelGui then
-			BaseLevelGui:Destroy()
-		end
-	end
-
-	local LegacyBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
-	if LegacyBaseLevelGui then
-		LegacyBaseLevelGui:Destroy()
+	for _, GuiName in ipairs({"BaseLevelGui", "BaseLevelGuiFront", "BaseLevelGuiBack"}) do
+		local BaseLevelGui = Base.Level:FindFirstChild(GuiName)
+		if BaseLevelGui then BaseLevelGui:Destroy() end
 	end
 end
 
-local function getBaseLevelGuis(Base)
-	local Guis = {}
-
-	for _, Side in ipairs(BASE_LEVEL_GUI_SIDES) do
-		local BaseLevelGui = Base.Level:FindFirstChild(Side.Name)
-		if not BaseLevelGui then
-			BaseLevelGui = script.Resources:WaitForChild("BaseLevelGui"):Clone()
-			BaseLevelGui.Name = Side.Name
-			BaseLevelGui.Face = Side.Face
-			BaseLevelGui.Parent = Base:WaitForChild("Level")
-		end
-
-		BaseLevelGui.Face = Side.Face
-		table.insert(Guis, BaseLevelGui)
+local function getBaseLevelGui(Base)
+	local BaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
+	if not BaseLevelGui then
+		BaseLevelGui = script.Resources:WaitForChild("BaseLevelGui"):Clone()
+		BaseLevelGui.Name = "BaseLevelGui"
+		BaseLevelGui.Parent = Base:WaitForChild("Level")
 	end
 
-	local LegacyBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
-	if LegacyBaseLevelGui then
-		LegacyBaseLevelGui:Destroy()
+	BaseLevelGui.Face = Enum.NormalId.Front
+
+	local BackBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGuiBack")
+	if BackBaseLevelGui then
+		BackBaseLevelGui:Destroy()
 	end
 
-	return Guis
+	local FrontBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGuiFront")
+	if FrontBaseLevelGui then
+		FrontBaseLevelGui:Destroy()
+	end
+
+	return BaseLevelGui
 end
 
 local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
@@ -125,29 +113,29 @@ local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
 
 	local LevelLabel = Button:FindFirstChild("Level")
 	local MoneyLabel = Button:FindFirstChild("Money")
-	local ArrowLabel = Button:FindFirstChild("Arrow")
+	local UpgradeImage = Button:FindFirstChild("ImageLabel")
 
 	if State == "Max" then
 		Button.Active = false
 		Button.AutoButtonColor = false
 
 		if LevelLabel and LevelLabel:IsA("TextLabel") then
-			LevelLabel.Text = "Max Level"
+			LevelLabel.Text = "Base: Max Level"
 		end
 
 		if MoneyLabel and MoneyLabel:IsA("GuiObject") then
 			MoneyLabel.Visible = false
 		end
 
-		if ArrowLabel and ArrowLabel:IsA("GuiObject") then
-			ArrowLabel.Visible = false
+		if UpgradeImage and UpgradeImage:IsA("GuiObject") then
+			UpgradeImage.Visible = false
 		end
 	else
 		Button.Active = true
 		Button.AutoButtonColor = true
 
 		if LevelLabel and LevelLabel:IsA("TextLabel") then
-			LevelLabel.Text = string.format("Level %s > Level %s", Level, Level + 1)
+			LevelLabel.Text = string.format("Base: Lvl. %s", Level)
 		end
 
 		if MoneyLabel and MoneyLabel:IsA("TextLabel") then
@@ -155,8 +143,8 @@ local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
 			MoneyLabel.Visible = true
 		end
 
-		if ArrowLabel and ArrowLabel:IsA("GuiObject") then
-			ArrowLabel.Visible = true
+		if UpgradeImage and UpgradeImage:IsA("GuiObject") then
+			UpgradeImage.Visible = true
 		end
 	end
 end
@@ -489,7 +477,7 @@ end
 function Bases.Level(PlayerData, Base)
 	local Player = PlayerData.Player
 	local Level = PlayerData.Level
-	local BaseLevelGuis = getBaseLevelGuis(Base)
+	local BaseLevelGui = getBaseLevelGui(Base)
 
 	if not BaseConfigurations[Level + 1] then
 		if BasesData[Base] then
@@ -503,20 +491,16 @@ function Bases.Level(PlayerData, Base)
 
 		showBaseLevelPartForPlayer(Player, Base)
 
-		for _, BaseLevelGui in ipairs(BaseLevelGuis) do
-			configureBaseLevelGui(BaseLevelGui, "Max")
-			SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
-			LevelEvent:FireClient(Player, BaseLevelGui)
-		end
+		configureBaseLevelGui(BaseLevelGui, "Max")
+		SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
+		LevelEvent:FireClient(Player, BaseLevelGui)
 	elseif BaseConfigurations[Level + 1] then
 		showBaseLevelPartForPlayer(Player, Base)
 
 		local Money = BaseConfigurations[Level + 1].Money
 
-		for _, BaseLevelGui in ipairs(BaseLevelGuis) do
-			configureBaseLevelGui(BaseLevelGui, "Upgrade", Level, Money)
-			SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
-		end
+		configureBaseLevelGui(BaseLevelGui, "Upgrade", Level, Money)
+		SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
 
 		task.delay(BASE_LEVEL_BIND_DELAY, function()
 			if not BasesData[Base] or BasesData[Base].Player ~= Player then return end
@@ -561,10 +545,8 @@ function Bases.Level(PlayerData, Base)
 				ReplacePlayerDataEvent:Fire(Player, "Level", Level)
 			end)
 
-			for _, BaseLevelGui in ipairs(BaseLevelGuis) do
-				if BaseLevelGui.Parent then
-					LevelEvent:FireClient(Player, BaseLevelGui, Identifier)
-				end
+			if BaseLevelGui.Parent then
+				LevelEvent:FireClient(Player, BaseLevelGui, Identifier)
 			end
 		end)
 	end

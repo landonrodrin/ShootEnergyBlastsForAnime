@@ -3,6 +3,8 @@
 *.rbxlx
 *.rbxm
 *.rbxmx
+!src/ServerStorage/Modules/*/Resources/
+!src/ServerStorage/Modules/*/Resources/*.rbxm
 
 # Tooling
 .vscode/

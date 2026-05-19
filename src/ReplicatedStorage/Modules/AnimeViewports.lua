@@ -64,4 +64,40 @@ function AnimeViewports.ReplacePlaceholder(Placeholder, Name, Mutation)
 	return Viewport
 end
 
+function AnimeViewports.Mount(Placeholder, Name, Mutation, Options)
+	if not (Placeholder and Placeholder:IsA("GuiObject")) then return nil end
+
+	local Viewport = AnimeViewports.Clone(Name, Mutation)
+	if not Viewport then return nil end
+
+	Options = Options or {}
+
+	for _, Child in ipairs(Placeholder:GetChildren()) do
+		if Child:IsA("ViewportFrame") and Child.Name == "AnimeViewport" then
+			Child:Destroy()
+		end
+	end
+
+	if Placeholder:IsA("ImageLabel") or Placeholder:IsA("ImageButton") then
+		Placeholder.Image = ""
+	end
+
+	Viewport.Name = "AnimeViewport"
+	Viewport.AnchorPoint = Vector2.new(0.5, 0.5)
+	Viewport.Position = UDim2.fromScale(0.5, 0.5)
+	Viewport.Size = UDim2.fromScale(1, 1)
+	Viewport.LayoutOrder = 0
+	Viewport.ZIndex = Placeholder.ZIndex + 1
+	Viewport.BackgroundTransparency = 1
+	Viewport.Parent = Placeholder
+
+	if Options.Silhouette then
+		Viewport.ImageColor3 = Color3.fromRGB(0, 0, 0)
+		Viewport.Ambient = Color3.fromRGB(0, 0, 0)
+		Viewport.LightColor = Color3.fromRGB(0, 0, 0)
+	end
+
+	return Viewport
+end
+
 return AnimeViewports

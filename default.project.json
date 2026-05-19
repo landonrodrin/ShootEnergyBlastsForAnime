@@ -69,6 +69,22 @@
         "AnimeUnlock": {
           "$path": "src/StarterGui/AnimeUnlock.client.lua"
         }
+      },
+      "IndexGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Index": {
+          "$path": "src/StarterGui/Index.client.lua",
+          "$ignoreUnknownInstances": true
+        }
+      },
+      "SellsGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Sells": {
+          "$path": "src/StarterGui/Sells.client.lua",
+          "$ignoreUnknownInstances": true
+        }
       }
     },
 
