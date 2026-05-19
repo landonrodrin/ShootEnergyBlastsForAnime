@@ -116,7 +116,12 @@ local function isNearSellStation(Player)
 	return (PrimaryPart.Position - Station.Position).Magnitude <= SELL_STATION_DISTANCE
 end
 
-local function getToolSellValue(Name, Mutation, Level)
+local function getRebirthMultiplier(Rebirths)
+	local RebirthConfiguration = RebirthsConfigurations[Rebirths]
+	return RebirthConfiguration and RebirthConfiguration.Multiplier or 1
+end
+
+local function getToolSellValue(Name, Mutation, Level, Rebirths)
 	local ThingConfiguration = ThingsConfigurations[Name]
 	if not ThingConfiguration then return 0 end
 
@@ -125,8 +130,9 @@ local function getToolSellValue(Name, Mutation, Level)
 
 	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
 	local Multiplier = MutationConfiguration.Multiplier or 1
+	local RebirthMultiplier = getRebirthMultiplier(Rebirths)
 
-	return math.round((LevelConfiguration.Sell or 0) * Multiplier)
+	return math.round(((LevelConfiguration.Money or 0) * Multiplier * RebirthMultiplier) / 2)
 end
 
 local function normalizeHotbarOrder(PlayerData)
@@ -454,7 +460,7 @@ local function applyHeldMutationVisual(Model, Mutation)
 	end
 end
 
-local function createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level)
+local function createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level, RebirthMultiplier)
 	local PrimaryPart = Model.PrimaryPart
 	if not PrimaryPart then return end
 
@@ -489,11 +495,12 @@ local function createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Lev
 	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
 	local Multiplier = MutationConfiguration.Multiplier or 1
 	local LevelConfiguration = ThingConfiguration.Levels and ThingConfiguration.Levels[Level] or {}
+	RebirthMultiplier = RebirthMultiplier or 1
 
 	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Name, Level)
 	ThingGui.Area.Text = Area or ""
 	ThingGui.Area.TextColor3 = AreaConfiguration and AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
-	ThingGui.Money.Text = string.format("$%s/s", Format.Number((LevelConfiguration.Money or 0) * Multiplier))
+	ThingGui.Money.Text = string.format("$%s/s", Format.Number((LevelConfiguration.Money or 0) * Multiplier * RebirthMultiplier))
 	ThingGui.Money.Visible = true
 
 	if Mutation and Mutation ~= "Default" then
@@ -576,7 +583,9 @@ local function createHeldModel(Player, Name, Mutation, Level)
 
 	weldLooseVisualParts(Model, PrimaryPart)
 	applyHeldMutationVisual(Model, Mutation)
-	createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level)
+	local PlayerData = PlayersData[Player]
+	local RebirthMultiplier = getRebirthMultiplier(PlayerData and PlayerData.Rebirths or 0)
+	createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level, RebirthMultiplier)
 
 	Model:PivotTo(getHeldAnimeCFrame(Root))
 
@@ -647,7 +656,7 @@ local function getInventorySnapshot(Player)
 			Name = ToolData.Name,
 			Mutation = ToolData.Mutation,
 			Level = ToolData.Level or 1,
-			Sell = getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1)
+			Sell = getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
 		})
 	end
 
@@ -1115,14 +1124,14 @@ function PlayersModule.Setup()
 			local Index, ToolData = findToolDataById(Player, Id)
 			if not Index or not ToolData then return end
 
-			Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1)
+			Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
 			removeToolData(Player, Index, ToolData)
 		elseif Mode == "All" then
 			for Index = #PlayerData.Tools, 1, -1 do
 				local ToolData = PlayerData.Tools[Index]
 				if not ToolData or not ThingsConfigurations[ToolData.Name] then continue end
 
-				Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1)
+				Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
 				removeToolData(Player, Index, ToolData)
 			end
 		end
@@ -1193,8 +1202,7 @@ function PlayersModule.Replace(Player, Name, Value)
 	elseif Name == "Rebirths" then
 		RebirthEvent:FireClient(Player, Value, PlayerData.Speed)
 		
-		local RebirthConfiguration = RebirthsConfigurations[PlayerData.Rebirths]
-		local RebirthMultiplier = RebirthConfiguration and RebirthConfiguration.Multiplier or 1
+		local RebirthMultiplier = getRebirthMultiplier(PlayerData.Rebirths)
 
 		if PlayerData.Base and PlayerData.Base:FindFirstChild("Data") and PlayerData.Base.Data:FindFirstChild("DataGui") then
 			PlayerData.Base.Data.DataGui.Rebirths.Text = string.format("Rebirth %s (%sx $)", PlayerData.Rebirths, RebirthMultiplier)
@@ -1224,6 +1232,9 @@ function PlayersModule.Replace(Player, Name, Value)
 		if PlayerData.Base and PlayerData.Base:FindFirstChild("Data") and PlayerData.Base.Data:FindFirstChild("DataGui") then
 			PlayerData.Base.Data.DataGui.MoneyPerSecond.Text = string.format("%s/s", Format.Number(MoneyPerSecond))
 		end
+
+		Bases.RefreshPlayerEconomyDisplays(Player)
+		syncInventory(Player)
 	elseif Name == "Level" then
 		local Base = PlayerData.Base
 

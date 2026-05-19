@@ -36,11 +36,54 @@ local BasesData = {}
 
 local Bases = {}
 
-local function getBaseSellPromptText(ThingConfiguration, Level)
+local function getPlayerRebirthMultiplier(Player)
+	local Rebirths = RetrievePlayerDataFunction:Invoke(Player, "Rebirths") or 0
+	local RebirthConfiguration = RebirthsConfigurations[Rebirths]
+	return RebirthConfiguration and RebirthConfiguration.Multiplier or 1
+end
+
+local function getBaseIncomeValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
 	local LevelConfiguration = ThingConfiguration and ThingConfiguration.Levels and ThingConfiguration.Levels[Level]
-	local Sell = LevelConfiguration and LevelConfiguration.Sell or 0
+	if not LevelConfiguration then return 0 end
+
+	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
+	local Multiplier = MutationConfiguration.Multiplier or 1
+	RebirthMultiplier = RebirthMultiplier or 1
+
+	return (LevelConfiguration.Money or 0) * Multiplier * RebirthMultiplier
+end
+
+local function getBaseSellValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	return math.round(getBaseIncomeValue(ThingConfiguration, Level, Mutation, RebirthMultiplier) / 2)
+end
+
+local function getBaseSellPromptText(ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	local Sell = getBaseSellValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
 
 	return string.format("Sell: $%s", Format.Number(Sell))
+end
+
+local function getThingGui(Thing)
+	local PrimaryPart = Thing and Thing.PrimaryPart
+	local ThingAttachment = PrimaryPart and PrimaryPart:FindFirstChild("ThingAttachment")
+	return ThingAttachment and ThingAttachment:FindFirstChild("ThingGui")
+end
+
+local function updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	local ThingGui = getThingGui(Thing)
+	if not (ThingGui and ThingGui:FindFirstChild("Money")) then return end
+
+	local Money = getBaseIncomeValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	ThingGui.Money.Text = string.format("$%s/s", Format.Number(Money))
+	ThingGui.Money.Visible = true
+end
+
+local function updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	local Attachment = Slot and Slot:FindFirstChild("Spawn") and Slot.Spawn:FindFirstChild("Attachment")
+	local SellProximityPrompt = Attachment and Attachment:FindFirstChild("SellProximityPrompt")
+	if not SellProximityPrompt then return end
+
+	SellProximityPrompt.ActionText = getBaseSellPromptText(ThingConfiguration, Level, Mutation, RebirthMultiplier)
 end
 
 local function getBaseConfiguration(Level)
@@ -386,11 +429,14 @@ function Bases.Setup()
 					local ThingConfiguration = ThingsConfigurations[Name]
 					if not ThingConfiguration then return end
 
-					Bases.Remove(Base, Slot)
-
 					local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
+					if not Level then Level = 1 end
 
-					local Sell = ThingConfiguration.Levels[Level].Sell or 0
+					local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+
+					local Sell = getBaseSellValue(ThingConfiguration, Level, Mutation, getPlayerRebirthMultiplier(Player))
+
+					Bases.Remove(Base, Slot)
 
 					ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") + Sell)
 				end)
@@ -658,6 +704,9 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	Thing:PivotTo(TargetCFrame)
 
+	local RebirthMultiplier = getPlayerRebirthMultiplier(Player)
+	updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+
 	AnimateThingEvent:Fire(Thing, ThingConfiguration.AnimationsIds.Idle, true)
 	Grounding.AlignBottomToSurfaceAfterAnimation(Thing, Slot.Spawn, ThingConfiguration)
 
@@ -779,7 +828,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	Slot.Spawn.Attachment.Position = Vector3.new(0, (ThingConfiguration.YOffset or 3) - Slot.Spawn.Size.Y / 2, 0)
 
 	Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
-	Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt").ActionText = getBaseSellPromptText(ThingConfiguration, Level)
+	updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
 
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
 	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
@@ -846,6 +895,31 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	end)
 
 	return Thing
+end
+
+function Bases.RefreshPlayerEconomyDisplays(Player)
+	for Base, BaseData in pairs(BasesData) do
+		if BaseData.Player ~= Player then continue end
+
+		local RebirthMultiplier = getPlayerRebirthMultiplier(Player)
+
+		for SlotName, SlotData in pairs(BaseData.SlotsData or {}) do
+			local Thing = SlotData.Thing
+			if not Thing then continue end
+
+			local Slot = Base:FindFirstChild("Slots") and Base.Slots:FindFirstChild(SlotName)
+			if not Slot then continue end
+
+			local ThingConfiguration = ThingsConfigurations[Thing.Name]
+			if not ThingConfiguration then continue end
+
+			local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+			local Level = RetrieveThingDataFunction:Invoke(Thing, "Level") or 1
+
+			updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+			updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+		end
+	end
 end
 
 function Bases.Remove(Base, Slot, Save)
