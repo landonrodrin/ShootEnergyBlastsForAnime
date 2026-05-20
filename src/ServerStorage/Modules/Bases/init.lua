@@ -266,15 +266,19 @@ local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
 		Button.AutoButtonColor = false
 
 		if LevelLabel and LevelLabel:IsA("TextLabel") then
-			LevelLabel.Text = "Base: Max Level"
+			LevelLabel.Text = "Base: Max Lvl"
 		end
 
 		if MoneyLabel and MoneyLabel:IsA("GuiObject") then
-			MoneyLabel.Visible = false
+			MoneyLabel.Visible = true
+
+			if MoneyLabel:IsA("TextLabel") or MoneyLabel:IsA("TextButton") or MoneyLabel:IsA("TextBox") then
+				MoneyLabel.Text = "MAX"
+			end
 		end
 
 		if UpgradeImage and UpgradeImage:IsA("GuiObject") then
-			UpgradeImage.Visible = false
+			UpgradeImage.Visible = true
 		end
 	else
 		Button.Active = true
@@ -815,7 +819,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	if ThingConfiguration.Levels[Level + 1] then
 		LevelGui.Level.Money.Text = string.format("$%s", Format.Number(ThingConfiguration.Levels[Level + 1].Upgrade))
-		LevelGui.Level.Level.Text = string.format("Level %s > Level %s", Level, Level + 1)
+		LevelGui.Level.Level.Text = string.format("Lvl %s > Lvl %s", Level, Level + 1)
 
 		LevelGui.Level.Money.Visible = true
 		LevelGui.Level.Arrow.Visible = true
@@ -856,7 +860,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 			LevelEvent:FireClient(Player, LevelGui, Identifier)
 		end)
 	else
-		LevelGui.Level.Level.Text = string.format("Level %s (MAX)", Level)
+		LevelGui.Level.Level.Text = string.format("Lvl %s (MAX)", Level)
 	end
 
 	LevelGui.Parent = Slot:WaitForChild("Level")
