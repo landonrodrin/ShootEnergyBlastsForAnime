@@ -58,7 +58,7 @@ local SELL_STATION_DISTANCE = 18
 local HOTBAR_MAX_SLOTS = 10
 local HELD_THING_GUI_MAX_DISTANCE = 50
 local PLAYER_SPAWN_BASE_NAME = "1"
-local PLAYER_SPAWN_PART_NAME = "Spawn"
+local PLAYER_SPAWN_PART_NAME = "PlayerSpawn"
 local PLAYER_SPAWN_VERTICAL_OFFSET = 4
 local HELD_ANIME_WELD_NAME = "HeldAnimeWeld"
 local HELD_ANIME_SIDE_OFFSET = 1
@@ -69,7 +69,7 @@ local ADMIN_FAST_SPEED = 250
 local RESET_COMMAND_NAME = "OwnerResetCommand"
 local RICH_COMMAND_NAME = "OwnerRichCommand"
 local FAST_COMMAND_NAME = "OwnerFastCommand"
-local BASE_PROGRESSION_VERSION = 2
+local BASE_PROGRESSION_VERSION = 3
 local LEGACY_BASE_LEVEL_TO_CURRENT = {
 	[1] = 2,
 	[2] = 4,
@@ -250,15 +250,19 @@ local function migrateBaseProgression(PlayerData, HasLoadedData)
 		SavedVersion = HasLoadedData and 1 or BASE_PROGRESSION_VERSION
 	end
 
-	if SavedVersion < BASE_PROGRESSION_VERSION then
-		PlayerData.Level = LEGACY_BASE_LEVEL_TO_CURRENT[PlayerData.Level] or PlayerData.Level or 0
+	if SavedVersion < 2 then
+		PlayerData.Level = LEGACY_BASE_LEVEL_TO_CURRENT[PlayerData.Level] or PlayerData.Level or 1
+	end
+
+	if (PlayerData.Level or 0) < 1 then
+		PlayerData.Level = 1
 	end
 
 	PlayerData.BaseProgressionVersion = BASE_PROGRESSION_VERSION
 end
 
 local function getBaseSlotCount(Level)
-	local Configuration = BaseConfigurations[Level] or BaseConfigurations[0] or {}
+	local Configuration = BaseConfigurations[Level] or BaseConfigurations[1] or {}
 	return Configuration.Slots or 0
 end
 
@@ -796,14 +800,11 @@ local function clearBaseProgress(PlayerData)
 	local Base = PlayerData.Base
 	if not Base then return end
 
-	local Slots = Base:FindFirstChild("Slots")
-	if Slots then
-		for _, Slot in ipairs(Slots:GetChildren()) do
-			Bases.Remove(Base, Slot, true)
-		end
+	for _, Slot in ipairs(Bases.GetSlots(Base)) do
+		Bases.Remove(Base, Slot, true)
 	end
 
-	local Level = Base:FindFirstChild("Level")
+	local Level = Bases.GetBaseLevelPart(Base)
 	if Level then
 		for _, GuiName in ipairs({"BaseLevelGui", "BaseLevelGuiFront", "BaseLevelGuiBack"}) do
 			local BaseLevelGui = Level:FindFirstChild(GuiName)
@@ -838,7 +839,7 @@ local function resetPlayerProgress(Player)
 	PlayersModule.Replace(Player, "Speed", GameConfigurations.Defaults.Speed)
 	PlayersModule.Replace(Player, "Carry", GameConfigurations.Defaults.Carry)
 	PlayersModule.Replace(Player, "Rebirths", 0)
-	PlayersModule.Replace(Player, "Level", 0)
+	PlayersModule.Replace(Player, "Level", 1)
 	PlayersModule.Replace(Player, "MoneyPerSecond", 0)
 	PlayerData.BaseProgressionVersion = BASE_PROGRESSION_VERSION
 
@@ -1560,20 +1561,23 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, T
 		local SlotsData = Bases.Retrieve(Base, "SlotsData")
 		if not SlotsData then return end
 
-		for _, Slot in ipairs(Base.Slots:GetChildren()) do
+		for _, Slot in ipairs(Bases.GetSlots(Base)) do
 			task.spawn(function()
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
+				local Attachment = Bases.GetSlotAttachment(Slot)
+				if not Attachment then return end
+
+				SetProperties.Client(Player, Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
 
 				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
 
 				if SlotsData[Slot.Name] and SlotsData[Slot.Name].Thing then
-					SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = true})
+					SetProperties.Client(Player, Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = true})
 				else
-					SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = true})
+					SetProperties.Client(Player, Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = true})
 				end
 			end)
 		end
@@ -1602,19 +1606,22 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, T
 		local SlotsData = Bases.Retrieve(Base, "SlotsData")
 		if not SlotsData then return end
 
-		for _, Slot in ipairs(Base.Slots:GetChildren()) do
+		for _, Slot in ipairs(Bases.GetSlots(Base)) do
 			task.spawn(function()
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
+				local Attachment = Bases.GetSlotAttachment(Slot)
+				if not Attachment then return end
+
+				SetProperties.Client(Player, Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
+				SetProperties.Client(Player, Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
 
 				if not (SlotsData[Slot.Name] and SlotsData[Slot.Name].Thing) then return end
 				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
 
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
-				SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = true})
+				SetProperties.Client(Player, Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
+				SetProperties.Client(Player, Attachment:WaitForChild("SellProximityPrompt"), {Enabled = true})
 			end)
 		end
 		
@@ -1733,7 +1740,7 @@ function PlayersModule:Load()
 	
 	if not self.Carry then self.Carry = GameConfigurations.Defaults.Carry end
 	if not self.Tools then self.Tools = {} end
-	if not self.Level then self.Level = 0 end
+	if not self.Level then self.Level = 1 end
 	if not self.Things then self.Things = {} end
 	if not self.Steals then self.Steals = 0 end
 	if not self.Rebirths then self.Rebirths = 0 end

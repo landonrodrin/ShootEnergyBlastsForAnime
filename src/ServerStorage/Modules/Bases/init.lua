@@ -28,8 +28,15 @@ local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("A
 local BASE_GUI_MAX_DISTANCE = 200
 local BASE_LEVEL_BIND_DELAY = 0.15
 local BASE_SLOT_PROMPT_HOLD_DURATION = 0.5
+local BASE_SLOT_PLACE_PROMPT_MAX_ACTIVATION_DISTANCE = 15
+local BASE_LEVEL_NAME = "BaseLevel"
 local BASE_INFO_GUI_NAME = "BaseInfoGui"
 local BASE_INFO_ANCHOR_NAME = "BaseInfoAnchor"
+local FLOORS_FOLDER_NAME = "Floors"
+local SLOTS_FOLDER_NAME = "Slots"
+local SLOT_SPAWN_NAME = "Spawn"
+local SLOT_LEVEL_NAME = "Level"
+local SLOT_MONEY_NAME = "Money"
 local PICK_UP_PROMPT_TEXT = "Pick Up"
 local INSUFFICIENT_FUNDS_TEXT = "Insufficient Funds"
 local INSUFFICIENT_FUNDS_COLOUR = Color3.fromRGB(255, 0, 0)
@@ -71,6 +78,90 @@ local function getThingGui(Thing)
 	return ThingAttachment and ThingAttachment:FindFirstChild("ThingGui")
 end
 
+local function sortByNumericName(Instances)
+	table.sort(Instances, function(A, B)
+		local ANumber = tonumber(A.Name)
+		local BNumber = tonumber(B.Name)
+
+		if ANumber and BNumber then
+			return ANumber < BNumber
+		elseif ANumber then
+			return true
+		elseif BNumber then
+			return false
+		end
+
+		return A.Name < B.Name
+	end)
+end
+
+local function getBaseLevelPart(Base)
+	local BaseLevel = Base and Base:FindFirstChild(BASE_LEVEL_NAME)
+	if BaseLevel and BaseLevel:IsA("BasePart") then
+		return BaseLevel
+	end
+end
+
+local function getOrderedFloors(Base)
+	local FloorsFolder = Base and Base:FindFirstChild(FLOORS_FOLDER_NAME)
+	local Floors = FloorsFolder and FloorsFolder:GetChildren() or {}
+	sortByNumericName(Floors)
+	return Floors
+end
+
+local function getOrderedSlots(Base)
+	local Slots = {}
+
+	for _, Floor in ipairs(getOrderedFloors(Base)) do
+		local SlotsFolder = Floor:FindFirstChild(SLOTS_FOLDER_NAME)
+		if not SlotsFolder then continue end
+
+		local FloorSlots = SlotsFolder:GetChildren()
+		sortByNumericName(FloorSlots)
+
+		for _, Slot in ipairs(FloorSlots) do
+			table.insert(Slots, Slot)
+		end
+	end
+
+	if #Slots == 0 then
+		local LegacySlotsFolder = Base and Base:FindFirstChild(SLOTS_FOLDER_NAME)
+		if LegacySlotsFolder then
+			Slots = LegacySlotsFolder:GetChildren()
+			sortByNumericName(Slots)
+		end
+	end
+
+	return Slots
+end
+
+local function getSlotByName(Base, SlotName)
+	SlotName = tostring(SlotName)
+
+	for _, Slot in ipairs(getOrderedSlots(Base)) do
+		if Slot.Name == SlotName then
+			return Slot
+		end
+	end
+end
+
+local function getSlotSpawn(Slot)
+	return Slot and Slot:FindFirstChild(SLOT_SPAWN_NAME)
+end
+
+local function getSlotLevel(Slot)
+	return Slot and Slot:FindFirstChild(SLOT_LEVEL_NAME)
+end
+
+local function getSlotMoney(Slot)
+	return Slot and Slot:FindFirstChild(SLOT_MONEY_NAME)
+end
+
+local function getSlotAttachment(Slot)
+	local Spawn = getSlotSpawn(Slot)
+	return Spawn and Spawn:FindFirstChild("Attachment")
+end
+
 local function updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
 	local ThingGui = getThingGui(Thing)
 	if not (ThingGui and ThingGui:FindFirstChild("Money")) then return end
@@ -81,7 +172,7 @@ local function updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutati
 end
 
 local function updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
-	local Attachment = Slot and Slot:FindFirstChild("Spawn") and Slot.Spawn:FindFirstChild("Attachment")
+	local Attachment = getSlotAttachment(Slot)
 	local SellProximityPrompt = Attachment and Attachment:FindFirstChild("SellProximityPrompt")
 	if not SellProximityPrompt then return end
 
@@ -89,7 +180,7 @@ local function updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutatio
 end
 
 local function setSlotLevelVisible(Slot, Visible)
-	local LevelPart = Slot and Slot:FindFirstChild("Level")
+	local LevelPart = getSlotLevel(Slot)
 	if not (LevelPart and LevelPart:IsA("BasePart")) then return end
 
 	if Visible then
@@ -190,7 +281,7 @@ local function createBaseInfoGui(Player, Base)
 end
 
 local function getBaseConfiguration(Level)
-	return BaseConfigurations[Level] or BaseConfigurations[0] or {}
+	return BaseConfigurations[Level] or BaseConfigurations[1] or {}
 end
 
 local function getUnlockedSlots(Level)
@@ -210,39 +301,48 @@ local function applyToBaseParts(Instance, Callback)
 end
 
 local function showBaseLevelPartForPlayer(Player, Base)
-	if Base.Level:GetAttribute("Transparency") then
-		SetProperties.Client(Player, Base.Level, {Transparency = Base.Level:GetAttribute("Transparency")})
-	else
-		Base.Level:SetAttribute("Transparency", Base.Level.Transparency)
+	local BaseLevel = getBaseLevelPart(Base)
+	if not BaseLevel then return end
 
-		SetProperties.AllClients(Base.Level, {Transparency = 1})
-		SetProperties.Client(Player, Base.Level, {Transparency = Base.Level:GetAttribute("Transparency")})
+	if BaseLevel:GetAttribute("Transparency") then
+		SetProperties.Client(Player, BaseLevel, {Transparency = BaseLevel:GetAttribute("Transparency")})
+	else
+		BaseLevel:SetAttribute("Transparency", BaseLevel.Transparency)
+
+		SetProperties.AllClients(BaseLevel, {Transparency = 1})
+		SetProperties.Client(Player, BaseLevel, {Transparency = BaseLevel:GetAttribute("Transparency")})
 	end
 end
 
 local function removeBaseLevelGuis(Base)
+	local BaseLevel = getBaseLevelPart(Base)
+	if not BaseLevel then return end
+
 	for _, GuiName in ipairs({"BaseLevelGui", "BaseLevelGuiFront", "BaseLevelGuiBack"}) do
-		local BaseLevelGui = Base.Level:FindFirstChild(GuiName)
+		local BaseLevelGui = BaseLevel:FindFirstChild(GuiName)
 		if BaseLevelGui then BaseLevelGui:Destroy() end
 	end
 end
 
 local function getBaseLevelGui(Base)
-	local BaseLevelGui = Base.Level:FindFirstChild("BaseLevelGui")
+	local BaseLevel = getBaseLevelPart(Base)
+	if not BaseLevel then return end
+
+	local BaseLevelGui = BaseLevel:FindFirstChild("BaseLevelGui")
 	if not BaseLevelGui then
 		BaseLevelGui = script.Resources:WaitForChild("BaseLevelGui"):Clone()
 		BaseLevelGui.Name = "BaseLevelGui"
-		BaseLevelGui.Parent = Base:WaitForChild("Level")
+		BaseLevelGui.Parent = BaseLevel
 	end
 
 	BaseLevelGui.Face = Enum.NormalId.Front
 
-	local BackBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGuiBack")
+	local BackBaseLevelGui = BaseLevel:FindFirstChild("BaseLevelGuiBack")
 	if BackBaseLevelGui then
 		BackBaseLevelGui:Destroy()
 	end
 
-	local FrontBaseLevelGui = Base.Level:FindFirstChild("BaseLevelGuiFront")
+	local FrontBaseLevelGui = BaseLevel:FindFirstChild("BaseLevelGuiFront")
 	if FrontBaseLevelGui then
 		FrontBaseLevelGui:Destroy()
 	end
@@ -299,6 +399,34 @@ local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
 	end
 end
 
+function Bases.GetBaseLevelPart(Base)
+	return getBaseLevelPart(Base)
+end
+
+function Bases.GetSlots(Base)
+	return getOrderedSlots(Base)
+end
+
+function Bases.GetSlotByName(Base, SlotName)
+	return getSlotByName(Base, SlotName)
+end
+
+function Bases.GetSlotSpawn(Slot)
+	return getSlotSpawn(Slot)
+end
+
+function Bases.GetSlotLevel(Slot)
+	return getSlotLevel(Slot)
+end
+
+function Bases.GetSlotMoney(Slot)
+	return getSlotMoney(Slot)
+end
+
+function Bases.GetSlotAttachment(Slot)
+	return getSlotAttachment(Slot)
+end
+
 function Bases.Retrieve(Base, Name)
 	if not BasesData[Base] then return end
 
@@ -311,11 +439,14 @@ end
 
 function Bases.Setup()
 	for _, Base in ipairs(workspace.Bases:GetChildren()) do
-		for _, Slot in ipairs(Base.Slots:GetChildren()) do
+		for _, Slot in ipairs(getOrderedSlots(Base)) do
 			task.spawn(function()
+				local SlotSpawn = getSlotSpawn(Slot)
+				if not (SlotSpawn and SlotSpawn:IsA("BasePart")) then return end
+
 				local Attachment = Instance.new("Attachment")
-				Attachment.Position = Vector3.new(0, 3 - Slot.Spawn.Size.Y / 2, 0)
-				Attachment.Parent = Slot:WaitForChild("Spawn")
+				Attachment.Position = Vector3.new(0, 3 - SlotSpawn.Size.Y / 2, 0)
+				Attachment.Parent = SlotSpawn
 
 				local GrabProximityPrompt = Instance.new("ProximityPrompt")
 				GrabProximityPrompt.Enabled = false
@@ -333,6 +464,7 @@ function Bases.Setup()
 				PlaceProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				PlaceProximityPrompt.ObjectText = ""
 				PlaceProximityPrompt.RequiresLineOfSight = false
+				PlaceProximityPrompt.MaxActivationDistance = BASE_SLOT_PLACE_PROMPT_MAX_ACTIVATION_DISTANCE
 				PlaceProximityPrompt.Name = "PlaceProximityPrompt"
 				PlaceProximityPrompt.Parent = Attachment
 
@@ -342,6 +474,7 @@ function Bases.Setup()
 				SwapProximityPrompt.HoldDuration = BASE_SLOT_PROMPT_HOLD_DURATION
 				SwapProximityPrompt.ObjectText = ""
 				SwapProximityPrompt.RequiresLineOfSight = false
+				SwapProximityPrompt.MaxActivationDistance = BASE_SLOT_PLACE_PROMPT_MAX_ACTIVATION_DISTANCE
 				SwapProximityPrompt.Name = "SwapProximityPrompt"
 				SwapProximityPrompt.Parent = Attachment
 
@@ -594,7 +727,7 @@ function Bases.Create(PlayerData)
 			local Level = ThingData.Level
 			local Slot = ThingData.Slot
 
-			Slot = Base.Slots[Slot] or nil
+			Slot = getSlotByName(Base, Slot)
 
 			Bases.Add(Player, Base, Slot, Name, Mutation, Level)
 		end)
@@ -607,6 +740,7 @@ function Bases.Level(PlayerData, Base)
 	local Player = PlayerData.Player
 	local Level = PlayerData.Level
 	local BaseLevelGui = getBaseLevelGui(Base)
+	if not BaseLevelGui then return end
 
 	if not BaseConfigurations[Level + 1] then
 		if BasesData[Base] then
@@ -684,34 +818,82 @@ function Bases.Level(PlayerData, Base)
 	local UnlockedSlots = Configuration.Slots or 0
 	local UnlockedFloors = Configuration.Floors or 0
 
-	local function setModelVisible(Model, Visible)
+	local function storePartState(Part)
+		if Part:GetAttribute("Transparency") == nil then
+			Part:SetAttribute("Transparency", Part.Transparency)
+		end
+
+		if Part:GetAttribute("CanCollide") == nil then
+			Part:SetAttribute("CanCollide", Part.CanCollide)
+		end
+
+		if Part:GetAttribute("CanTouch") == nil then
+			Part:SetAttribute("CanTouch", Part.CanTouch)
+		end
+
+		if Part:GetAttribute("CanQuery") == nil then
+			Part:SetAttribute("CanQuery", Part.CanQuery)
+		end
+	end
+
+	local function restorePartState(Part)
+		local Transparency = Part:GetAttribute("Transparency")
+		if Transparency ~= nil then
+			Part.Transparency = Transparency
+		end
+
+		local CanCollide = Part:GetAttribute("CanCollide")
+		if CanCollide ~= nil then
+			Part.CanCollide = CanCollide
+		end
+
+		local CanTouch = Part:GetAttribute("CanTouch")
+		if CanTouch ~= nil then
+			Part.CanTouch = CanTouch
+		end
+
+		local CanQuery = Part:GetAttribute("CanQuery")
+		if CanQuery ~= nil then
+			Part.CanQuery = CanQuery
+		end
+	end
+
+	local function setPartUnlocked(Part, Unlocked)
+		storePartState(Part)
+
+		if Unlocked then
+			restorePartState(Part)
+		else
+			Part.Transparency = 1
+			Part.CanCollide = false
+			Part.CanTouch = false
+			Part.CanQuery = false
+		end
+	end
+
+	local function setModelUnlocked(Model, Unlocked, ExcludedAncestor)
 		if not Model then return end
 
 		applyToBaseParts(Model, function(Descendant)
-			if Visible then
-				local Transparency = Descendant:GetAttribute("Transparency")
-				if Transparency ~= nil then
-					Descendant.Transparency = Transparency
-				end
-			elseif Descendant.Transparency < 1 then
-				Descendant:SetAttribute("Transparency", Descendant.Transparency)
-				Descendant.Transparency = 1
-			end
+			if ExcludedAncestor and Descendant:IsDescendantOf(ExcludedAncestor) then return end
+
+			setPartUnlocked(Descendant, Unlocked)
 		end)
 	end
 
-	for _, Slot in ipairs(Base.Slots:GetChildren()) do
+	for _, Floor in ipairs(getOrderedFloors(Base)) do
+		local SlotsFolder = Floor:FindFirstChild(SLOTS_FOLDER_NAME)
+		setModelUnlocked(Floor, (tonumber(Floor.Name) or math.huge) <= UnlockedFloors, SlotsFolder)
+	end
+
+	for _, Slot in ipairs(getOrderedSlots(Base)) do
 		local IsUnlocked = (tonumber(Slot.Name) or math.huge) <= UnlockedSlots
-		setModelVisible(Slot, IsUnlocked)
+		setModelUnlocked(Slot, IsUnlocked)
 
 		if IsUnlocked then
 			local SlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
 			setSlotLevelVisible(Slot, SlotData and SlotData.Thing ~= nil)
 		end
-	end
-
-	for _, Floor in ipairs(Base.Floors:GetChildren()) do
-		setModelVisible(Floor, (tonumber(Floor.Name) or math.huge) <= UnlockedFloors)
 	end
 end
 
@@ -726,12 +908,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	local BaseData = BasesData[Base]
 
 	if not Slot then
-		local Slots = Base.Slots:GetChildren()
-		table.sort(Slots, function(A, B)
-			return tonumber(A.Name) < tonumber(B.Name)
-		end)
-
-		for _, PossibleSlot in ipairs(Slots) do
+		for _, PossibleSlot in ipairs(getOrderedSlots(Base)) do
 			if BasesData[Base].SlotsData[PossibleSlot.Name] and BasesData[Base].SlotsData[PossibleSlot.Name].Thing then continue end
 
 			if getUnlockedSlots(RetrievePlayerDataFunction:Invoke(Player, "Level")) < tonumber(PossibleSlot.Name) then continue end
@@ -752,6 +929,11 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	if BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Thing then return end
 	if getUnlockedSlots(RetrievePlayerDataFunction:Invoke(Player, "Level")) < tonumber(Slot.Name) then return end
+
+	local SlotSpawn = getSlotSpawn(Slot)
+	local SlotMoney = getSlotMoney(Slot)
+	local SlotLevel = getSlotLevel(Slot)
+	if not (SlotSpawn and SlotSpawn:IsA("BasePart") and SlotMoney and SlotMoney:IsA("BasePart") and SlotLevel) then return end
 
 	Money = Money or 0
 
@@ -789,7 +971,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	Thing.Parent = workspace
 
-	local TargetCFrame = Slot.Spawn.CFrame
+	local TargetCFrame = SlotSpawn.CFrame
 
 	Thing:PivotTo(TargetCFrame)
 
@@ -797,7 +979,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
 
 	AnimateThingEvent:Fire(Thing, ThingConfiguration.AnimationsIds.Idle, true)
-	Grounding.AlignBottomToSurfaceAfterAnimation(Thing, Slot.Spawn, ThingConfiguration)
+	Grounding.AlignBottomToSurfaceAfterAnimation(Thing, SlotSpawn, ThingConfiguration)
 
 	local MoneyGui = script.Resources:WaitForChild("MoneyGui")
 
@@ -806,7 +988,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	MoneyGui.Money.Money.Text = string.format("$%s", Format.Number(Money))
 	MoneyGui.MaxDistance = BASE_GUI_MAX_DISTANCE
 
-	MoneyGui.Parent = Slot:WaitForChild("Money")
+	MoneyGui.Parent = SlotMoney
 	MoneyGui.Enabled = true
 
 	setSlotLevelVisible(Slot, true)
@@ -814,8 +996,13 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	local LevelGui = script.Resources:WaitForChild("LevelGui")
 
 	LevelGui = LevelGui:Clone()
+	LevelGui.LightInfluence = 0
 	LevelGui.MaxDistance = BASE_GUI_MAX_DISTANCE
 	LevelGui.Enabled = true
+
+	if LevelGui.Level and LevelGui.Level:IsA("GuiObject") then
+		LevelGui.Level.BackgroundTransparency = 0
+	end
 
 	if ThingConfiguration.Levels[Level + 1] then
 		LevelGui.Level.Money.Text = string.format("$%s", Format.Number(ThingConfiguration.Levels[Level + 1].Upgrade))
@@ -863,14 +1050,14 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		LevelGui.Level.Level.Text = string.format("Lvl %s (MAX)", Level)
 	end
 
-	LevelGui.Parent = Slot:WaitForChild("Level")
+	LevelGui.Parent = SlotLevel
 
 	SetProperties.Client(Player, LevelGui, {Enabled = true})
 
 	local Debounce = false
 
 	local Connection
-	Connection = Slot.Money.Touched:Connect(function(Hit)
+	Connection = SlotMoney.Touched:Connect(function(Hit)
 		local Character = Hit.Parent
 
 		local TouchingPlayer = Players:GetPlayerFromCharacter(Character)
@@ -916,20 +1103,23 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		GameConfigurations.ProductsIds.Steal = 3524104512
 	end
 
-	Slot.Spawn.Attachment.Position = Vector3.new(0, (ThingConfiguration.YOffset or 3) - Slot.Spawn.Size.Y / 2, 0)
+	local SlotAttachment = getSlotAttachment(Slot)
+	if not SlotAttachment then return Thing end
 
-	Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
+	SlotAttachment.Position = Vector3.new(0, (ThingConfiguration.YOffset or 3) - SlotSpawn.Size.Y / 2, 0)
+
+	SlotAttachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
 	updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
 
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("StealProximityPrompt"), {Enabled = true})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
+	SetProperties.AllClients(SlotAttachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
+	SetProperties.AllClients(SlotAttachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
+	SetProperties.AllClients(SlotAttachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
+	SetProperties.AllClients(SlotAttachment:WaitForChild("StealProximityPrompt"), {Enabled = true})
+	SetProperties.AllClients(SlotAttachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
 
-	SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
-	SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
-	SetProperties.Client(Player, Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = true})
+	SetProperties.Client(Player, SlotAttachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
+	SetProperties.Client(Player, SlotAttachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
+	SetProperties.Client(Player, SlotAttachment:WaitForChild("SellProximityPrompt"), {Enabled = true})
 
 	task.delay(1, function()
 		if not BasesData[Base] or not Player then return end
@@ -1002,7 +1192,7 @@ function Bases.RefreshPlayerEconomyDisplays(Player)
 			local Thing = SlotData.Thing
 			if not Thing then continue end
 
-			local Slot = Base:FindFirstChild("Slots") and Base.Slots:FindFirstChild(SlotName)
+			local Slot = getSlotByName(Base, SlotName)
 			if not Slot then continue end
 
 			local ThingConfiguration = ThingsConfigurations[Thing.Name]
@@ -1034,12 +1224,17 @@ function Bases.Remove(Base, Slot, Save)
 
 	BasesData[Base].SlotsData[Slot.Name].Money = nil
 
-	local MoneyGui = Slot.Money:FindFirstChild("MoneyGui")
+	local SlotSpawn = getSlotSpawn(Slot)
+	local SlotMoney = getSlotMoney(Slot)
+	local SlotLevel = getSlotLevel(Slot)
+	local SlotAttachment = getSlotAttachment(Slot)
+
+	local MoneyGui = SlotMoney and SlotMoney:FindFirstChild("MoneyGui")
 	if MoneyGui then
 		MoneyGui:Destroy()
 	end
 
-	local LevelGui = Slot.Level:FindFirstChild("LevelGui")
+	local LevelGui = SlotLevel and SlotLevel:FindFirstChild("LevelGui")
 	if LevelGui then
 		LevelGui:Destroy()
 	end
@@ -1080,16 +1275,18 @@ function Bases.Remove(Base, Slot, Save)
 		BasesData[Base].SlotsData[Slot.Name].Thing = nil
 	end
 
-	Slot.Spawn.Attachment.Position = Vector3.new(0, 3 - Slot.Spawn.Size.Y / 2, 0)
+	if SlotSpawn and SlotAttachment then
+		SlotAttachment.Position = Vector3.new(0, 3 - SlotSpawn.Size.Y / 2, 0)
 
-	Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
-	Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt").ActionText = "Sell: $0"
+		SlotAttachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
+		SlotAttachment:WaitForChild("SellProximityPrompt").ActionText = "Sell: $0"
 
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(Slot.Spawn.Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
+		SetProperties.AllClients(SlotAttachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
+		SetProperties.AllClients(SlotAttachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
+		SetProperties.AllClients(SlotAttachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
+		SetProperties.AllClients(SlotAttachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
+		SetProperties.AllClients(SlotAttachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
+	end
 
 	if BasesData[Base].Player and not Save then
 		task.delay(1, function()
@@ -1165,7 +1362,7 @@ function Bases.Destroy(Base)
 		BasesData[Base].Connection = nil
 	end
 
-	for _, Slot in ipairs(Base.Slots:GetChildren()) do
+	for _, Slot in ipairs(getOrderedSlots(Base)) do
 		Bases.Remove(Base, Slot, true)
 	end
 

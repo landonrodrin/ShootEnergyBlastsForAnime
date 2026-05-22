@@ -1,7 +1,7 @@
 local GameConfigurations = {
 	Defaults = {
 		Money = 1000,
-		Speed = 16,
+		Speed = 25,
 		Carry = 1
 	},
 
