@@ -1,6 +1,9 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 
 local LadderNudge = {}
 
@@ -18,7 +21,8 @@ local humanoid = nil
 local rootPart = nil
 local activeZones = {}
 local touchingParts = {}
-local zoneConnections = {}
+local zoneTroves = {}
+local scriptTrove = Trove.new()
 
 local function flatten(vector)
 	return Vector3.new(vector.X, 0, vector.Z)
@@ -71,57 +75,57 @@ local function isCharacterPart(part)
 end
 
 local function disconnectZone(zone)
-	local connections = zoneConnections[zone]
-	if not connections then
-		return
+	local zoneTrove = zoneTroves[zone]
+	if zoneTrove then
+		zoneTrove:Destroy()
+		zoneTroves[zone] = nil
 	end
-
-	for _, connection in ipairs(connections) do
-		connection:Disconnect()
-	end
-
-	zoneConnections[zone] = nil
-	activeZones[zone] = nil
-	touchingParts[zone] = nil
 end
 
 local function connectZone(zone)
-	if not zone:IsA("BasePart") or zoneConnections[zone] then
+	if not zone:IsA("BasePart") or zoneTroves[zone] then
 		return
 	end
 
-	zoneConnections[zone] = {
-		zone.Touched:Connect(function(hit)
-			if not isCharacterPart(hit) then
-				return
-			end
+	local zoneTrove = Trove.new()
+	zoneTroves[zone] = zoneTrove
 
-			touchingParts[zone] = touchingParts[zone] or {}
-			touchingParts[zone][hit] = true
-			activeZones[zone] = true
-		end),
+	zoneTrove:Add(function()
+		activeZones[zone] = nil
+		touchingParts[zone] = nil
+		zoneTroves[zone] = nil
+	end)
 
-		zone.TouchEnded:Connect(function(hit)
-			if not isCharacterPart(hit) then
-				return
-			end
+	zoneTrove:Connect(zone.Touched, function(hit)
+		if not isCharacterPart(hit) then
+			return
+		end
 
-			if touchingParts[zone] then
-				touchingParts[zone][hit] = nil
-				activeZones[zone] = next(touchingParts[zone]) ~= nil or nil
-			else
-				activeZones[zone] = nil
-			end
-		end),
+		touchingParts[zone] = touchingParts[zone] or {}
+		touchingParts[zone][hit] = true
+		activeZones[zone] = true
+	end)
 
-		zone.AncestryChanged:Connect(function(_, parent)
-			if parent then
-				return
-			end
+	zoneTrove:Connect(zone.TouchEnded, function(hit)
+		if not isCharacterPart(hit) then
+			return
+		end
 
-			disconnectZone(zone)
-		end)
-	}
+		if touchingParts[zone] then
+			touchingParts[zone][hit] = nil
+			activeZones[zone] = next(touchingParts[zone]) ~= nil or nil
+		else
+			activeZones[zone] = nil
+		end
+	end)
+
+	zoneTrove:Connect(zone.AncestryChanged, function(_, parent)
+		if parent then
+			return
+		end
+
+		disconnectZone(zone)
+	end)
 end
 
 local function setCharacter(nextCharacter)
@@ -184,16 +188,26 @@ function LadderNudge.Start()
 	started = true
 
 	setCharacter(player.Character or player.CharacterAdded:Wait())
-	player.CharacterAdded:Connect(setCharacter)
+	scriptTrove:Connect(player.CharacterAdded, setCharacter)
 
 	for _, zone in ipairs(CollectionService:GetTagged(TAG_NAME)) do
 		connectZone(zone)
 	end
 
-	CollectionService:GetInstanceAddedSignal(TAG_NAME):Connect(connectZone)
-	CollectionService:GetInstanceRemovedSignal(TAG_NAME):Connect(disconnectZone)
+	scriptTrove:Connect(CollectionService:GetInstanceAddedSignal(TAG_NAME), connectZone)
+	scriptTrove:Connect(CollectionService:GetInstanceRemovedSignal(TAG_NAME), disconnectZone)
+	scriptTrove:Add(function()
+		local zones = {}
+		for zone in pairs(zoneTroves) do
+			table.insert(zones, zone)
+		end
 
-	RunService.Heartbeat:Connect(applyNudge)
+		for _, zone in ipairs(zones) do
+			disconnectZone(zone)
+		end
+	end)
+
+	scriptTrove:Connect(RunService.Heartbeat, applyNudge)
 end
 
 return LadderNudge

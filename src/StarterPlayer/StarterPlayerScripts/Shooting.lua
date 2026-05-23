@@ -3,7 +3,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local WallConfig = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WallConfig"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Trove = require(Shared:WaitForChild("Trove"))
+local WallConfig = require(Shared:WaitForChild("WallConfig"))
 
 local Shooting = {}
 
@@ -24,13 +26,16 @@ local charging = false
 local firing = false
 local fireLoopRunning = false
 local activeBeam = nil
-local beamConnection = nil
+local beamTrove = nil
+local beamRenderConnected = false
 local statusLabel = nil
 local animationCharacter = nil
+local animationTrove = nil
 local shootingAnimation = nil
 local shootingTrack = nil
 local chargeToken = 0
 local fireToken = 0
+local scriptTrove = Trove.new()
 
 local function createHud()
 	local playerGui = player:WaitForChild("PlayerGui")
@@ -127,16 +132,92 @@ end
 local function cleanupShootingAnimation()
 	if shootingTrack then
 		shootingTrack:Stop(0)
-		shootingTrack:Destroy()
-		shootingTrack = nil
 	end
 
-	if shootingAnimation then
-		shootingAnimation:Destroy()
-		shootingAnimation = nil
+	if animationTrove then
+		animationTrove:Destroy()
+		animationTrove = nil
+	else
+		if shootingTrack then
+			shootingTrack:Destroy()
+		end
+
+		if shootingAnimation then
+			shootingAnimation:Destroy()
+		end
 	end
 
+	shootingTrack = nil
+	shootingAnimation = nil
 	animationCharacter = nil
+end
+
+local function createAnimationTrove()
+	if animationTrove then
+		animationTrove:Destroy()
+	end
+
+	animationTrove = Trove.new()
+	animationTrove:Add(function()
+		shootingTrack = nil
+		shootingAnimation = nil
+		animationCharacter = nil
+	end)
+
+	return animationTrove
+end
+
+local function stopShootingAnimation()
+	if shootingTrack and shootingTrack.IsPlaying then
+		shootingTrack:AdjustSpeed(1)
+		shootingTrack:Stop(ANIMATION_FADE_TIME)
+	end
+end
+
+local function cleanupBeam()
+	if activeBeam then
+		for _, descendant in ipairs(activeBeam:GetDescendants()) do
+			if descendant:IsA("Beam") or descendant:IsA("ParticleEmitter") then
+				descendant.Enabled = false
+			end
+		end
+	end
+end
+
+local function stopBeam()
+	if beamTrove then
+		cleanupBeam()
+		beamTrove:Destroy()
+		beamTrove = nil
+	else
+		cleanupBeam()
+
+		if activeBeam then
+			activeBeam:Destroy()
+		end
+	end
+
+	activeBeam = nil
+	beamRenderConnected = false
+end
+
+local function resetShootingState()
+	mouseHeld = false
+	charging = false
+	firing = false
+	chargeToken += 1
+	fireToken += 1
+	stopShootingAnimation()
+	stopBeam()
+end
+
+local function cancelShooting()
+	resetShootingState()
+end
+
+local function cleanupAllShooting()
+	resetShootingState()
+	cleanupShootingAnimation()
 end
 
 local function getShootingTrack()
@@ -162,11 +243,12 @@ local function getShootingTrack()
 		animator.Parent = humanoid
 	end
 
-	shootingAnimation = Instance.new("Animation")
+	local animationOwner = createAnimationTrove()
+	shootingAnimation = animationOwner:Add(Instance.new("Animation"))
 	shootingAnimation.Name = "KamehamehaShootAnimation"
 	shootingAnimation.AnimationId = SHOOT_ANIMATION_ID
 
-	shootingTrack = animator:LoadAnimation(shootingAnimation)
+	shootingTrack = animationOwner:Add(animator:LoadAnimation(shootingAnimation))
 	shootingTrack.Priority = Enum.AnimationPriority.Action
 	shootingTrack.Looped = false
 	animationCharacter = character
@@ -208,13 +290,6 @@ local function playShootingAnimation()
 	return track
 end
 
-local function stopShootingAnimation()
-	if shootingTrack and shootingTrack.IsPlaying then
-		shootingTrack:AdjustSpeed(1)
-		shootingTrack:Stop(ANIMATION_FADE_TIME)
-	end
-end
-
 local function getBeamTemplate()
 	local current = ReplicatedStorage
 	for _, name in ipairs(BEAM_TEMPLATE_PATH) do
@@ -240,6 +315,12 @@ local function ensureBeam()
 
 	activeBeam = template:Clone()
 	activeBeam.Name = "ClientShotBlueBeam"
+	beamTrove = Trove.new()
+	beamTrove:Add(activeBeam)
+	beamTrove:Add(function()
+		activeBeam = nil
+		beamRenderConnected = false
+	end)
 
 	if activeBeam:IsA("BasePart") then
 		activeBeam.Anchored = true
@@ -311,33 +392,16 @@ local function startBeam()
 	ensureBeam()
 	updateBeam()
 
-	if beamConnection then
+	if not beamTrove or beamRenderConnected then
 		return
 	end
 
-	beamConnection = RunService.RenderStepped:Connect(function()
+	beamRenderConnected = true
+	beamTrove:Connect(RunService.RenderStepped, function()
 		if firing then
 			updateBeam()
 		end
 	end)
-end
-
-local function stopBeam()
-	if beamConnection then
-		beamConnection:Disconnect()
-		beamConnection = nil
-	end
-
-	if activeBeam then
-		for _, descendant in ipairs(activeBeam:GetDescendants()) do
-			if descendant:IsA("Beam") or descendant:IsA("ParticleEmitter") then
-				descendant.Enabled = false
-			end
-		end
-
-		activeBeam:Destroy()
-		activeBeam = nil
-	end
 end
 
 local function sendShot()
@@ -381,16 +445,6 @@ local function beginActiveFiring()
 	holdFinalShootingPose(shootingTrack)
 	startBeam()
 	startFiring()
-end
-
-local function cancelShooting()
-	mouseHeld = false
-	charging = false
-	firing = false
-	chargeToken += 1
-	fireToken += 1
-	stopShootingAnimation()
-	stopBeam()
 end
 
 local function startCharge()
@@ -454,7 +508,7 @@ function Shooting.Start()
 
 	statusLabel = createHud()
 
-	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	scriptTrove:Connect(UserInputService.InputBegan, function(input, gameProcessed)
 		if gameProcessed then
 			return
 		end
@@ -464,18 +518,18 @@ function Shooting.Start()
 		end
 	end)
 
-	UserInputService.InputEnded:Connect(function(input)
+	scriptTrove:Connect(UserInputService.InputEnded, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			cancelShooting()
 		end
 	end)
 
-	player.CharacterRemoving:Connect(function()
-		cancelShooting()
-		cleanupShootingAnimation()
+	scriptTrove:Connect(player.CharacterRemoving, function()
+		cleanupAllShooting()
 	end)
 
-	shootRemote.OnClientEvent:Connect(onShootResult)
+	scriptTrove:Connect(shootRemote.OnClientEvent, onShootResult)
+	scriptTrove:Add(cleanupAllShooting)
 	print("Wall shooting client ready")
 end
 

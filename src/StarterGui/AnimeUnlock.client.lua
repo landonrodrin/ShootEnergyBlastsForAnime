@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 
@@ -13,6 +14,7 @@ local EXIT_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirectio
 
 local Queue = {}
 local Showing = false
+local ScriptTrove = Trove.new()
 
 local function getMutationColour(Mutation)
 	local Configuration = MutationsConfigurations[Mutation]
@@ -49,10 +51,17 @@ local function showNext()
 
 	Showing = true
 
+	local BannerTrove = Trove.new()
+	local Active = true
+	BannerTrove:Add(function()
+		Active = false
+	end)
+
 	local Banner = Template:Clone()
 	Banner.Name = "UnlockBanner"
 	Banner.Visible = true
 	Banner.Parent = Container
+	BannerTrove:Add(Banner)
 
 	local Title = Banner:FindFirstChild("Title")
 	if Title and Title:IsA("TextLabel") then
@@ -69,53 +78,52 @@ local function showNext()
 	end
 
 	local Preview = Banner:FindFirstChild("Preview")
-	AnimeViewports.ReplacePlaceholder(Preview, Data.Name, Data.Mutation)
+	local Viewport = AnimeViewports.ReplacePlaceholder(Preview, Data.Name, Data.Mutation)
+	if Viewport then
+		BannerTrove:Add(Viewport)
+	end
 
 	local FinalPosition = Banner.Position
 	Banner.Position = FinalPosition + ENTRY_OFFSET
 	Banner.BackgroundTransparency = 1
 
-	TweenService:Create(Banner, ENTRY_TWEEN, {
+	BannerTrove:Add(TweenService:Create(Banner, ENTRY_TWEEN, {
 		BackgroundTransparency = Template.BackgroundTransparency,
 		Position = FinalPosition
-	}):Play()
+	})):Play()
 
 	if Title and Title:IsA("TextLabel") then
-		TweenService:Create(Title, ENTRY_TWEEN, {TextTransparency = 0, TextStrokeTransparency = 0.35}):Play()
+		BannerTrove:Add(TweenService:Create(Title, ENTRY_TWEEN, {TextTransparency = 0, TextStrokeTransparency = 0.35})):Play()
 	end
 
 	if Stroke then
-		TweenService:Create(Stroke, ENTRY_TWEEN, {Transparency = 0.08}):Play()
+		BannerTrove:Add(TweenService:Create(Stroke, ENTRY_TWEEN, {Transparency = 0.08})):Play()
 	end
 
-	task.delay(DISPLAY_TIME, function()
-		local ExitTween = TweenService:Create(Banner, EXIT_TWEEN, {
+	BannerTrove:Add(task.delay(DISPLAY_TIME, function()
+		if not Active then return end
+
+		local ExitTween = BannerTrove:Add(TweenService:Create(Banner, EXIT_TWEEN, {
 			BackgroundTransparency = 1,
 			Position = Banner.Position + UDim2.new(0, 0, 0, -24)
-		})
+		}))
 
 		ExitTween:Play()
 
 		if Title and Title:IsA("TextLabel") then
-			TweenService:Create(Title, EXIT_TWEEN, {TextTransparency = 1, TextStrokeTransparency = 1}):Play()
+			BannerTrove:Add(TweenService:Create(Title, EXIT_TWEEN, {TextTransparency = 1, TextStrokeTransparency = 1})):Play()
 		end
 
 		if Stroke then
-			TweenService:Create(Stroke, EXIT_TWEEN, {Transparency = 1}):Play()
+			BannerTrove:Add(TweenService:Create(Stroke, EXIT_TWEEN, {Transparency = 1})):Play()
 		end
 
-		local CompletedConnection
-		CompletedConnection = ExitTween.Completed:Connect(function()
-			if CompletedConnection then
-				CompletedConnection:Disconnect()
-				CompletedConnection = nil
-			end
-
-			Banner:Destroy()
+		BannerTrove:Connect(ExitTween.Completed, function()
+			BannerTrove:Destroy()
 			Showing = false
 			showNext()
 		end)
-	end)
+	end))
 end
 
 local function showUnlock(Name, Mutation)
@@ -127,4 +135,4 @@ local function showUnlock(Name, Mutation)
 	showNext()
 end
 
-AnimeUnlockedEvent.OnClientEvent:Connect(showUnlock)
+ScriptTrove:Connect(AnimeUnlockedEvent.OnClientEvent, showUnlock)

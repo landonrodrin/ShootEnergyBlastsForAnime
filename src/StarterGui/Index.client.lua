@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
@@ -12,12 +13,15 @@ local IndexGui = script.Parent
 
 local IndexFrame = IndexGui:WaitForChild("IndexFrame")
 local IndexButton = IndexGui:WaitForChild("IndexButton")
+local ScriptTrove = Trove.new()
+local RedrawTrove = Trove.new()
+ScriptTrove:Add(RedrawTrove)
 
-IndexFrame.Header.Close.Activated:Connect(function()
+ScriptTrove:Connect(IndexFrame.Header.Close.Activated, function()
 	Animations.ToggleFrame(IndexFrame)
 end)
 
-IndexButton.Button.Activated:Connect(function()
+ScriptTrove:Connect(IndexButton.Button.Activated, function()
 	Animations.ToggleFrame(IndexFrame)
 
 	for _, MutationFrame in pairs(IndexFrame.Mutations:GetChildren()) do
@@ -54,6 +58,12 @@ local function Anime(Index, Mutation, Override)
 
 	local Colour = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 
+	RedrawTrove:Clean()
+	local RedrawActive = true
+	RedrawTrove:Add(function()
+		RedrawActive = false
+	end)
+
 	for _, AnimeFrame in pairs(IndexFrame.Anime:GetChildren()) do
 		if not AnimeFrame:IsA("Frame") then continue end
 
@@ -61,12 +71,16 @@ local function Anime(Index, Mutation, Override)
 	end
 
 	for Anime, AnimeConfiguration in pairs(AnimeConfigurations) do
-		task.spawn(function()
+		RedrawTrove:Add(task.spawn(function()
+			if not RedrawActive then return end
+
 			local Icon = AnimeConfiguration.Icons and AnimeConfiguration.Icons[Mutation]
 			local IsUnlocked = Index[Mutation] and Index[Mutation][Anime] == true
 
 			local AnimeFrame = script:WaitForChild("Anime")
 			AnimeFrame = AnimeFrame:Clone()
+			local RowTrove = RedrawTrove:Extend()
+			RowTrove:Add(AnimeFrame)
 
 			local IconObject = AnimeFrame:FindFirstChild("Icon")
 			local Viewport = AnimeViewports.Mount(IconObject, Anime, Mutation, {
@@ -75,6 +89,8 @@ local function Anime(Index, Mutation, Override)
 
 			if not Viewport then
 				applyFallbackIcon(IconObject, Icon, IsUnlocked)
+			else
+				RowTrove:Add(Viewport)
 			end
 
 			AnimeFrame.Area.Text = AnimeConfiguration.Area
@@ -87,10 +103,15 @@ local function Anime(Index, Mutation, Override)
 
 			AnimeFrame.LayoutOrder = AnimeConfiguration.Index or 0
 
+			if not RedrawActive then
+				RowTrove:Destroy()
+				return
+			end
+
 			AnimeFrame.Name = Anime
 			AnimeFrame.Parent = IndexFrame:WaitForChild("Anime")
 			AnimeFrame.Visible = true
-		end)
+		end))
 	end
 
 	Colour = string.format("rgb(%d, %d, %d)", Colour.R * 255, Colour.G * 255, Colour.B * 255)
@@ -98,7 +119,7 @@ local function Anime(Index, Mutation, Override)
 	IndexFrame.Header.Index.Text = string.format("Index | <font color=\"%s\">%s</font>", Colour, Mutation)
 end
 
-IndexEvent.OnClientEvent:Connect(function(Index, Mutation)
+ScriptTrove:Connect(IndexEvent.OnClientEvent, function(Index, Mutation)
 	local Override = false
 
 	if not Mutation then
@@ -122,6 +143,7 @@ for Mutation, MutationConfiguration in pairs(MutationsConfigurations) do
 	local MutationFrame = script:WaitForChild("Mutation")
 
 	MutationFrame = MutationFrame:Clone()
+	ScriptTrove:Add(MutationFrame)
 
 	MutationFrame.Mutation.Text = Mutation
 
@@ -129,7 +151,7 @@ for Mutation, MutationConfiguration in pairs(MutationsConfigurations) do
 
 	MutationFrame.LayoutOrder = MutationConfiguration.Index or 0
 
-	MutationFrame.Mutation.Activated:Connect(function()
+	ScriptTrove:Connect(MutationFrame.Mutation.Activated, function()
 		if MutationFrame.Mutation.BorderUIStroke.Color == Color3.fromRGB(0, 255, 0) then return end
 
 		IndexEvent:FireServer(Mutation)

@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+
 local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Announcement")
 
 local MESSAGE_LIFETIME = 2.25
@@ -10,6 +12,9 @@ local ENTRY_TWEEN = TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirect
 local EXIT_TWEEN = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 
 local ActiveMessages = {}
+local MessageTroves = {}
+local ScriptTrove = Trove.new()
+local createMessageTrove
 
 local Gui = script:FindFirstAncestor("AnnouncementGui")
 if not Gui then
@@ -49,6 +54,8 @@ end
 
 local function removeMessage(MessageFrame)
 	if not MessageFrame or not MessageFrame.Parent then return end
+	if MessageFrame:GetAttribute("Removing") then return end
+	MessageFrame:SetAttribute("Removing", true)
 
 	for Index, ActiveMessage in ipairs(ActiveMessages) do
 		if ActiveMessage ~= MessageFrame then continue end
@@ -74,15 +81,31 @@ local function removeMessage(MessageFrame)
 	})
 
 	ExitTween:Play()
-	local CompletedConnection
-	CompletedConnection = ExitTween.Completed:Connect(function()
-		if CompletedConnection then
-			CompletedConnection:Disconnect()
-			CompletedConnection = nil
-		end
+	local MessageTrove = MessageTroves[MessageFrame]
+	if not MessageTrove then
+		MessageTrove = createMessageTrove(MessageFrame)
+	end
 
-		MessageFrame:Destroy()
+	MessageTrove:Add(ExitTween)
+	MessageTrove:Connect(ExitTween.Completed, function()
+		MessageTrove:Destroy()
 	end)
+end
+
+createMessageTrove = function(MessageFrame)
+	local MessageTrove = Trove.new()
+	local Active = true
+	MessageTroves[MessageFrame] = MessageTrove
+
+	MessageTrove:Add(MessageFrame)
+	MessageTrove:Add(function()
+		Active = false
+		MessageTroves[MessageFrame] = nil
+	end)
+
+	return MessageTrove, function()
+		return Active
+	end
 end
 
 local function trimActiveMessages()
@@ -92,7 +115,10 @@ local function trimActiveMessages()
 end
 
 local function showAnnouncement(Text, Colour)
+	local MessageTrove
+	local IsMessageActive
 	local MessageFrame = Template:Clone()
+	MessageTrove, IsMessageActive = createMessageTrove(MessageFrame)
 	MessageFrame.Name = "Message"
 	MessageFrame.LayoutOrder = os.clock() * 1000
 	MessageFrame.Visible = true
@@ -119,22 +145,24 @@ local function showAnnouncement(Text, Colour)
 	table.insert(ActiveMessages, MessageFrame)
 	trimActiveMessages()
 
-	TweenService:Create(MessageFrame, ENTRY_TWEEN, {
+	MessageTrove:Add(TweenService:Create(MessageFrame, ENTRY_TWEEN, {
 		BackgroundTransparency = Template.BackgroundTransparency,
 		Position = FinalPosition
-	}):Play()
+	})):Play()
 
 	if Label and Label:IsA("TextLabel") then
-		TweenService:Create(Label, ENTRY_TWEEN, {TextTransparency = 0, TextStrokeTransparency = 0.35}):Play()
+		MessageTrove:Add(TweenService:Create(Label, ENTRY_TWEEN, {TextTransparency = 0, TextStrokeTransparency = 0.35})):Play()
 	end
 
 	if Stroke then
-		TweenService:Create(Stroke, ENTRY_TWEEN, {Transparency = 0.08}):Play()
+		MessageTrove:Add(TweenService:Create(Stroke, ENTRY_TWEEN, {Transparency = 0.08})):Play()
 	end
 
-	task.delay(MESSAGE_LIFETIME, function()
+	MessageTrove:Add(task.delay(MESSAGE_LIFETIME, function()
+		if not IsMessageActive() then return end
+
 		removeMessage(MessageFrame)
-	end)
+	end))
 end
 
-AnnouncementEvent.OnClientEvent:Connect(showAnnouncement)
+ScriptTrove:Connect(AnnouncementEvent.OnClientEvent, showAnnouncement)
