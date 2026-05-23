@@ -3,11 +3,13 @@ local TweenService = game:GetService("TweenService")
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
+local Trove = require(shared:WaitForChild("Trove"))
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local wallDebrisRemote = remotes:WaitForChild("WallDebris")
 
 local WallDebris = {}
+local ScriptTrove = Trove.new()
 
 local LOCAL_DEBRIS_COLLISION_GROUP = "LocalWallDebris"
 
@@ -45,6 +47,7 @@ local function ensureFolder()
 		folder = Instance.new("Folder")
 		folder.Name = "LocalWallDebris"
 		folder.Parent = workspace
+		ScriptTrove:Add(folder)
 	end
 
 	return folder
@@ -97,13 +100,19 @@ local function releaseActiveIndex(index)
 		return
 	end
 
-	if debris.tween then
-		debris.tween:Cancel()
-	end
-
-	resetPart(debris.part)
-	table.insert(pool, debris.part)
 	table.remove(activeDebris, index)
+
+	if debris.trove then
+		debris.trove:Destroy()
+		debris.trove = nil
+	else
+		if debris.tween then
+			debris.tween:Cancel()
+		end
+
+		resetPart(debris.part)
+		table.insert(pool, debris.part)
+	end
 end
 
 local function releaseByToken(token)
@@ -161,7 +170,7 @@ local function scheduleRelease(debris)
 	local token = debris.token
 	local part = debris.part
 
-	task.delay(fadeDelay, function()
+	debris.trove:Add(task.delay(fadeDelay, function()
 		if part:GetAttribute("DebrisToken") ~= token then
 			return
 		end
@@ -171,14 +180,15 @@ local function scheduleRelease(debris)
 			Transparency = 1,
 		})
 		debris.tween = tween
+		debris.trove:Add(tween)
 		tween:Play()
-	end)
+	end))
 
-	task.delay(lifetime, function()
+	debris.trove:Add(task.delay(lifetime, function()
 		if part:GetAttribute("DebrisToken") == token then
 			releaseByToken(token)
 		end
-	end)
+	end))
 end
 
 local function preparePhysicsPart(part, spawnCFrame)
@@ -248,7 +258,18 @@ local function spawnPiece(payload)
 		token = token,
 		tween = nil,
 		originalSize = part.Size,
+		trove = Trove.new(),
 	}
+
+	debris.trove:Add(function()
+		if debris.tween then
+			debris.tween:Cancel()
+			debris.tween = nil
+		end
+
+		resetPart(part)
+		table.insert(pool, part)
+	end)
 
 	table.insert(activeDebris, debris)
 	scheduleRelease(debris)
@@ -280,7 +301,7 @@ function WallDebris.Start()
 	started = true
 
 	ensureFolder()
-	wallDebrisRemote.OnClientEvent:Connect(onWallDebris)
+	ScriptTrove:Connect(wallDebrisRemote.OnClientEvent, onWallDebris)
 	print("Wall debris client ready")
 end
 

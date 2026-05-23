@@ -81,6 +81,7 @@ return function(ctx)
 	local reconcileIndex = ctx.reconcileIndex
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
+	local SetupTrove = Trove.new()
 local function registerCollisionGroup(Name)
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup(Name)
@@ -147,9 +148,21 @@ local function moveCharacterToPlayerSpawn(Character)
 	return true
 end
 
-local function scheduleCharacterSpawnMove(Character)
-	task.defer(moveCharacterToPlayerSpawn, Character)
-	task.delay(0.25, function()
+local function addOwnedDelay(OwnerTrove, Delay, Callback)
+	local Thread = task.delay(Delay, Callback)
+	if OwnerTrove then
+		OwnerTrove:Add(Thread)
+	end
+	return Thread
+end
+
+local function scheduleCharacterSpawnMove(Character, OwnerTrove)
+	local DeferredThread = task.defer(moveCharacterToPlayerSpawn, Character)
+	if OwnerTrove then
+		OwnerTrove:Add(DeferredThread)
+	end
+
+	addOwnedDelay(OwnerTrove, 0.25, function()
 		if Character.Parent then
 			moveCharacterToPlayerSpawn(Character)
 		end
@@ -229,6 +242,7 @@ local function sellInventory(Player, Mode, Id)
 	end
 end
 function PlayersModule.Setup()
+	SetupTrove:Clean()
 	setupOwnerTextChatCommands()
 
 	registerCollisionGroup("Players")
@@ -271,13 +285,13 @@ function PlayersModule.Setup()
 		end
 	end
 
-	Players.PlayerAdded:Connect(setupPlayer)
+	SetupTrove:Connect(Players.PlayerAdded, setupPlayer)
 
 	for _, Player in ipairs(Players:GetPlayers()) do
-		task.spawn(setupPlayer, Player)
+		SetupTrove:Add(task.spawn(setupPlayer, Player))
 	end
 
-	Players.PlayerRemoving:Connect(function(Player)
+	SetupTrove:Connect(Players.PlayerRemoving, function(Player)
 		local PlayerData = PlayersData[Player]
 
 		if PlayerData then
@@ -298,13 +312,13 @@ function PlayersModule.Setup()
 
 	RetrievePlayerDataFunction.OnInvoke = PlayersModule.Retrieve
 
-	ReplacePlayerDataEvent.Event:Connect(PlayersModule.Replace)
-	CreateToolEvent.Event:Connect(PlayersModule.Tool)
-	AdminCommandEvent.OnServerEvent:Connect(function(Player, Message)
+	SetupTrove:Connect(ReplacePlayerDataEvent.Event, PlayersModule.Replace)
+	SetupTrove:Connect(CreateToolEvent.Event, PlayersModule.Tool)
+	SetupTrove:Connect(AdminCommandEvent.OnServerEvent, function(Player, Message)
 		handlePlayerCommand(Player, Message or "")
 	end)
 
-	IncrementSpeedEvent.OnServerEvent:Connect(function(Player, Speed)
+	SetupTrove:Connect(IncrementSpeedEvent.OnServerEvent, function(Player, Speed)
 		local Money = math.round(UpgradesConfigurations["Speed1"].Money * UpgradesConfigurations["Speed1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Speed") + Speed - 1))
 
 		if PlayersModule.Retrieve(Player, "Money") < Money then return end
@@ -313,7 +327,7 @@ function PlayersModule.Setup()
 		PlayersModule.Replace(Player, "Speed", PlayersModule.Retrieve(Player, "Speed") + Speed)
 	end)
 
-	IncrementCarryEvent.OnServerEvent:Connect(function(Player, Carry)
+	SetupTrove:Connect(IncrementCarryEvent.OnServerEvent, function(Player, Carry)
 		local Money = math.round(UpgradesConfigurations["Carry1"].Money * UpgradesConfigurations["Carry1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Carry") + Carry - 1))
 
 		if PlayersModule.Retrieve(Player, "Money") < Money then return end
@@ -324,11 +338,11 @@ function PlayersModule.Setup()
 
 	ctx.setupPurchaseProcessing()
 
-	AnnouncementEvent.OnServerEvent:Connect(function(Player, Text, Colour)
+	SetupTrove:Connect(AnnouncementEvent.OnServerEvent, function(Player, Text, Colour)
 		AnnouncementEvent:FireClient(Player, Text, Colour)
 	end)
 
-	ToggleSpeedEvent.OnServerEvent:Connect(function(Player, Toggle)
+	SetupTrove:Connect(ToggleSpeedEvent.OnServerEvent, function(Player, Toggle)
 		local Speed = PlayersModule.Retrieve(Player, "Speed") or 16
 
 		local Character = Player.Character or Player.CharacterAdded:Wait()
@@ -338,7 +352,7 @@ function PlayersModule.Setup()
 		Humanoid.WalkSpeed = Toggle and 16 or Speed
 	end)
 
-	RebirthEvent.OnServerEvent:Connect(function(Player)
+	SetupTrove:Connect(RebirthEvent.OnServerEvent, function(Player)
 		local Rebirths = PlayersModule.Retrieve(Player, "Rebirths")
 		local Speed = PlayersModule.Retrieve(Player, "Speed")
 
@@ -350,13 +364,13 @@ function PlayersModule.Setup()
 		RebirthEvent:FireClient(Player, Rebirths + 1, GameConfigurations.Defaults.Speed)
 	end)
 
-	IndexEvent.OnServerEvent:Connect(function(Player, Mutation)
+	SetupTrove:Connect(IndexEvent.OnServerEvent, function(Player, Mutation)
 		local Index = PlayersModule.Retrieve(Player, "Index")
 
 		IndexEvent:FireClient(Player, Index, Mutation)
 	end)
 
-	EquipInventoryEvent.OnServerEvent:Connect(function(Player, Id)
+	SetupTrove:Connect(EquipInventoryEvent.OnServerEvent, function(Player, Id)
 		local _, ToolData = findToolDataById(Player, Id)
 		if not ToolData or not ToolData.Tool then return end
 
@@ -374,11 +388,11 @@ function PlayersModule.Setup()
 		task.defer(syncInventory, Player)
 	end)
 
-	SellInventoryEvent.OnServerEvent:Connect(function(Player, Mode, Id)
+	SetupTrove:Connect(SellInventoryEvent.OnServerEvent, function(Player, Mode, Id)
 		sellInventory(Player, Mode, Id)
 	end)
 
-	UpdateHotbarSlotEvent.OnServerEvent:Connect(function(Player, Slot, Id)
+	SetupTrove:Connect(UpdateHotbarSlotEvent.OnServerEvent, function(Player, Slot, Id)
 		local PlayerData = PlayersData[Player]
 		if not PlayerData then return end
 
@@ -422,7 +436,7 @@ function PlayersModule.Create(Player)
 		Descendant.CollisionGroup = "Players"
 	end
 
-	scheduleCharacterSpawnMove(Character)
+	scheduleCharacterSpawnMove(Character, PlayerData.Trove)
 
 	PlayerData.Trove:Connect(Player.CharacterAdded, function(Character)
 		local Humanoid = Character:WaitForChild("Humanoid")
@@ -435,7 +449,7 @@ function PlayersModule.Create(Player)
 			Descendant.CollisionGroup = "Players"
 		end
 
-		scheduleCharacterSpawnMove(Character)
+		scheduleCharacterSpawnMove(Character, PlayerData.Trove)
 
 		local Base = PlayersData[Player].Base
 		if not Base then return end
@@ -486,7 +500,7 @@ function PlayersModule.Create(Player)
 		end)
 
 		for _, OtherPlayer in ipairs(Players:GetPlayers()) do
-			task.spawn(function()
+			CharacterTrove:Add(task.spawn(function()
 				if Player == OtherPlayer then return end
 
 				local Character = OtherPlayer.Character or OtherPlayer.CharacterAdded:Wait()
@@ -495,11 +509,11 @@ function PlayersModule.Create(Player)
 				if not Tool then return end
 
 				SetProperties.Client(OtherPlayer, ProximityPrompt, {Enabled = true})
-			end)
+			end))
 		end
 	end)
 
-	task.spawn(function()
+	PlayerData.Trove:Add(task.spawn(function()
 		local BaseData = Bases.Create(PlayerData)
 
 		local Base = BaseData.Base
@@ -554,7 +568,7 @@ function PlayersModule.Create(Player)
 		end)
 
 		for _, OtherPlayer in ipairs(Players:GetPlayers()) do
-			task.spawn(function()
+			CharacterTrove:Add(task.spawn(function()
 				if Player == OtherPlayer then return end
 
 				local Character = OtherPlayer.Character or OtherPlayer.CharacterAdded:Wait()
@@ -563,9 +577,9 @@ function PlayersModule.Create(Player)
 				if not Tool then return end
 
 				SetProperties.Client(OtherPlayer, ProximityPrompt, {Enabled = true})
-			end)
+			end))
 		end
-	end)
+	end))
 
 	PlayersData[Player] = PlayerData
 

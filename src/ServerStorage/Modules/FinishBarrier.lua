@@ -5,11 +5,14 @@ local RunService = game:GetService("RunService")
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
 local PathUtils = require(shared:WaitForChild("PathUtils"))
+local Trove = require(shared:WaitForChild("Trove"))
 
 local FinishBarrier = {}
 
 local callbacks = {}
 local playerCrossingStates = {}
+local setupTrove = Trove.new()
+local playerTroves = {}
 local started = false
 
 local ANIME_SIDE_MIN_X = 0
@@ -54,14 +57,37 @@ local function initializePlayerCrossing(player, finishLine)
 	}
 end
 
+local function cleanupPlayerCrossing(player)
+	local playerTrove = playerTroves[player]
+	if playerTrove then
+		playerTrove:Destroy()
+		playerTroves[player] = nil
+	end
+
+	playerCrossingStates[player] = nil
+end
+
 local function bindPlayerCrossing(player, finishLine)
+	cleanupPlayerCrossing(player)
+
+	local playerTrove = setupTrove:Extend()
+	playerTroves[player] = playerTrove
+
+	playerTrove:Add(function()
+		if playerTroves[player] == playerTrove then
+			playerTroves[player] = nil
+		end
+
+		playerCrossingStates[player] = nil
+	end)
+
 	if player.Character then
 		task.defer(function()
 			initializePlayerCrossing(player, finishLine)
 		end)
 	end
 
-	player.CharacterAdded:Connect(function()
+	playerTrove:Connect(player.CharacterAdded, function()
 		task.defer(function()
 			initializePlayerCrossing(player, finishLine)
 		end)
@@ -115,6 +141,15 @@ function FinishBarrier.OnReturn(callback, priority)
 	end)
 
 	FinishBarrier.Start()
+
+	return function()
+		for index, callbackData in ipairs(callbacks) do
+			if callbackData.Callback == callback then
+				table.remove(callbacks, index)
+				break
+			end
+		end
+	end
 end
 
 function FinishBarrier.Start()
@@ -139,19 +174,17 @@ function FinishBarrier.Start()
 		bindPlayerCrossing(player, finishLine)
 	end
 
-	Players.PlayerAdded:Connect(function(player)
+	setupTrove:Connect(Players.PlayerAdded, function(player)
 		bindPlayerCrossing(player, finishLine)
 	end)
 
-	RunService.Heartbeat:Connect(function()
+	setupTrove:Connect(RunService.Heartbeat, function()
 		for _, player in ipairs(Players:GetPlayers()) do
 			updatePlayerCrossing(player, finishLine)
 		end
 	end)
-end
 
-Players.PlayerRemoving:Connect(function(player)
-	playerCrossingStates[player] = nil
-end)
+	setupTrove:Connect(Players.PlayerRemoving, cleanupPlayerCrossing)
+end
 
 return FinishBarrier

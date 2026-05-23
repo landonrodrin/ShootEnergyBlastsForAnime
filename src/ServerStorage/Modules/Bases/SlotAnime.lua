@@ -56,13 +56,21 @@ return function(ctx)
 	local removeLegacyBaseInfoGuis = ctx.removeLegacyBaseInfoGuis
 	local removeBaseLevelGuis = ctx.removeBaseLevelGuis
 
-local function refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+local function addOwnedDelay(OwnerTrove, Delay, Callback)
+	local Thread = task.delay(Delay, Callback)
+	if OwnerTrove then
+		OwnerTrove:Add(Thread)
+	end
+	return Thread
+end
+
+local function refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier, OwnerTrove)
 	local ApplyOccupiedSlotPromptState = ctx.applyOccupiedSlotPromptState
 	if ApplyOccupiedSlotPromptState and ApplyOccupiedSlotPromptState(Player, Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier) then
 		return true
 	end
 
-	task.delay(0.25, function()
+	addOwnedDelay(OwnerTrove, 0.25, function()
 		local SlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
 		if not SlotData or SlotData.Anime ~= Anime then return end
 
@@ -71,7 +79,7 @@ local function refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfig
 			return
 		end
 
-		task.delay(1, function()
+		addOwnedDelay(OwnerTrove, 1, function()
 			local CurrentSlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
 			if not CurrentSlotData or CurrentSlotData.Anime ~= Anime then return end
 
@@ -87,12 +95,50 @@ local function refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfig
 	return false
 end
 
+local function refreshPlayerEconomy(Player, Base)
+	if not BasesData[Base] or not Player then return end
+
+	local MoneyPerSecond = 0
+
+	local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
+	for _, AnimeEntry in ipairs(SavedAnime) do
+		local Name = AnimeEntry.Name
+		local AnimeConfiguration = AnimeConfigurations[Name]
+		local Mutation = AnimeEntry.Mutation
+		local MutationConfiguration = MutationsConfigurations[Mutation]
+		local Level = AnimeEntry.Level or 1
+
+		local Multiplier = MutationConfiguration.Multiplier or 1
+
+		MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
+	end
+
+	local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
+
+	MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
+
+	ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
+
+	updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
+end
+
+local function scheduleEconomyRefresh(Player, Base, OwnerTrove)
+	addOwnedDelay(OwnerTrove, 1, function()
+		refreshPlayerEconomy(Player, Base)
+	end)
+
+	addOwnedDelay(OwnerTrove, 5, function()
+		refreshPlayerEconomy(Player, Base)
+	end)
+end
+
 function Bases.Create(PlayerData)
 	local Player = PlayerData.Player
 
 	local Data = setmetatable({}, {__index = Bases})
 
 	Data.Player = Player
+	Data.Trove = Trove.new()
 
 	local Base
 
@@ -110,11 +156,11 @@ function Bases.Create(PlayerData)
 	Data.Base = Base
 	Data.SlotsData = {}
 
-	task.delay(1, function()
+	addOwnedDelay(Data.Trove, 1, function()
 		Bases.Level(PlayerData, Base)
 	end)
 
-	task.delay(5, function()
+	addOwnedDelay(Data.Trove, 5, function()
 		Bases.Level(PlayerData, Base)
 	end)
 
@@ -123,7 +169,7 @@ function Bases.Create(PlayerData)
 	BasesData[Base] = Data
 
 	for _, AnimeData in ipairs(PlayerData.Anime) do
-		task.spawn(function()
+		Data.Trove:Add(task.spawn(function()
 			local Name = AnimeData.Name
 			local Mutation = AnimeData.Mutation
 			local Level = AnimeData.Level
@@ -132,10 +178,10 @@ function Bases.Create(PlayerData)
 			Slot = getSlotByName(Base, Slot)
 
 			Bases.Add(Player, Base, Slot, Name, Mutation, Level)
-		end)
+		end))
 	end
 
-	task.delay(1, function()
+	addOwnedDelay(Data.Trove, 1, function()
 		if BasesData[Base] and BasesData[Base].Player == Player then
 			Bases.RefreshPlayerBasePrompts(Player)
 		end
@@ -331,16 +377,24 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 		MoneyGui.Money.Money.Text = string.format("$%s", Format.Number(BasesData[Base].SlotsData[Slot.Name].Money))
 
-		task.wait(1)
-
-		Debounce = false
+		addOwnedDelay(SlotTrove, 1, function()
+			local CurrentSlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
+			if CurrentSlotData and CurrentSlotData.Anime == Anime then
+				Debounce = false
+			end
+		end)
 	end)
 
-	task.spawn(function()
-		while BasesData[Base] and BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Money and BasesData[Base].SlotsData[Slot.Name].Anime and BasesData[Base].SlotsData[Slot.Name].Anime == Anime do
+	local IncomeLoopActive = true
+	SlotTrove:Add(function()
+		IncomeLoopActive = false
+	end)
+
+	SlotTrove:Add(task.spawn(function()
+		while IncomeLoopActive and BasesData[Base] and BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Money and BasesData[Base].SlotsData[Slot.Name].Anime and BasesData[Base].SlotsData[Slot.Name].Anime == Anime do
 			task.wait(1)
 
-			if not BasesData[Base] or not BasesData[Base].SlotsData[Slot.Name] or not BasesData[Base].SlotsData[Slot.Name].Money or not BasesData[Base].SlotsData[Slot.Name].Anime or BasesData[Base].SlotsData[Slot.Name].Anime ~= Anime then break end
+			if not IncomeLoopActive or not BasesData[Base] or not BasesData[Base].SlotsData[Slot.Name] or not BasesData[Base].SlotsData[Slot.Name].Money or not BasesData[Base].SlotsData[Slot.Name].Anime or BasesData[Base].SlotsData[Slot.Name].Anime ~= Anime then break end
 
 			local Multiplier = MutationConfiguration.Multiplier or 1
 			local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
@@ -349,67 +403,15 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 			MoneyGui.Money.Money.Text = string.format("$%s", Format.Number(BasesData[Base].SlotsData[Slot.Name].Money))
 		end
-	end)
+	end))
 
 	if GameConfigurations.ProductsIds.Steal ~= 3524104512 and math.random() > 0.5 then
 		GameConfigurations.ProductsIds.Steal = 3524104512
 	end
 
-	refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier, SlotTrove)
 
-	task.delay(1, function()
-		if not BasesData[Base] or not Player then return end
-
-		local MoneyPerSecond = 0
-
-		local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
-		for _, AnimeEntry in ipairs(SavedAnime) do
-			local Name = AnimeEntry.Name
-			local AnimeConfiguration = AnimeConfigurations[Name]
-			local Mutation = AnimeEntry.Mutation
-			local MutationConfiguration = MutationsConfigurations[Mutation]
-			local Level = AnimeEntry.Level or 1
-
-			local Multiplier = MutationConfiguration.Multiplier or 1
-
-			MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
-		end
-
-		local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
-
-		MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
-
-		ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
-
-		updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
-	end)
-
-	task.delay(5, function()
-		if not BasesData[Base] or not Player then return end
-
-		local MoneyPerSecond = 0
-
-		local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
-		for _, AnimeEntry in ipairs(SavedAnime) do
-			local Name = AnimeEntry.Name
-			local AnimeConfiguration = AnimeConfigurations[Name]
-			local Mutation = AnimeEntry.Mutation
-			local MutationConfiguration = MutationsConfigurations[Mutation]
-			local Level = AnimeEntry.Level or 1
-
-			local Multiplier = MutationConfiguration.Multiplier or 1
-
-			MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
-		end
-
-		local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
-
-		MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
-
-		ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
-
-		updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
-	end)
+	scheduleEconomyRefresh(Player, Base, SlotTrove)
 
 	return Anime
 end
@@ -462,7 +464,7 @@ function Bases.RefreshPlayerBasePrompts(Player)
 			local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 			local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level") or 1
 
-			refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+			refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier, SlotData.Trove)
 		end
 	end
 end
@@ -476,14 +478,7 @@ function Bases.Remove(Base, Slot, Save)
 	if SlotData.Trove then
 		SlotData.Trove:Destroy()
 		SlotData.Trove = nil
-	elseif SlotData.Connections then
-		for _, Connection in ipairs(SlotData.Connections) do
-			Connection:Disconnect()
-			Connection = nil
-		end
 	end
-
-	SlotData.Connections = nil
 
 	SlotData.Money = nil
 
@@ -546,60 +541,8 @@ function Bases.Remove(Base, Slot, Save)
 
 	if BasesData[Base].Player and not Save then
 		local Player = BasesData[Base].Player
-
-		task.delay(1, function()
-			if not BasesData[Base] or not BasesData[Base].Player then return end
-
-			local MoneyPerSecond = 0
-
-			local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
-			for _, AnimeEntry in ipairs(SavedAnime) do
-				local Name = AnimeEntry.Name
-				local AnimeConfiguration = AnimeConfigurations[Name]
-				local Mutation = AnimeEntry.Mutation
-				local MutationConfiguration = MutationsConfigurations[Mutation]
-				local Level = AnimeEntry.Level or 1
-
-				local Multiplier = MutationConfiguration.Multiplier or 1
-
-				MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
-			end
-
-			local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
-
-			MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
-
-			ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
-
-			updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
-		end)
-
-		task.delay(5, function()
-			if not BasesData[Base] or not BasesData[Base].Player then return end
-
-			local MoneyPerSecond = 0
-
-			local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
-			for _, AnimeEntry in ipairs(SavedAnime) do
-				local Name = AnimeEntry.Name
-				local AnimeConfiguration = AnimeConfigurations[Name]
-				local Mutation = AnimeEntry.Mutation
-				local MutationConfiguration = MutationsConfigurations[Mutation]
-				local Level = AnimeEntry.Level or 1
-
-				local Multiplier = MutationConfiguration.Multiplier or 1
-
-				MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
-			end
-
-			local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
-
-			MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
-
-			ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
-
-			updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
-		end)
+		local BaseTrove = BasesData[Base].Trove
+		scheduleEconomyRefresh(Player, Base, BaseTrove)
 	end
 end
 
@@ -614,6 +557,11 @@ function Bases.Destroy(Base)
 
 	removeLegacyBaseInfoGuis(Base)
 	removeBaseLevelGuis(Base)
+
+	if BaseData and BaseData.Trove then
+		BaseData.Trove:Destroy()
+		BaseData.Trove = nil
+	end
 
 	if BaseData and BaseData.LevelTrove then
 		BaseData.LevelTrove:Destroy()
