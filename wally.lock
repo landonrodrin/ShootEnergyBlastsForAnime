@@ -15,9 +15,14 @@ dependencies = []
 [[package]]
 name = "landonrodrin/shoot-walls"
 version = "0.1.0"
-dependencies = [["promise", "evaera/promise@4.0.0"], ["satchel", "ryanlua/satchel@1.4.1"]]
+dependencies = [["promise", "evaera/promise@4.0.0"], ["satchel", "ryanlua/satchel@1.4.1"], ["trove", "sleitnick/trove@1.8.0"]]
 
 [[package]]
 name = "ryanlua/satchel"
 version = "1.4.1"
 dependencies = [["topbarplus", "1foreverhd/topbarplus@3.4.0"]]
+
+[[package]]
+name = "sleitnick/trove"
+version = "1.8.0"
+dependencies = []

@@ -77,6 +77,7 @@ return function(ctx)
 	local syncInventory = ctx.syncInventory
 	local findToolDataById = ctx.findToolDataById
 	local removeToolData = ctx.removeToolData
+	local cleanupToolData = ctx.cleanupToolData
 	local reconcileIndex = ctx.reconcileIndex
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
@@ -218,11 +219,14 @@ return function(ctx)
 				local Anime = type(ToolData) == "table" and ToolData.Name or nil
 
 				if not Anime or not AnimeConfigurations[Anime] then
+					cleanupToolData(ToolData)
 					table.remove(PlayerData.Tools, Index)
 				else
+					cleanupToolData(ToolData)
 					ToolData.Id = ToolData.Id or makeInventoryId()
 					ToolData.Tool = nil
 					ToolData.HeldModel = nil
+					ToolData.Trove = nil
 					PlayerData.Tools[Index] = ToolData
 				end
 			end
@@ -254,8 +258,10 @@ return function(ctx)
 		Promise.try(function()
 			local PlayerData = PlayersData[Player]
 			if not PlayerData then return end
+			local PlayerTrove = PlayerData.Trove
+			if not PlayerTrove then return end
 
-			Player.CharacterAdded:Connect(function()
+			PlayerTrove:Connect(Player.CharacterAdded, function()
 				task.wait()
 
 				local CurrentPlayerData = PlayersData[Player]
@@ -266,7 +272,7 @@ return function(ctx)
 				end)
 			end)
 
-			Player.CharacterRemoving:Connect(function()
+			PlayerTrove:Connect(Player.CharacterRemoving, function()
 				if ctx.removeHeldModel then
 					ctx.removeHeldModel(Player)
 				end
@@ -370,9 +376,11 @@ return function(ctx)
 
 		for Index, ToolData in ipairs(self.Tools) do
 			if type(ToolData) == "table" then
+				cleanupToolData(ToolData)
 				ToolData.Id = ToolData.Id or makeInventoryId()
 				ToolData.Tool = nil
 				ToolData.HeldModel = nil
+				ToolData.Trove = nil
 
 				self.Tools[Index] = ToolData
 			end
@@ -400,6 +408,11 @@ return function(ctx)
 
 		if PlayersData[Player] and PlayersData[Player].Base then
 			Bases.Destroy(PlayersData[Player].Base)
+		end
+
+		if self.Trove then
+			self.Trove:Destroy()
+			self.Trove = nil
 		end
 
 		PlayersData[Player] = nil

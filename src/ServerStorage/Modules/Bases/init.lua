@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
 local Grounding = require(ServerStorage.Modules:WaitForChild("Grounding"))
 
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local BaseConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("BaseConfigurations"))
@@ -31,6 +32,7 @@ local ctx = {
 	HttpService = HttpService,
 	SetProperties = SetProperties,
 	Grounding = Grounding,
+	Trove = Trove,
 	Format = Format,
 	GameConfigurations = GameConfigurations,
 	BaseConfigurations = BaseConfigurations,

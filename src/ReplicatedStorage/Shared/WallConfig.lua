@@ -43,21 +43,15 @@ WallConfig.FinishBarrierPath = { "Map", "Finish Line", "AnimeReturnBarrier" }
 
 WallConfig.Walls = {
 	{
-		Id = "BreakableWall1",
-		DisplayName = "Breakable Wall 1",
-		Path = { "Strips", "Strip 1", "Breakable Wall 1" },
+		Name = "Breakable Wall",
 		MaxHP = 50,
 	},
 	{
-		Id = "VipWallLeft1",
-		DisplayName = "Vip Wall Left 1",
-		Path = { "Strips", "Strip 1", "Vip Wall Left 1" },
+		Name = "Vip Wall Left",
 		MaxHP = 1,
 	},
 	{
-		Id = "VipWallRight1",
-		DisplayName = "Vip Wall Right 1",
-		Path = { "Strips", "Strip 1", "Vip Wall Right 1" },
+		Name = "Vip Wall Right",
 		MaxHP = 1,
 	},
 }

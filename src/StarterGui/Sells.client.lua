@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
@@ -21,6 +22,9 @@ local Inventory = {
 }
 
 local TouchCount = 0
+local ScriptTrove = Trove.new()
+local RowsTrove = Trove.new()
+ScriptTrove:Add(RowsTrove)
 
 local Header = SellsFrame:FindFirstChild("Header")
 local CloseButton = Header and Header:FindFirstChild("Close")
@@ -41,11 +45,7 @@ local CancelButton = ConfirmFrame:WaitForChild("Cancel")
 RowTemplate.Visible = false
 
 local function clearRows()
-	for _, Child in ipairs(List:GetChildren()) do
-		if Child:IsA("GuiObject") then
-			Child:Destroy()
-		end
-	end
+	RowsTrove:Clean()
 end
 
 local function getMutationColour(Mutation)
@@ -74,12 +74,14 @@ local function setFrameOpen(Open)
 end
 
 local function createRow(Item, LayoutOrder)
+	local RowTrove = RowsTrove:Extend()
 	local Accent = getMutationColour(Item.Mutation)
 	local Row = RowTemplate:Clone()
 	Row.Name = string.format("Sell_%s", tostring(Item.Id))
 	Row.LayoutOrder = LayoutOrder
 	Row.Visible = true
 	Row.Parent = List
+	RowTrove:Add(Row)
 
 	local Stroke = Row:FindFirstChildOfClass("UIStroke")
 	if Stroke then
@@ -91,7 +93,10 @@ local function createRow(Item, LayoutOrder)
 	if Icon and Icon:IsA("GuiObject") then
 		Icon.BackgroundColor3 = Accent
 		Icon.BackgroundTransparency = Item.Mutation == "Default" and 0.35 or 0.08
-		AnimeViewports.Mount(Icon, Item.Name, Item.Mutation)
+		local Viewport = AnimeViewports.Mount(Icon, Item.Name, Item.Mutation)
+		if Viewport then
+			RowTrove:Add(Viewport)
+		end
 	end
 
 	local NameLabel = Row:FindFirstChild("Name")
@@ -114,7 +119,7 @@ local function createRow(Item, LayoutOrder)
 	local MoneyButton = Row:FindFirstChild("Money")
 	if MoneyButton and MoneyButton:IsA("GuiButton") then
 		MoneyButton.Text = string.format("$%s", Format.Number(Item.Sell or 0))
-		MoneyButton.Activated:Connect(function()
+		RowTrove:Connect(MoneyButton.Activated, function()
 			SellInventoryEvent:FireServer("Single", Item.Id)
 		end)
 	end
@@ -144,19 +149,19 @@ local function redraw()
 	end
 end
 
-InventorySyncEvent.OnClientEvent:Connect(function(Snapshot)
+ScriptTrove:Connect(InventorySyncEvent.OnClientEvent, function(Snapshot)
 	Inventory = Snapshot or Inventory
 	redraw()
 end)
 
 if CloseButton then
-	CloseButton.Activated:Connect(function()
+	ScriptTrove:Connect(CloseButton.Activated, function()
 		TouchCount = 0
 		setFrameOpen(false)
 	end)
 end
 
-SellAllButton.Activated:Connect(function()
+ScriptTrove:Connect(SellAllButton.Activated, function()
 	local Total = totalSell()
 	if Total <= 0 then return end
 
@@ -168,16 +173,16 @@ SellAllButton.Activated:Connect(function()
 	ConfirmFrame.Visible = true
 end)
 
-ConfirmButton.Activated:Connect(function()
+ScriptTrove:Connect(ConfirmButton.Activated, function()
 	ConfirmFrame.Visible = false
 	SellInventoryEvent:FireServer("All")
 end)
 
-CancelButton.Activated:Connect(function()
+ScriptTrove:Connect(CancelButton.Activated, function()
 	ConfirmFrame.Visible = false
 end)
 
-Toggle.Touched:Connect(function(Hit)
+ScriptTrove:Connect(Toggle.Touched, function(Hit)
 	local Character = Player.Character
 	if not Character or not Character:IsAncestorOf(Hit) then return end
 
@@ -187,7 +192,7 @@ Toggle.Touched:Connect(function(Hit)
 	setFrameOpen(true)
 end)
 
-Toggle.TouchEnded:Connect(function(Hit)
+ScriptTrove:Connect(Toggle.TouchEnded, function(Hit)
 	local Character = Player.Character
 	if not Character or not Character:IsAncestorOf(Hit) then return end
 
@@ -197,7 +202,7 @@ Toggle.TouchEnded:Connect(function(Hit)
 	setFrameOpen(false)
 end)
 
-Player.CharacterRemoving:Connect(function()
+ScriptTrove:Connect(Player.CharacterRemoving, function()
 	TouchCount = 0
 	setFrameOpen(false)
 end)

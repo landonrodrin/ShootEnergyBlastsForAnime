@@ -1,16 +1,17 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local LevelEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Level")
 
-local connectionsByIdentifier = {}
+local trovesByIdentifier = {}
 local identifiersByGui = setmetatable({}, {__mode = "k"})
 
 local function disconnectIdentifier(Identifier)
-	local Connection = connectionsByIdentifier[Identifier]
-	if not Connection then return end
+	local IdentifierTrove = trovesByIdentifier[Identifier]
+	if not IdentifierTrove then return end
 
-	Connection:Disconnect()
-	connectionsByIdentifier[Identifier] = nil
+	trovesByIdentifier[Identifier] = nil
+	IdentifierTrove:Destroy()
 end
 
 local function disconnectGui(Gui)
@@ -39,8 +40,23 @@ LevelEvent.OnClientEvent:Connect(function(Gui, Identifier, Purchased)
 	local Button = Gui:FindFirstChild("Level", true)
 	if not Button or not Button:IsA("GuiButton") then return end
 
-	connectionsByIdentifier[Identifier] = Button.Activated:Connect(function()
+	disconnectIdentifier(Identifier)
+
+	local IdentifierTrove = Trove.new()
+	trovesByIdentifier[Identifier] = IdentifierTrove
+	identifiersByGui[Gui] = Identifier
+
+	IdentifierTrove:Add(function()
+		if identifiersByGui[Gui] == Identifier then
+			identifiersByGui[Gui] = nil
+		end
+	end)
+
+	IdentifierTrove:Connect(Gui.Destroying, function()
+		disconnectIdentifier(Identifier)
+	end)
+
+	IdentifierTrove:Connect(Button.Activated, function()
 		LevelEvent:FireServer(Identifier)
 	end)
-	identifiersByGui[Gui] = Identifier
 end)

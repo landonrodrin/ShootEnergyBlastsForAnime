@@ -4,6 +4,7 @@ return function(ctx)
 	local HttpService = ctx.HttpService
 	local SetProperties = ctx.SetProperties
 	local Grounding = ctx.Grounding
+	local Trove = ctx.Trove
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
@@ -207,11 +208,12 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	end
 
 	local SlotName = Slot.Name
+	local SlotTrove = Trove.new()
 
 	BasesData[Base].SlotsData[SlotName] = {
 		Anime = Anime,
 		Money = Money,
-		Connections = {}
+		Trove = SlotTrove
 	}
 
 	Anime.Parent = workspace
@@ -268,8 +270,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	if NextLevelConfiguration then
 		local Identifier = HttpService:GenerateGUID(false)
 
-		local Connection
-		Connection = LevelEvent.OnServerEvent:Connect(function(EventPlayer, EventIdentifier)
+		SlotTrove:Connect(LevelEvent.OnServerEvent, function(EventPlayer, EventIdentifier)
 			if EventPlayer ~= Player then return end
 			if EventIdentifier ~= Identifier then return end
 
@@ -297,8 +298,6 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 			Bases.Add(Player, Base, Slot, Name, Mutation, NextLevel, SavedMoney)
 		end)
 
-		table.insert(BasesData[Base].SlotsData[Slot.Name].Connections, Connection)
-
 		local BindLevelGui = ctx.bindLevelGui
 		if BindLevelGui then
 			BindLevelGui(Player, LevelGui, Identifier, function()
@@ -312,8 +311,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	local Debounce = false
 
-	local Connection
-	Connection = SlotMoney.Touched:Connect(function(Hit)
+	SlotTrove:Connect(SlotMoney.Touched, function(Hit)
 		local Character = Hit.Parent
 
 		local TouchingPlayer = Players:GetPlayerFromCharacter(Character)
@@ -337,8 +335,6 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 		Debounce = false
 	end)
-
-	table.insert(BasesData[Base].SlotsData[Slot.Name].Connections, Connection)
 
 	task.spawn(function()
 		while BasesData[Base] and BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Money and BasesData[Base].SlotsData[Slot.Name].Anime and BasesData[Base].SlotsData[Slot.Name].Anime == Anime do
@@ -477,16 +473,19 @@ function Bases.Remove(Base, Slot, Save)
 
 	local SlotData = BasesData[Base].SlotsData[Slot.Name]
 
-	if BasesData[Base].SlotsData[Slot.Name].Connections then
-		for _, Connection in ipairs(BasesData[Base].SlotsData[Slot.Name].Connections) do
+	if SlotData.Trove then
+		SlotData.Trove:Destroy()
+		SlotData.Trove = nil
+	elseif SlotData.Connections then
+		for _, Connection in ipairs(SlotData.Connections) do
 			Connection:Disconnect()
 			Connection = nil
 		end
 	end
 
-	BasesData[Base].SlotsData[Slot.Name].Connections = {}
+	SlotData.Connections = nil
 
-	BasesData[Base].SlotsData[Slot.Name].Money = nil
+	SlotData.Money = nil
 
 	local SlotSpawn = getSlotSpawn(Slot)
 	local SlotMoney = getSlotMoney(Slot)
@@ -546,12 +545,14 @@ function Bases.Remove(Base, Slot, Save)
 	end
 
 	if BasesData[Base].Player and not Save then
+		local Player = BasesData[Base].Player
+
 		task.delay(1, function()
 			if not BasesData[Base] or not BasesData[Base].Player then return end
 
 			local MoneyPerSecond = 0
 
-			local SavedAnime = RetrievePlayerDataFunction:Invoke(BasesData[Base].Player, "Anime")
+			local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
 			for _, AnimeEntry in ipairs(SavedAnime) do
 				local Name = AnimeEntry.Name
 				local AnimeConfiguration = AnimeConfigurations[Name]
@@ -568,7 +569,7 @@ function Bases.Remove(Base, Slot, Save)
 
 			MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
 
-			ReplacePlayerDataEvent:Fire(BasesData[Base].Player, "MoneyPerSecond", MoneyPerSecond)
+			ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
 
 			updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 		end)
@@ -578,7 +579,7 @@ function Bases.Remove(Base, Slot, Save)
 
 			local MoneyPerSecond = 0
 
-			local SavedAnime = RetrievePlayerDataFunction:Invoke(BasesData[Base].Player, "Anime")
+			local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
 			for _, AnimeEntry in ipairs(SavedAnime) do
 				local Name = AnimeEntry.Name
 				local AnimeConfiguration = AnimeConfigurations[Name]
@@ -595,7 +596,7 @@ function Bases.Remove(Base, Slot, Save)
 
 			MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
 
-			ReplacePlayerDataEvent:Fire(BasesData[Base].Player, "MoneyPerSecond", MoneyPerSecond)
+			ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
 
 			updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 		end)

@@ -10,6 +10,7 @@ return function(ctx)
 	local Bases = ctx.Bases
 	local SetProperties = ctx.SetProperties
 	local ZoneTracker = ctx.ZoneTracker
+	local Trove = ctx.Trove
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AnimeConfigurations = ctx.AnimeConfigurations
@@ -254,15 +255,19 @@ function PlayersModule.Setup()
 
 		SettingUpPlayers[Player] = true
 
-		Player.Chatted:Connect(function(Message)
-			handlePlayerCommand(Player, Message)
-		end)
-
-		local Success, Error = pcall(PlayersModule.Create, Player)
+		local Success, PlayerDataOrError = pcall(PlayersModule.Create, Player)
 		SettingUpPlayers[Player] = nil
 
 		if not Success then
-			warn(string.format("Failed to set up player %s: %s", Player.Name, tostring(Error)))
+			warn(string.format("Failed to set up player %s: %s", Player.Name, tostring(PlayerDataOrError)))
+			return
+		end
+
+		local PlayerData = PlayerDataOrError
+		if PlayerData and PlayerData.Trove then
+			PlayerData.Trove:Connect(Player.Chatted, function(Message)
+				handlePlayerCommand(Player, Message)
+			end)
 		end
 	end
 
@@ -386,6 +391,7 @@ function PlayersModule.Create(Player)
 	local PlayerData = setmetatable({}, {__index = PlayersModule})
 
 	PlayerData.Player = Player
+	PlayerData.Trove = Trove.new()
 
 	PlayerData.AnimationTracks = {}
 
@@ -418,7 +424,7 @@ function PlayersModule.Create(Player)
 
 	scheduleCharacterSpawnMove(Character)
 
-	Player.CharacterAdded:Connect(function(Character)
+	PlayerData.Trove:Connect(Player.CharacterAdded, function(Character)
 		local Humanoid = Character:WaitForChild("Humanoid")
 
 		Humanoid.WalkSpeed = PlayerData.Speed
@@ -441,8 +447,13 @@ function PlayersModule.Create(Player)
 		ProximityPrompt.ObjectText = ""
 		ProximityPrompt.RequiresLineOfSight = false
 		ProximityPrompt.Parent = Character.PrimaryPart
+		local CharacterTrove = PlayerData.Trove:Extend()
+		CharacterTrove:Add(ProximityPrompt)
+		CharacterTrove:Connect(Character.Destroying, function()
+			CharacterTrove:Destroy()
+		end)
 
-		ProximityPrompt.Triggered:Connect(function(TriggeringPlayer)
+		CharacterTrove:Connect(ProximityPrompt.Triggered, function(TriggeringPlayer)
 			if Player == TriggeringPlayer then return end
 
 			local Character = TriggeringPlayer.Character or TriggeringPlayer.CharacterAdded:Wait()
@@ -504,8 +515,13 @@ function PlayersModule.Create(Player)
 		ProximityPrompt.ObjectText = ""
 		ProximityPrompt.RequiresLineOfSight = false
 		ProximityPrompt.Parent = Character.PrimaryPart
+		local CharacterTrove = PlayerData.Trove:Extend()
+		CharacterTrove:Add(ProximityPrompt)
+		CharacterTrove:Connect(Character.Destroying, function()
+			CharacterTrove:Destroy()
+		end)
 
-		ProximityPrompt.Triggered:Connect(function(TriggeringPlayer)
+		CharacterTrove:Connect(ProximityPrompt.Triggered, function(TriggeringPlayer)
 			if Player == TriggeringPlayer then return end
 
 			local Character = TriggeringPlayer.Character or TriggeringPlayer.CharacterAdded:Wait()

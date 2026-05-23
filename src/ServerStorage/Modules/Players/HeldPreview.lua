@@ -44,6 +44,7 @@ return function(ctx)
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
+	local HeldTroves = ctx.HeldTroves
 	local HeldInventoryCarry = ctx.HeldInventoryCarry
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
@@ -380,13 +381,19 @@ local function removeHeldAnimeWeld(Player)
 end
 
 local function removeHeldModel(Player)
-	removeHeldAnimeWeld(Player)
+	if HeldTroves[Player] then
+		HeldTroves[Player]:Destroy()
+		HeldTroves[Player] = nil
+	else
+		removeHeldAnimeWeld(Player)
 
-	local Existing = HeldModels[Player]
-	if Existing then
-		Existing:Destroy()
-		HeldModels[Player] = nil
+		local Existing = HeldModels[Player]
+		if Existing then
+			Existing:Destroy()
+		end
 	end
+
+	HeldModels[Player] = nil
 
 	if HeldInventoryCarry[Player] then
 		HeldInventoryCarry[Player] = nil
@@ -422,6 +429,8 @@ local function createHeldModel(Player, Name, Mutation, Level)
 		return
 	end
 
+	local HeldTrove = ctx.Trove.new()
+
 	weldLooseVisualParts(Model, PrimaryPart)
 	applyHeldMutationVisual(Model, Mutation)
 	local PlayerData = PlayersData[Player]
@@ -435,8 +444,10 @@ local function createHeldModel(Player, Name, Mutation, Level)
 	Weld.Part0 = Root
 	Weld.Part1 = PrimaryPart
 	Weld.Parent = Root
+	HeldTrove:Add(Weld)
 
 	Model.Parent = getHeldPreviewsFolder()
+	HeldTrove:Add(Model)
 	forceVisualOnly(Model)
 
 	task.defer(function()
@@ -446,6 +457,7 @@ local function createHeldModel(Player, Name, Mutation, Level)
 	end)
 
 	HeldModels[Player] = Model
+	HeldTroves[Player] = HeldTrove
 	HeldInventoryCarry[Player] = true
 
 	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.OwnedHold, true)

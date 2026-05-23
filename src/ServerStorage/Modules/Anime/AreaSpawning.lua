@@ -19,6 +19,7 @@ return function(ctx)
 	local DropEvent = ctx.DropEvent
 	local AnimeModule = ctx.Anime
 	local AnimeRegistry = ctx.AnimeData
+	local SetupTrove = ctx.SetupTrove
 	local FACING_TARGET_PATH = ctx.FACING_TARGET_PATH
 	local DEFAULT_INITIAL_POPULATION = ctx.DEFAULT_INITIAL_POPULATION
 	local DEFAULT_MAX_POPULATION = ctx.DEFAULT_MAX_POPULATION
@@ -205,9 +206,23 @@ local function spawnRandomAnime(Area, AreaConfiguration, SpawnOptions)
 end
 
 function AnimeModule.Setup()
+	SetupTrove:Clean()
+
 	local AnimeFolder = workspace:FindFirstChild("Anime") or Instance.new("Folder")
 	AnimeFolder.Name = "Anime"
 	AnimeFolder.Parent = workspace
+
+	local ExistingAnimeData = {}
+	for _, AnimeData in pairs(AnimeRegistry) do
+		table.insert(ExistingAnimeData, AnimeData)
+	end
+
+	for _, AnimeData in ipairs(ExistingAnimeData) do
+		if type(AnimeData) == "table" and AnimeData.Destroy then
+			AnimeData:Destroy()
+		end
+	end
+
 	AnimeFolder:ClearAllChildren()
 
 	registerCollisionGroup("Anime")
@@ -218,19 +233,25 @@ function AnimeModule.Setup()
 	RetrieveAnimeDataFunction.OnInvoke = AnimeModule.Retrieve
 	CreateAnimeFunction.OnInvoke = AnimeModule.Create
 
-	AnimateAnimeEvent.Event:Connect(AnimeModule.Animate)
+	SetupTrove:Connect(AnimateAnimeEvent.Event, AnimeModule.Animate)
 
-	Players.PlayerAdded:Connect(function(Player)
-		Player.CharacterRemoving:Connect(function()
+	SetupTrove:Connect(Players.PlayerAdded, function(Player)
+		SetupTrove:Connect(Player.CharacterRemoving, function()
 			AnimeModule.Drop(Player)
 		end)
 	end)
 
-	DropEvent.OnServerEvent:Connect(function(Player)
+	for _, Player in ipairs(Players:GetPlayers()) do
+		SetupTrove:Connect(Player.CharacterRemoving, function()
+			AnimeModule.Drop(Player)
+		end)
+	end
+
+	SetupTrove:Connect(DropEvent.OnServerEvent, function(Player)
 		AnimeModule.Drop(Player)
 	end)
 
-	Players.PlayerRemoving:Connect(function(Player)
+	SetupTrove:Connect(Players.PlayerRemoving, function(Player)
 		AnimeModule.Drop(Player)
 	end)
 
@@ -258,13 +279,18 @@ function AnimeModule.Setup()
 			end
 		end
 
+		local SpawnLoopActive = true
+		SetupTrove:Add(function()
+			SpawnLoopActive = false
+		end)
+
 		task.spawn(function()
 			local Minimum = AreaConfiguration.Rate and AreaConfiguration.Rate.Minimum and math.clamp(AreaConfiguration.Rate.Minimum, 0.01, math.huge) or 0.01
 			local Maximum = AreaConfiguration.Rate and AreaConfiguration.Rate.Maximum and AreaConfiguration.Rate.Maximum or 5
 
 			local Chance = AreaConfiguration.Chance or 1
 
-			while task.wait(math.random(Minimum, Maximum)) do
+			while SpawnLoopActive and task.wait(math.random(Minimum, Maximum)) do
 				if not canSpawnInArea(Area, AreaConfiguration) then continue end
 				if math.random() > Chance then continue end
 
@@ -274,10 +300,16 @@ function AnimeModule.Setup()
 
 		if not AreaConfiguration.Guaranteed or AreaConfiguration.Guaranteed <= 0 then continue end
 
+		local GuaranteedLoopActive = true
+		SetupTrove:Add(function()
+			GuaranteedLoopActive = false
+		end)
+
 		task.spawn(function()
 			local GuaranteedArea = ctx.Resources:WaitForChild("GuaranteedArea")
 
 			GuaranteedArea = GuaranteedArea:Clone()
+			SetupTrove:Add(GuaranteedArea)
 
 			local Colour = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 
@@ -291,7 +323,7 @@ function AnimeModule.Setup()
 
 			local Timer = tonumber(AreaConfiguration.Guaranteed)
 
-			while task.wait(1) do
+			while GuaranteedLoopActive and task.wait(1) do
 				Timer -= 1
 
 				GuaranteedArea.Text = string.format("<font color=\"%s\">%s</font> appears in %s", Colour, Area, Format.Time(Timer))

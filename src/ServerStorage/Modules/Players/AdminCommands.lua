@@ -77,6 +77,7 @@ return function(ctx)
 	local syncInventory = ctx.syncInventory
 	local findToolDataById = ctx.findToolDataById
 	local removeToolData = ctx.removeToolData
+	local cleanupToolData = ctx.cleanupToolData
 	local reconcileIndex = ctx.reconcileIndex
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
@@ -110,12 +111,7 @@ end
 
 local function destroyPlayerTools(Player, PlayerData)
 	for _, ToolData in ipairs(PlayerData.Tools or {}) do
-		if ToolData.Tool then
-			ToolData.Tool:Destroy()
-			ToolData.Tool = nil
-		end
-
-		ToolData.HeldModel = nil
+		cleanupToolData(ToolData)
 	end
 
 	local Backpack = Player:FindFirstChildOfClass("Backpack")

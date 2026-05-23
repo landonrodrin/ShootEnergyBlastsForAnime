@@ -1,10 +1,13 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 
 local ZoneTracker = {}
 
 local Zones = {}
 local PlayerZoneCounts = {}
-local ZoneConnections = {}
+local ZoneTroves = {}
 
 local function getPlayerFromHit(Hit)
 	if not Hit then return end
@@ -16,14 +19,11 @@ local function getPlayerFromHit(Hit)
 end
 
 local function disconnectZone(Name)
-	local Connections = ZoneConnections[Name]
-	if not Connections then return end
-
-	for _, Connection in ipairs(Connections) do
-		Connection:Disconnect()
+	local ZoneTrove = ZoneTroves[Name]
+	if ZoneTrove then
+		ZoneTrove:Destroy()
+		ZoneTroves[Name] = nil
 	end
-
-	ZoneConnections[Name] = nil
 end
 
 local function getPlayerZoneCounts(Player)
@@ -39,17 +39,17 @@ function ZoneTracker.RegisterZone(Name, Part)
 
 	Zones[Name] = Part
 
-	local Connections = {}
+	local ZoneTrove = Trove.new()
 
-	table.insert(Connections, Part.Touched:Connect(function(Hit)
+	ZoneTrove:Connect(Part.Touched, function(Hit)
 		local Player = getPlayerFromHit(Hit)
 		if not Player then return end
 
 		local Counts = getPlayerZoneCounts(Player)
 		Counts[Name] = (Counts[Name] or 0) + 1
-	end))
+	end)
 
-	table.insert(Connections, Part.TouchEnded:Connect(function(Hit)
+	ZoneTrove:Connect(Part.TouchEnded, function(Hit)
 		local Player = getPlayerFromHit(Hit)
 		if not Player then return end
 
@@ -60,9 +60,9 @@ function ZoneTracker.RegisterZone(Name, Part)
 		if Counts[Name] <= 0 then
 			Counts[Name] = nil
 		end
-	end))
+	end)
 
-	ZoneConnections[Name] = Connections
+	ZoneTroves[Name] = ZoneTrove
 
 	return Part
 end

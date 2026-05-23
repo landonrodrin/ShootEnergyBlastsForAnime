@@ -208,6 +208,23 @@ local function equipInventoryTool(Player, ToolData)
 	return true
 end
 
+local function cleanupToolData(ToolData)
+	if type(ToolData) ~= "table" then return end
+
+	local Tool = ToolData.Tool
+	if ToolData.Trove then
+		ToolData.Trove:Destroy()
+		ToolData.Trove = nil
+	end
+
+	if Tool then
+		Tool:Destroy()
+	end
+
+	ToolData.Tool = nil
+	ToolData.HeldModel = nil
+end
+
 local function getInventorySnapshot(Player)
 	local PlayerData = PlayersData[Player]
 	local Snapshot = {
@@ -269,9 +286,7 @@ local function removeToolData(Player, Index, ToolData, SkipSync)
 		ctx.removeHeldModel(Player)
 	end
 
-	if ToolData and ToolData.Tool then
-		ToolData.Tool:Destroy()
-	end
+	cleanupToolData(ToolData)
 
 	local PlayerData = PlayersData[Player]
 	if not PlayerData then return end
@@ -307,6 +322,7 @@ end
 	ctx.setHotbarSlot = setHotbarSlot
 	ctx.getBaseSlotCount = getBaseSlotCount
 	ctx.equipInventoryTool = equipInventoryTool
+	ctx.cleanupToolData = cleanupToolData
 	ctx.getInventorySnapshot = getInventorySnapshot
 	ctx.syncInventory = syncInventory
 	ctx.findToolDataById = findToolDataById

@@ -5,7 +5,6 @@ local PhysicsService = game:GetService("PhysicsService")
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
-local PathUtils = require(shared:WaitForChild("PathUtils"))
 local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"))
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -229,6 +228,30 @@ local function getStringAttribute(instance, attributeName)
 	return nil
 end
 
+local function getStripOrder(strip)
+	return tonumber(strip.Name:match("(%d+)$")) or math.huge
+end
+
+local function getOrderedStrips(strips)
+	local orderedStrips = {}
+
+	for _, strip in ipairs(strips:GetChildren()) do
+		table.insert(orderedStrips, strip)
+	end
+
+	table.sort(orderedStrips, function(left, right)
+		local leftOrder = getStripOrder(left)
+		local rightOrder = getStripOrder(right)
+		if leftOrder == rightOrder then
+			return left.Name < right.Name
+		end
+
+		return leftOrder < rightOrder
+	end)
+
+	return orderedStrips
+end
+
 local function buildWallState(wall, defaults)
 	if wallsByPart[wall] then
 		return wallsByPart[wall]
@@ -276,13 +299,7 @@ local function buildWallState(wall, defaults)
 	return state
 end
 
-local function seedConfiguredWallAttributes(config)
-	local wall = PathUtils.FindByPath(workspace, config.Path)
-	if not wall then
-		warn("Missing configured damageable wall:", table.concat(config.Path, "."))
-		return nil
-	end
-
+local function seedConfiguredWallAttributes(wall, config, strip)
 	if not wall:IsA("BasePart") then
 		warn("Configured damageable wall must be a BasePart:", wall:GetFullName())
 		return nil
@@ -297,33 +314,50 @@ local function seedConfiguredWallAttributes(config)
 	end
 
 	if not getStringAttribute(wall, "DisplayName") then
-		wall:SetAttribute("DisplayName", config.DisplayName)
+		wall:SetAttribute("DisplayName", config.DisplayName or config.Name or wall.Name)
+	end
+
+	if strip and not getStringAttribute(wall, "WallId") then
+		wall:SetAttribute("WallId", string.format("%s:%s", strip.Name, wall.Name))
 	end
 
 	return wall
 end
 
-local function registerDamageableWalls()
-	for _, wallConfig in ipairs(WallConfig.Walls) do
-		seedConfiguredWallAttributes(wallConfig)
+local function seedConfiguredWallsInStrips(strips)
+	local foundByName = {}
+
+	for _, strip in ipairs(getOrderedStrips(strips)) do
+		for _, wallConfig in ipairs(WallConfig.Walls) do
+			local wallName = wallConfig.Name
+			local wall = wallName and strip:FindFirstChild(wallName)
+			if not wall then continue end
+
+			foundByName[wallName] = true
+			seedConfiguredWallAttributes(wall, wallConfig, strip)
+		end
 	end
 
+	for _, wallConfig in ipairs(WallConfig.Walls) do
+		local wallName = wallConfig.Name
+		if wallName and not foundByName[wallName] then
+			warn("Missing configured damageable wall template in Workspace.Strips:", wallName)
+		end
+	end
+end
+
+local function registerDamageableWalls()
 	local strips = workspace:FindFirstChild("Strips")
 	if strips then
+		seedConfiguredWallsInStrips(strips)
+
 		for _, descendant in ipairs(strips:GetDescendants()) do
 			if descendant:IsA("BasePart") and descendant:GetAttribute("DamageableWall") == true then
 				buildWallState(descendant)
 			end
 		end
 	else
-		warn("Workspace.Strips is missing; using configured damageable walls only.")
-	end
-
-	for _, wallConfig in ipairs(WallConfig.Walls) do
-		local wall = PathUtils.FindByPath(workspace, wallConfig.Path)
-		if wall and not wallsByPart[wall] then
-			buildWallState(wall, wallConfig)
-		end
+		warn("Workspace.Strips is missing; unable to discover configured damageable walls.")
 	end
 end
 

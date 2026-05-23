@@ -10,6 +10,7 @@ local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local PathUtils = require(shared:WaitForChild("PathUtils"))
+local Trove = require(shared:WaitForChild("Trove"))
 
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
@@ -27,6 +28,7 @@ local ctx = {
 	Grounding = Grounding,
 	FinishBarrier = FinishBarrier,
 	PathUtils = PathUtils,
+	Trove = Trove,
 	Format = Format,
 	GameConfigurations = GameConfigurations,
 	AreasConfigurations = AreasConfigurations,
@@ -39,6 +41,7 @@ local ctx = {
 	Resources = script:WaitForChild("Resources"),
 	Anime = {},
 	AnimeData = {},
+	SetupTrove = Trove.new(),
 	FACING_TARGET_PATH = {"Map", "Main Floor"},
 	DEFAULT_INITIAL_POPULATION = 0,
 	DEFAULT_MAX_POPULATION = math.huge,

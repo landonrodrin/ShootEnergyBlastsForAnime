@@ -8,6 +8,7 @@ return function(ctx)
 	local Grounding = ctx.Grounding
 	local FinishBarrier = ctx.FinishBarrier
 	local PathUtils = ctx.PathUtils
+	local Trove = ctx.Trove
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
@@ -48,13 +49,26 @@ return function(ctx)
 	local getSpawnCFrame = ctx.getSpawnCFrame
 function AnimeModule:Spawn()
 	local Anime = self.Anime
+	if not Anime then return end
+
+	if self.Trove then
+		self.Trove:Destroy()
+	end
+
+	self.Destroyed = false
+	local SpawnTrove = Trove.new()
+	self.Trove = SpawnTrove
 
 	local AnimeConfiguration = AnimeConfigurations[Anime.Name]
 
 	local AreaName = AnimeConfiguration.Area
 	local AreaConfiguration = AreasConfigurations[AreaName]
 	local SpawnZone = getSpawnZone(AreaName, AreaConfiguration)
-	if not SpawnZone then return end
+	if not SpawnZone then
+		self:Destroy()
+
+		return
+	end
 
 	local Position = getGridSpawnPosition(AreaName, AreaConfiguration, AnimeConfiguration, SpawnZone)
 
@@ -74,7 +88,7 @@ function AnimeModule:Spawn()
 	local _IdleTrack = AnimeModule.Animate(Anime, AnimeConfiguration.AnimationsIds.Idle, true)
 	Grounding.AlignBottomToSurfaceAfterAnimation(Anime, SpawnZone, AnimeConfiguration)
 
-	local ProximityPrompt = Instance.new("ProximityPrompt")
+	local ProximityPrompt = SpawnTrove:Add(Instance.new("ProximityPrompt"))
 	ProximityPrompt.Enabled = true
 	ProximityPrompt.ActionText = PICK_UP_PROMPT_TEXT
 	ProximityPrompt.HoldDuration = ANIME_CARRY_HOLD_DURATION
@@ -93,7 +107,7 @@ function AnimeModule:Spawn()
 		SetProperties.Client(Player, ProximityPrompt, {Enabled = false, ActionText = PICK_UP_PROMPT_TEXT})
 	end
 
-	ProximityPrompt.Triggered:Connect(function(Player)
+	SpawnTrove:Connect(ProximityPrompt.Triggered, function(Player)
 		if (self.Time or 0) < 1 then return end
 
 		for _, OtherPlayer in ipairs(Players:GetPlayers()) do
@@ -167,17 +181,22 @@ function AnimeModule:Spawn()
 
 	AnimeGui.Time.Text = Format.Time(self.Time)
 
+	local CountdownActive = true
+	SpawnTrove:Add(function()
+		CountdownActive = false
+	end)
+
 	task.spawn(function()
-		while Anime and Anime.Parent do
+		while CountdownActive and Anime and Anime.Parent and not self.Destroyed do
 			while self.Carried do
 				task.wait(0.01)
 
-				if not Anime or not Anime.Parent then return end
+				if not CountdownActive or self.Destroyed or not Anime or not Anime.Parent then return end
 			end
 
 			task.wait(1)
 
-			if not Anime or not Anime.Parent then break end
+			if not CountdownActive or self.Destroyed or not Anime or not Anime.Parent then break end
 
 			self.Time = (self.Time or 0) - 1
 
@@ -197,6 +216,12 @@ end
 function AnimeModule:Destroy()
 	local Anime = self.Anime
 	if not Anime then return end
+
+	self.Destroyed = true
+	if self.Trove then
+		self.Trove:Destroy()
+		self.Trove = nil
+	end
 
 	AnimeRegistry[Anime] = nil
 	Anime:Destroy()

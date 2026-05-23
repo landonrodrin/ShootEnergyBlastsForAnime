@@ -77,6 +77,7 @@ return function(ctx)
 	local syncInventory = ctx.syncInventory
 	local findToolDataById = ctx.findToolDataById
 	local removeToolData = ctx.removeToolData
+	local cleanupToolData = ctx.cleanupToolData
 	local reconcileIndex = ctx.reconcileIndex
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
@@ -88,7 +89,11 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 
 	if not AnimeConfiguration then return end
 
-	local Data = {}
+	if ToolData and ToolData.Trove then
+		cleanupToolData(ToolData)
+	end
+
+	local Data = ToolData or {}
 	Mutation = Mutation or "Default"
 
 	local Tool = ctx.Resources:WaitForChild("Tool")
@@ -102,6 +107,8 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 	Data.Name = Name
 	Data.Mutation = Mutation
 	Data.Level = Level or 1
+	local ToolTrove = ctx.Trove.new()
+	Data.Trove = ToolTrove
 
 	local IndexData = PlayersData[Player] and PlayersData[Player].Index
 	if IndexData then
@@ -121,7 +128,7 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 		end
 	end
 
-	Tool.Equipped:Connect(function()
+	ToolTrove:Connect(Tool.Equipped, function()
 		createHeldModel(Player, Name, Mutation, Data.Level)
 		syncInventory(Player)
 
@@ -166,7 +173,7 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 		end
 	end)
 
-	Tool.Unequipped:Connect(function()
+	ToolTrove:Connect(Tool.Unequipped, function()
 		removeHeldModel(Player)
 		syncInventory(Player)
 
@@ -217,9 +224,21 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 	Tool:SetAttribute("Mutation", Mutation)
 	Tool:SetAttribute("Level", Data.Level)
 
+	ToolTrove:Connect(Tool.Destroying, function()
+		Data.Tool = nil
+		if Data.Trove == ToolTrove then
+			Data.Trove = nil
+		end
+
+		task.defer(function()
+			ToolTrove:Destroy()
+		end)
+	end)
+
 	if ToolIndex and ToolData then
 		ToolData.Id = Id
 		ToolData.Tool = Tool
+		ToolData.Trove = ToolTrove
 
 		PlayersData[Player].Tools[ToolIndex] = ToolData
 	else
