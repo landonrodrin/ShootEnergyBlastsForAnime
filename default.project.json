@@ -24,7 +24,16 @@
       },
       "Packages": {
         "$className": "Folder",
-        "$path": "Packages"
+        "_Index": {
+          "$className": "Folder",
+          "$path": "Packages/_Index"
+        },
+        "promise": {
+          "$path": "Packages/promise.lua"
+        },
+        "satchel": {
+          "$path": "Packages/satchel.lua"
+        }
       },
       "Remotes": {
         "$className": "Folder",

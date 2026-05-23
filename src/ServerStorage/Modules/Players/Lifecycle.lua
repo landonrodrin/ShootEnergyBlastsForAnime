@@ -121,6 +121,7 @@ local function getPlayerSpawnPart()
 	local BasesFolder = workspace:FindFirstChild("Bases")
 	local Base = BasesFolder and BasesFolder:FindFirstChild(PLAYER_SPAWN_BASE_NAME)
 	local Spawn = Base and Base:FindFirstChild(PLAYER_SPAWN_PART_NAME)
+		or Base and Base:FindFirstChild(PLAYER_SPAWN_PART_NAME, true)
 
 	if Spawn and Spawn:IsA("BasePart") then
 		return Spawn
@@ -129,12 +130,29 @@ end
 
 local function moveCharacterToPlayerSpawn(Character)
 	local Spawn = getPlayerSpawnPart()
-	if not Spawn then return end
+	if not Spawn then
+		warn(string.format("Missing player spawn: Workspace.Bases.%s.%s", PLAYER_SPAWN_BASE_NAME, PLAYER_SPAWN_PART_NAME))
+		return false
+	end
 
 	local Root = Character:FindFirstChild("HumanoidRootPart") or Character:WaitForChild("HumanoidRootPart", 5)
-	if not Root then return end
+	if not Root then return false end
 
 	Character:PivotTo(Spawn.CFrame * CFrame.new(0, (Spawn.Size.Y / 2) + PLAYER_SPAWN_VERTICAL_OFFSET, 0))
+
+	Root.AssemblyLinearVelocity = Vector3.zero
+	Root.AssemblyAngularVelocity = Vector3.zero
+
+	return true
+end
+
+local function scheduleCharacterSpawnMove(Character)
+	task.defer(moveCharacterToPlayerSpawn, Character)
+	task.delay(0.25, function()
+		if Character.Parent then
+			moveCharacterToPlayerSpawn(Character)
+		end
+	end)
 end
 function PlayersModule.Setup()
 	setupOwnerTextChatCommands()
@@ -156,13 +174,30 @@ function PlayersModule.Setup()
 		warn("Missing sell station zone: Workspace.Sell.Toggle")
 	end
 
-	Players.PlayerAdded:Connect(function(Player)
+	local SettingUpPlayers = {}
+
+	local function setupPlayer(Player)
+		if PlayersData[Player] or SettingUpPlayers[Player] then return end
+
+		SettingUpPlayers[Player] = true
+
 		Player.Chatted:Connect(function(Message)
 			handlePlayerCommand(Player, Message)
 		end)
 
-		PlayersModule.Create(Player)
-	end)
+		local Success, Error = pcall(PlayersModule.Create, Player)
+		SettingUpPlayers[Player] = nil
+
+		if not Success then
+			warn(string.format("Failed to set up player %s: %s", Player.Name, tostring(Error)))
+		end
+	end
+
+	Players.PlayerAdded:Connect(setupPlayer)
+
+	for _, Player in ipairs(Players:GetPlayers()) do
+		task.spawn(setupPlayer, Player)
+	end
 
 	Players.PlayerRemoving:Connect(function(Player)
 		local PlayerData = PlayersData[Player]
@@ -337,7 +372,7 @@ function PlayersModule.Create(Player)
 		Descendant.CollisionGroup = "Players"
 	end
 
-	moveCharacterToPlayerSpawn(Character)
+	scheduleCharacterSpawnMove(Character)
 
 	Player.CharacterAdded:Connect(function(Character)
 		local Humanoid = Character:WaitForChild("Humanoid")
@@ -350,7 +385,7 @@ function PlayersModule.Create(Player)
 			Descendant.CollisionGroup = "Players"
 		end
 
-		moveCharacterToPlayerSpawn(Character)
+		scheduleCharacterSpawnMove(Character)
 
 		local Base = PlayersData[Player].Base
 		if not Base then return end
