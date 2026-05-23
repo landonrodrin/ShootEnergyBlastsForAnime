@@ -8,9 +8,14 @@ version = "3.4.0"
 dependencies = []
 
 [[package]]
+name = "evaera/promise"
+version = "4.0.0"
+dependencies = []
+
+[[package]]
 name = "landonrodrin/shoot-walls"
 version = "0.1.0"
-dependencies = [["satchel", "ryanlua/satchel@1.4.1"]]
+dependencies = [["Promise", "evaera/promise@4.0.0"], ["satchel", "ryanlua/satchel@1.4.1"]]
 
 [[package]]
 name = "ryanlua/satchel"
