@@ -24,11 +24,15 @@
       },
       "Packages": {
         "$className": "Folder",
-        "$path": "src/ReplicatedStorage/Packages"
+        "$path": "Packages"
       },
       "Remotes": {
         "$className": "Folder",
         "$path": "src/ReplicatedStorage/Remotes"
+      },
+      "Vendor": {
+        "$className": "Folder",
+        "$path": "src/ReplicatedStorage/Vendor"
       }
     },
 
