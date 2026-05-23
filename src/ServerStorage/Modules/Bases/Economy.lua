@@ -8,13 +8,13 @@ return function(ctx)
 	local GameConfigurations = ctx.GameConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
 	local LevelEvent = ctx.LevelEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local setSlotLevelVisible = ctx.setSlotLevelVisible
 	local getPlayerRebirthMultiplier = ctx.getPlayerRebirthMultiplier
 	local getBaseSellValue = ctx.getBaseSellValue
-	local updateBaseThingMoneyText = ctx.updateBaseThingMoneyText
+	local updateBaseAnimeMoneyText = ctx.updateBaseAnimeMoneyText
 	local updateBaseSlotSellPrompt = ctx.updateBaseSlotSellPrompt
 	local updateBaseInfoMoneyPerSecond = ctx.updateBaseInfoMoneyPerSecond
 	local createBaseInfoGui = ctx.createBaseInfoGui
@@ -60,8 +60,8 @@ local function getPlayerRebirthMultiplier(Player)
 	return RebirthConfiguration and RebirthConfiguration.Multiplier or 1
 end
 
-local function getBaseIncomeValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
-	local LevelConfiguration = ThingConfiguration and ThingConfiguration.Levels and ThingConfiguration.Levels[Level]
+local function getBaseIncomeValue(AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	local LevelConfiguration = AnimeConfiguration and AnimeConfiguration.Levels and AnimeConfiguration.Levels[Level]
 	if not LevelConfiguration then return 0 end
 
 	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
@@ -71,36 +71,36 @@ local function getBaseIncomeValue(ThingConfiguration, Level, Mutation, RebirthMu
 	return (LevelConfiguration.Money or 0) * Multiplier * RebirthMultiplier
 end
 
-local function getBaseSellValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
-	return math.round(getBaseIncomeValue(ThingConfiguration, Level, Mutation, RebirthMultiplier) / 2)
+local function getBaseSellValue(AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	return math.round(getBaseIncomeValue(AnimeConfiguration, Level, Mutation, RebirthMultiplier) / 2)
 end
 
-local function getBaseSellPromptText(ThingConfiguration, Level, Mutation, RebirthMultiplier)
-	local Sell = getBaseSellValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
+local function getBaseSellPromptText(AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	local Sell = getBaseSellValue(AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 
 	return string.format("Sell: $%s", Format.Number(Sell))
 end
 
-local function getThingGui(Thing)
-	local PrimaryPart = Thing and Thing.PrimaryPart
-	local ThingAttachment = PrimaryPart and PrimaryPart:FindFirstChild("ThingAttachment")
-	return ThingAttachment and ThingAttachment:FindFirstChild("ThingGui")
+local function getAnimeGui(Anime)
+	local PrimaryPart = Anime and Anime.PrimaryPart
+	local AnimeAttachment = PrimaryPart and PrimaryPart:FindFirstChild("AnimeAttachment")
+	return AnimeAttachment and AnimeAttachment:FindFirstChild("AnimeGui")
 end
-local function updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
-	local ThingGui = getThingGui(Thing)
-	if not (ThingGui and ThingGui:FindFirstChild("Money")) then return end
+local function updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	local AnimeGui = getAnimeGui(Anime)
+	if not (AnimeGui and AnimeGui:FindFirstChild("Money")) then return end
 
-	local Money = getBaseIncomeValue(ThingConfiguration, Level, Mutation, RebirthMultiplier)
-	ThingGui.Money.Text = string.format("$%s/s", Format.Number(Money))
-	ThingGui.Money.Visible = true
+	local Money = getBaseIncomeValue(AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	AnimeGui.Money.Text = string.format("$%s/s", Format.Number(Money))
+	AnimeGui.Money.Visible = true
 end
 
-local function updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+local function updateBaseSlotSellPrompt(Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 	local Attachment = getSlotAttachment(Slot)
 	local SellProximityPrompt = Attachment and Attachment:FindFirstChild("SellProximityPrompt")
 	if not SellProximityPrompt then return end
 
-	SellProximityPrompt.ActionText = getBaseSellPromptText(ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	SellProximityPrompt.ActionText = getBaseSellPromptText(AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 end
 
 local function setSlotLevelVisible(Slot, Visible)
@@ -121,8 +121,8 @@ end
 	ctx.getBaseIncomeValue = getBaseIncomeValue
 	ctx.getBaseSellValue = getBaseSellValue
 	ctx.getBaseSellPromptText = getBaseSellPromptText
-	ctx.getThingGui = getThingGui
-	ctx.updateBaseThingMoneyText = updateBaseThingMoneyText
+	ctx.getAnimeGui = getAnimeGui
+	ctx.updateBaseAnimeMoneyText = updateBaseAnimeMoneyText
 	ctx.updateBaseSlotSellPrompt = updateBaseSlotSellPrompt
 	ctx.setSlotLevelVisible = setSlotLevelVisible
 end

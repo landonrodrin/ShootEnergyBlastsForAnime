@@ -12,7 +12,7 @@ return function(ctx)
 	local ZoneTracker = ctx.ZoneTracker
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local UpgradesConfigurations = ctx.UpgradesConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
@@ -22,7 +22,7 @@ return function(ctx)
 	local MoneyDataStore = ctx.MoneyDataStore
 	local SpeedDataStore = ctx.SpeedDataStore
 	local PlayerDataStore = ctx.PlayerDataStore
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
-	local HELD_THING_GUI_MAX_DISTANCE = ctx.HELD_THING_GUI_MAX_DISTANCE
+	local HELD_ANIME_GUI_MAX_DISTANCE = ctx.HELD_ANIME_GUI_MAX_DISTANCE
 	local PLAYER_SPAWN_BASE_NAME = ctx.PLAYER_SPAWN_BASE_NAME
 	local PLAYER_SPAWN_PART_NAME = ctx.PLAYER_SPAWN_PART_NAME
 	local PLAYER_SPAWN_VERTICAL_OFFSET = ctx.PLAYER_SPAWN_VERTICAL_OFFSET
@@ -159,7 +159,7 @@ function PlayersModule:Load()
 	if not self.Carry then self.Carry = GameConfigurations.Defaults.Carry end
 	if not self.Tools then self.Tools = {} end
 	if not self.Level then self.Level = 1 end
-	if not self.Things then self.Things = {} end
+	if not self.Anime then self.Anime = {} end
 	if not self.Steals then self.Steals = 0 end
 	if not self.Rebirths then self.Rebirths = 0 end
 	if not self.HotbarOrder then self.HotbarOrder = {} end
@@ -168,7 +168,7 @@ function PlayersModule:Load()
 
 	for Index = #self.Tools, 1, -1 do
 		local ToolConfiguration = self.Tools[Index]
-		if ThingsConfigurations[ToolConfiguration.Name] then
+		if AnimeConfigurations[ToolConfiguration.Name] then
 			ToolConfiguration.Id = ToolConfiguration.Id or makeInventoryId()
 			self.Tools[Index] = ToolConfiguration
 		else
@@ -178,11 +178,11 @@ function PlayersModule:Load()
 
 	normalizeHotbarOrder(self)
 
-	for Index = #self.Things, 1, -1 do
-		local ThingConfiguration = self.Things[Index]
-		if ThingsConfigurations[ThingConfiguration.Name] then continue end
+	for Index = #self.Anime, 1, -1 do
+		local AnimeConfiguration = self.Anime[Index]
+		if AnimeConfigurations[AnimeConfiguration.Name] then continue end
 
-		table.remove(self.Things, Index)
+		table.remove(self.Anime, Index)
 	end
 
 	self.Index = reconcileIndex(self.Index)
@@ -230,10 +230,10 @@ function PlayersModule:Load()
 
 		for Index, ToolData in ipairs(self.Tools) do
 			task.spawn(function()
-				local Thing = ToolData.Name
-				local ThingConfiguration = ThingsConfigurations[Thing]
+				local Anime = ToolData.Name
+				local AnimeConfiguration = AnimeConfigurations[Anime]
 
-				PlayersModule.Tool(Player, Thing, ThingConfiguration, ToolData.Mutation, ToolData.Level, Index, ToolData)
+				PlayersModule.Tool(Player, Anime, AnimeConfiguration, ToolData.Mutation, ToolData.Level, Index, ToolData)
 			end)
 		end
 
@@ -253,10 +253,10 @@ function PlayersModule:Load()
 
 			for Index, ToolData in ipairs(PlayerData.Tools or {}) do
 				task.spawn(function()
-					local Thing = ToolData.Name
-					local ThingConfiguration = ThingsConfigurations[Thing]
+					local Anime = ToolData.Name
+					local AnimeConfiguration = AnimeConfigurations[Anime]
 
-					PlayersModule.Tool(Player, Thing, ThingConfiguration, ToolData.Mutation, ToolData.Level, Index, ToolData)
+					PlayersModule.Tool(Player, Anime, AnimeConfiguration, ToolData.Mutation, ToolData.Level, Index, ToolData)
 				end)
 			end
 
@@ -310,7 +310,7 @@ function PlayersModule:Save()
 		Carry = self.Carry,
 		Tools = self.Tools,
 		Level = self.Level,
-		Things = self.Things,
+		Anime = self.Anime,
 		Steals = self.Steals,
 		Rebirths = self.Rebirths,
 		Index = self.Index,

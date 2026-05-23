@@ -8,13 +8,13 @@ return function(ctx)
 	local GameConfigurations = ctx.GameConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
 	local LevelEvent = ctx.LevelEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local setSlotLevelVisible = ctx.setSlotLevelVisible
 	local getPlayerRebirthMultiplier = ctx.getPlayerRebirthMultiplier
 	local getBaseSellValue = ctx.getBaseSellValue
-	local updateBaseThingMoneyText = ctx.updateBaseThingMoneyText
+	local updateBaseAnimeMoneyText = ctx.updateBaseAnimeMoneyText
 	local updateBaseSlotSellPrompt = ctx.updateBaseSlotSellPrompt
 	local updateBaseInfoMoneyPerSecond = ctx.updateBaseInfoMoneyPerSecond
 	local createBaseInfoGui = ctx.createBaseInfoGui
@@ -124,21 +124,21 @@ function Bases.Setup()
 
 					if Player ~= TriggeringPlayer then return end
 
-					local Thing = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Thing
-					if not Thing then return end
+					local Anime = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Anime
+					if not Anime then return end
 
-					local Name = Thing.Name
+					local Name = Anime.Name
 
-					local ThingConfiguration = ThingsConfigurations[Name]
-					if not ThingConfiguration then return end
+					local AnimeConfiguration = AnimeConfigurations[Name]
+					if not AnimeConfiguration then return end
 
-					local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+					local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 					if not Mutation then return end
 
-					local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
+					local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level")
 					if not Level then Level = 1 end
 
-					CreateToolEvent:Fire(Player, Name, ThingConfiguration, Mutation, Level, true)
+					CreateToolEvent:Fire(Player, Name, AnimeConfiguration, Mutation, Level, true)
 
 					Bases.Remove(Base, Slot)
 				end)
@@ -165,7 +165,7 @@ function Bases.Setup()
 						local Mutation = ToolData.Mutation
 						local Level = ToolData.Level
 
-						local Thing = Bases.Add(Player, Base, Slot, Name, Mutation, Level)
+						local Anime = Bases.Add(Player, Base, Slot, Name, Mutation, Level)
 
 						table.remove(ToolsData, Index)
 
@@ -190,18 +190,18 @@ function Bases.Setup()
 					local Tool = Character:FindFirstChildOfClass("Tool")
 					if not Tool then return end
 
-					local Thing = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Thing
-					if not Thing then return end
+					local Anime = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Anime
+					if not Anime then return end
 
-					local Name = Thing.Name
+					local Name = Anime.Name
 
-					local ThingConfiguration = ThingsConfigurations[Name]
-					if not ThingConfiguration then return end
+					local AnimeConfiguration = AnimeConfigurations[Name]
+					if not AnimeConfiguration then return end
 
-					local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+					local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 					if not Mutation then return end
 
-					local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
+					local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level")
 					if not Level then Level = 1 end
 
 					local ToolsData = RetrievePlayerDataFunction:Invoke(Player, "Tools")
@@ -217,13 +217,13 @@ function Bases.Setup()
 
 						ReplacePlayerDataEvent:Fire(Player, "Tools", ToolsData)
 
-						CreateToolEvent:Fire(Player, Name, ThingConfiguration, Mutation, Level, true)
+						CreateToolEvent:Fire(Player, Name, AnimeConfiguration, Mutation, Level, true)
 
 						local Name = ToolData.Name
 						local Mutation = ToolData.Mutation
 						local Level = ToolData.Level
 
-						local Thing = Bases.Add(Player, Base, Slot, Name, Mutation, Level)
+						local Anime = Bases.Add(Player, Base, Slot, Name, Mutation, Level)
 
 						break
 					end
@@ -237,18 +237,18 @@ function Bases.Setup()
 
 					if Player == TriggeringPlayer then return end
 
-					local Thing = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Thing
-					if not Thing then return end
+					local Anime = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Anime
+					if not Anime then return end
 
-					local Name = Thing.Name
+					local Name = Anime.Name
 
-					local ThingConfiguration = ThingsConfigurations[Name]
-					if not ThingConfiguration then return end
+					local AnimeConfiguration = AnimeConfigurations[Name]
+					if not AnimeConfiguration then return end
 
-					local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+					local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 					if not Mutation then return end
 
-					local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
+					local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level")
 					if not Level then Level = 1 end
 
 					local StealingData = {
@@ -260,7 +260,7 @@ function Bases.Setup()
 					if (RetrievePlayerDataFunction:Invoke(Player, "Steals") or 0) >= 1 then
 						ReplacePlayerDataEvent:Fire(Player, "Steals", RetrievePlayerDataFunction:Invoke(Player, "Steals") - 1)
 
-						CreateToolEvent:Fire(TriggeringPlayer, Name, ThingConfiguration, Mutation, Level)
+						CreateToolEvent:Fire(TriggeringPlayer, Name, AnimeConfiguration, Mutation, Level)
 
 						Bases.Remove(Base, Slot)
 					else
@@ -278,20 +278,20 @@ function Bases.Setup()
 
 					if Player ~= TriggeringPlayer then return end
 
-					local Thing = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Thing
-					if not Thing then return end
+					local Anime = BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Anime
+					if not Anime then return end
 
-					local Name = Thing.Name
+					local Name = Anime.Name
 
-					local ThingConfiguration = ThingsConfigurations[Name]
-					if not ThingConfiguration then return end
+					local AnimeConfiguration = AnimeConfigurations[Name]
+					if not AnimeConfiguration then return end
 
-					local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
+					local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level")
 					if not Level then Level = 1 end
 
-					local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+					local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 
-					local Sell = getBaseSellValue(ThingConfiguration, Level, Mutation, getPlayerRebirthMultiplier(Player))
+					local Sell = getBaseSellValue(AnimeConfiguration, Level, Mutation, getPlayerRebirthMultiplier(Player))
 
 					Bases.Remove(Base, Slot)
 

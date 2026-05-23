@@ -11,14 +11,14 @@ return function(ctx)
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local DropEvent = ctx.DropEvent
-	local Things = ctx.Things
-	local ThingsData = ctx.ThingsData
+	local AnimeModule = ctx.Anime
+	local AnimeRegistry = ctx.AnimeData
 	local FACING_TARGET_PATH = ctx.FACING_TARGET_PATH
 	local DEFAULT_INITIAL_POPULATION = ctx.DEFAULT_INITIAL_POPULATION
 	local DEFAULT_MAX_POPULATION = ctx.DEFAULT_MAX_POPULATION
@@ -28,35 +28,35 @@ return function(ctx)
 	local DEFAULT_INITIAL_TIME_SCALE_MAX = ctx.DEFAULT_INITIAL_TIME_SCALE_MAX
 	local DEFAULT_SPAWN_TIME_SCALE_MIN = ctx.DEFAULT_SPAWN_TIME_SCALE_MIN
 	local DEFAULT_SPAWN_TIME_SCALE_MAX = ctx.DEFAULT_SPAWN_TIME_SCALE_MAX
-	local THING_GUI_MAX_DISTANCE = ctx.THING_GUI_MAX_DISTANCE
-	local THING_CARRY_HOLD_DURATION = ctx.THING_CARRY_HOLD_DURATION
+	local ANIME_GUI_MAX_DISTANCE = ctx.ANIME_GUI_MAX_DISTANCE
+	local ANIME_CARRY_HOLD_DURATION = ctx.ANIME_CARRY_HOLD_DURATION
 	local PICK_UP_PROMPT_TEXT = ctx.PICK_UP_PROMPT_TEXT
-	local CARRIED_THING_WELD_NAME = ctx.CARRIED_THING_WELD_NAME
+	local CARRIED_ANIME_WELD_NAME = ctx.CARRIED_ANIME_WELD_NAME
 	local CARRIED_FORWARD_OFFSET = ctx.CARRIED_FORWARD_OFFSET
 	local CARRIED_BASE_VERTICAL_OFFSET = ctx.CARRIED_BASE_VERTICAL_OFFSET
 	local CARRIED_STACK_PADDING = ctx.CARRIED_STACK_PADDING
 	local CARRIED_PHYSICS_ATTRIBUTE_PREFIX = ctx.CARRIED_PHYSICS_ATTRIBUTE_PREFIX
 	local getSpawnZone = ctx.getSpawnZone
 	local getFacingTarget = ctx.getFacingTarget
-	local getAreaThingConfiguration = ctx.getAreaThingConfiguration
-	local getAreaThings = ctx.getAreaThings
-	local getAreaThingCount = ctx.getAreaThingCount
+	local getAreaAnimeConfiguration = ctx.getAreaAnimeConfiguration
+	local getAreaAnime = ctx.getAreaAnime
+	local getAreaAnimeCount = ctx.getAreaAnimeCount
 	local canSpawnInArea = ctx.canSpawnInArea
-	local getThingGui = ctx.getThingGui
-	local refreshCarriedThingPositions = ctx.refreshCarriedThingPositions
+	local getAnimeGui = ctx.getAnimeGui
+	local refreshCarriedAnimePositions = ctx.refreshCarriedAnimePositions
 	local getGridSpawnPosition = ctx.getGridSpawnPosition
 	local getSpawnCFrame = ctx.getSpawnCFrame
-local function findThingTemplate(Animes, Mutation, Area, Thing)
+local function findAnimeTemplate(Animes, Mutation, Area, Anime)
 	local function findInMutation(MutationName)
 		local MutationFolder = Animes and Animes:FindFirstChild(MutationName)
 		local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
 
-		return AreaFolder and AreaFolder:FindFirstChild(Thing)
+		return AreaFolder and AreaFolder:FindFirstChild(Anime)
 	end
 
-	local ThingTemplate = findInMutation(Mutation)
-	if ThingTemplate then
-		return ThingTemplate
+	local AnimeTemplate = findInMutation(Mutation)
+	if AnimeTemplate then
+		return AnimeTemplate
 	end
 
 	if Mutation ~= "Default" then
@@ -64,7 +64,7 @@ local function findThingTemplate(Animes, Mutation, Area, Thing)
 	end
 end
 
-local function getMutationAuraParts(Thing)
+local function getMutationAuraParts(Anime)
 	local PreferredParts = {
 		"Head",
 		"UpperTorso",
@@ -83,16 +83,16 @@ local function getMutationAuraParts(Thing)
 	local AuraParts = {}
 
 	for _, PartName in ipairs(PreferredParts) do
-		local Part = Thing:FindFirstChild(PartName, true)
+		local Part = Anime:FindFirstChild(PartName, true)
 		if Part and Part:IsA("BasePart") and Part.Transparency < 0.95 then
 			table.insert(AuraParts, Part)
 		end
 	end
 
 	if #AuraParts == 0 then
-		for _, Descendant in ipairs(Thing:GetDescendants()) do
+		for _, Descendant in ipairs(Anime:GetDescendants()) do
 			if not Descendant:IsA("BasePart") then continue end
-			if Descendant == Thing.PrimaryPart then continue end
+			if Descendant == Anime.PrimaryPart then continue end
 			if Descendant.Transparency >= 0.95 then continue end
 
 			table.insert(AuraParts, Descendant)
@@ -101,14 +101,14 @@ local function getMutationAuraParts(Thing)
 		end
 	end
 
-	if #AuraParts == 0 and Thing.PrimaryPart then
-		table.insert(AuraParts, Thing.PrimaryPart)
+	if #AuraParts == 0 and Anime.PrimaryPart then
+		table.insert(AuraParts, Anime.PrimaryPart)
 	end
 
 	return AuraParts
 end
 
-local function applyMutationAura(Thing, Mutation, MutationConfiguration)
+local function applyMutationAura(Anime, Mutation, MutationConfiguration)
 	if not Mutation or Mutation == "Default" or not MutationConfiguration then return end
 
 	local AuraConfiguration = MutationConfiguration.Aura
@@ -118,18 +118,18 @@ local function applyMutationAura(Thing, Mutation, MutationConfiguration)
 	if HighlightConfiguration then
 		local Highlight = Instance.new("Highlight")
 		Highlight.Name = "MutationHighlight"
-		Highlight.Adornee = Thing
+		Highlight.Adornee = Anime
 		Highlight.DepthMode = Enum.HighlightDepthMode.Occluded
 		Highlight.FillColor = HighlightConfiguration.FillColor or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 		Highlight.FillTransparency = HighlightConfiguration.FillTransparency or 0.65
 		Highlight.OutlineColor = HighlightConfiguration.OutlineColor or Highlight.FillColor
 		Highlight.OutlineTransparency = HighlightConfiguration.OutlineTransparency or 0.15
-		Highlight.Parent = Thing
+		Highlight.Parent = Anime
 	end
 
 	local ParticleConfiguration = AuraConfiguration.Particle
 	if ParticleConfiguration then
-		for _, AuraPart in ipairs(getMutationAuraParts(Thing)) do
+		for _, AuraPart in ipairs(getMutationAuraParts(Anime)) do
 			local AuraAttachment = Instance.new("Attachment")
 			AuraAttachment.Name = "MutationAuraAttachment"
 			AuraAttachment.Parent = AuraPart
@@ -154,101 +154,101 @@ local function applyMutationAura(Thing, Mutation, MutationConfiguration)
 	end
 
 	local LightConfiguration = AuraConfiguration.Light
-	if LightConfiguration and Thing.PrimaryPart then
+	if LightConfiguration and Anime.PrimaryPart then
 		local Light = Instance.new("PointLight")
 		Light.Name = "MutationAuraLight"
 		Light.Color = LightConfiguration.Color or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 		Light.Brightness = LightConfiguration.Brightness or 0.6
 		Light.Range = LightConfiguration.Range or 8
-		Light.Parent = Thing.PrimaryPart
+		Light.Parent = Anime.PrimaryPart
 	end
 end
 
-function Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
+function AnimeModule.Create(Area, AreaConfiguration, Anime, AnimeConfiguration, Mutation, MutationConfiguration, Level)
 	Level = Level or 1
 
-	local Data = setmetatable({}, {__index = Things})
+	local Data = setmetatable({}, {__index = AnimeModule})
 
 	local Animes = ServerStorage:FindFirstChild("Animes")
-	local ThingTemplate = findThingTemplate(Animes, Mutation, Area, Thing)
+	local AnimeTemplate = findAnimeTemplate(Animes, Mutation, Area, Anime)
 
-	if not ThingTemplate then
-		warn(string.format("Missing anime asset: %s.%s.%s or Default.%s.%s", tostring(Mutation), tostring(Area), tostring(Thing), tostring(Area), tostring(Thing)))
+	if not AnimeTemplate then
+		warn(string.format("Missing anime asset: %s.%s.%s or Default.%s.%s", tostring(Mutation), tostring(Area), tostring(Anime), tostring(Area), tostring(Anime)))
 		return
 	end
 
-	if not ThingTemplate.PrimaryPart then
-		warn(string.format("%s thing has no primary part.", ThingTemplate.Name))
+	if not AnimeTemplate.PrimaryPart then
+		warn(string.format("%s anime has no primary part.", AnimeTemplate.Name))
 		return
 	end
 
-	Thing = ThingTemplate:Clone()
-	applyMutationAura(Thing, Mutation, MutationConfiguration)
+	Anime = AnimeTemplate:Clone()
+	applyMutationAura(Anime, Mutation, MutationConfiguration)
 
-	Data.Thing = Thing
+	Data.Anime = Anime
 	Data.Mutation = Mutation
 	Data.Level = Level
 	Data.AnimationTracks = {}
 
-	for _, Descendant in ipairs(Thing:GetDescendants()) do
+	for _, Descendant in ipairs(Anime:GetDescendants()) do
 		if not Descendant:IsA("BasePart") then continue end
 
-		Descendant.CollisionGroup = "Things"
+		Descendant.CollisionGroup = "Anime"
 
-		if Descendant == Thing.PrimaryPart then
+		if Descendant == Anime.PrimaryPart then
 			Descendant.Anchored = true
 		else
 			Descendant.Anchored = false
 		end
 	end
 
-	local ThingAttachment = Instance.new("Attachment")
-	ThingAttachment.Name = "ThingAttachment"
-	ThingAttachment.Parent = Thing.PrimaryPart
+	local AnimeAttachment = Instance.new("Attachment")
+	AnimeAttachment.Name = "AnimeAttachment"
+	AnimeAttachment.Parent = Anime.PrimaryPart
 
-	local ThingGui = ctx.Resources:WaitForChild("ThingGui")
+	local AnimeGui = ctx.Resources:WaitForChild("AnimeGui")
 
-	ThingGui = ThingGui:Clone()
+	AnimeGui = AnimeGui:Clone()
 
-	ThingGui.Time.LayoutOrder = 0
-	ThingGui.Mutation.LayoutOrder = 1
-	ThingGui.Area.LayoutOrder = 2
-	ThingGui.Thing.LayoutOrder = 3
-	ThingGui.Money.LayoutOrder = 4
+	AnimeGui.Time.LayoutOrder = 0
+	AnimeGui.Mutation.LayoutOrder = 1
+	AnimeGui.Area.LayoutOrder = 2
+	AnimeGui.Anime.LayoutOrder = 3
+	AnimeGui.Money.LayoutOrder = 4
 
-	for _, LabelName in ipairs({"Mutation", "Thing", "Area", "Money", "Time"}) do
-		local Label = ThingGui:FindFirstChild(LabelName)
+	for _, LabelName in ipairs({"Mutation", "Anime", "Area", "Money", "Time"}) do
+		local Label = AnimeGui:FindFirstChild(LabelName)
 		if Label and Label:IsA("TextLabel") then
 			Label.Size = UDim2.new(0.9, 0, Label.Size.Y.Scale, Label.Size.Y.Offset)
 		end
 	end
 
-	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Thing.Name, Level)
-	ThingGui.Area.Text = Area
+	AnimeGui.Anime.Text = string.format("%s (Lvl %s)", Anime.Name, Level)
+	AnimeGui.Area.Text = Area
 
 	local Multiplier = MutationConfiguration.Multiplier or 1
 
-	ThingGui.Money.Text = string.format("$%s/s", Format.Number((ThingConfiguration.Levels[Level].Money or 0) * Multiplier))
-	ThingGui.Money.Visible = true
+	AnimeGui.Money.Text = string.format("$%s/s", Format.Number((AnimeConfiguration.Levels[Level].Money or 0) * Multiplier))
+	AnimeGui.Money.Visible = true
 
-	ThingGui.Area.TextColor3 = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+	AnimeGui.Area.TextColor3 = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 
 	if Mutation and Mutation ~= "Default" then
-		ThingGui.Mutation.Text = Mutation
+		AnimeGui.Mutation.Text = Mutation
 
-		ThingGui.Mutation.TextColor3 = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		AnimeGui.Mutation.TextColor3 = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 
-		ThingGui.Mutation.Visible = true
+		AnimeGui.Mutation.Visible = true
 	end
 
-	ThingGui.Parent = ThingAttachment
-	ThingGui.MaxDistance = THING_GUI_MAX_DISTANCE
-	ThingGui.Enabled = true
+	AnimeGui.Parent = AnimeAttachment
+	AnimeGui.MaxDistance = ANIME_GUI_MAX_DISTANCE
+	AnimeGui.Enabled = true
 
-	ThingAttachment.CFrame = CFrame.new(Vector3.new(0, ThingConfiguration.YOffset + ThingGui.Size.Y.Scale / 2 + 1, 0))
+	AnimeAttachment.CFrame = CFrame.new(Vector3.new(0, AnimeConfiguration.YOffset + AnimeGui.Size.Y.Scale / 2 + 1, 0))
 
-	ThingsData[Thing] = Data
+	AnimeRegistry[Anime] = Data
 
-	return Thing
+	return Anime
 end
 end

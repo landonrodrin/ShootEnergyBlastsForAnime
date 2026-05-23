@@ -8,13 +8,13 @@ return function(ctx)
 	local GameConfigurations = ctx.GameConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
 	local LevelEvent = ctx.LevelEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local setSlotLevelVisible = ctx.setSlotLevelVisible
 	local getPlayerRebirthMultiplier = ctx.getPlayerRebirthMultiplier
 	local getBaseSellValue = ctx.getBaseSellValue
-	local updateBaseThingMoneyText = ctx.updateBaseThingMoneyText
+	local updateBaseAnimeMoneyText = ctx.updateBaseAnimeMoneyText
 	local updateBaseSlotSellPrompt = ctx.updateBaseSlotSellPrompt
 	local updateBaseInfoMoneyPerSecond = ctx.updateBaseInfoMoneyPerSecond
 	local createBaseInfoGui = ctx.createBaseInfoGui

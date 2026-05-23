@@ -14,7 +14,7 @@ local PathUtils = require(shared:WaitForChild("PathUtils"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AreasConfigurations"))
-local ThingsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("ThingsConfigurations"))
+local AnimeConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AnimeConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
 
 local ctx = {
@@ -30,15 +30,15 @@ local ctx = {
 	Format = Format,
 	GameConfigurations = GameConfigurations,
 	AreasConfigurations = AreasConfigurations,
-	ThingsConfigurations = ThingsConfigurations,
+	AnimeConfigurations = AnimeConfigurations,
 	MutationsConfigurations = MutationsConfigurations,
-	RetrieveThingDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveThingData"),
-	CreateThingFunction = ServerStorage.Network.BindableFunctions:WaitForChild("CreateThing"),
-	AnimateThingEvent = ServerStorage.Network.BindableEvents:WaitForChild("AnimateThing"),
+	RetrieveAnimeDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveAnimeData"),
+	CreateAnimeFunction = ServerStorage.Network.BindableFunctions:WaitForChild("CreateAnime"),
+	AnimateAnimeEvent = ServerStorage.Network.BindableEvents:WaitForChild("AnimateAnime"),
 	DropEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Drop"),
 	Resources = script:WaitForChild("Resources"),
-	Things = {},
-	ThingsData = {},
+	Anime = {},
+	AnimeData = {},
 	FACING_TARGET_PATH = {"Map", "Main Floor"},
 	DEFAULT_INITIAL_POPULATION = 0,
 	DEFAULT_MAX_POPULATION = math.huge,
@@ -48,10 +48,10 @@ local ctx = {
 	DEFAULT_INITIAL_TIME_SCALE_MAX = 1,
 	DEFAULT_SPAWN_TIME_SCALE_MIN = 0.3,
 	DEFAULT_SPAWN_TIME_SCALE_MAX = 1,
-	THING_GUI_MAX_DISTANCE = 50,
-	THING_CARRY_HOLD_DURATION = 0.5,
+	ANIME_GUI_MAX_DISTANCE = 50,
+	ANIME_CARRY_HOLD_DURATION = 0.5,
 	PICK_UP_PROMPT_TEXT = "Pick Up",
-	CARRIED_THING_WELD_NAME = "CarriedThingWeld",
+	CARRIED_ANIME_WELD_NAME = "CarriedAnimeWeld",
 	CARRIED_FORWARD_OFFSET = 0,
 	CARRIED_BASE_VERTICAL_OFFSET = 6,
 	CARRIED_STACK_PADDING = 2.75,
@@ -64,6 +64,6 @@ require(script:WaitForChild("Animation"))(ctx)
 require(script:WaitForChild("Carry"))(ctx)
 require(script:WaitForChild("Factory"))(ctx)
 require(script:WaitForChild("Placement"))(ctx)
-require(script:WaitForChild("SpawnedThing"))(ctx)
+require(script:WaitForChild("SpawnedAnime"))(ctx)
 
-return ctx.Things
+return ctx.Anime

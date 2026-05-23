@@ -12,7 +12,7 @@ return function(ctx)
 	local ZoneTracker = ctx.ZoneTracker
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local UpgradesConfigurations = ctx.UpgradesConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
@@ -22,7 +22,7 @@ return function(ctx)
 	local MoneyDataStore = ctx.MoneyDataStore
 	local SpeedDataStore = ctx.SpeedDataStore
 	local PlayerDataStore = ctx.PlayerDataStore
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
-	local HELD_THING_GUI_MAX_DISTANCE = ctx.HELD_THING_GUI_MAX_DISTANCE
+	local HELD_ANIME_GUI_MAX_DISTANCE = ctx.HELD_ANIME_GUI_MAX_DISTANCE
 	local PLAYER_SPAWN_BASE_NAME = ctx.PLAYER_SPAWN_BASE_NAME
 	local PLAYER_SPAWN_PART_NAME = ctx.PLAYER_SPAWN_PART_NAME
 	local PLAYER_SPAWN_VERTICAL_OFFSET = ctx.PLAYER_SPAWN_VERTICAL_OFFSET
@@ -171,7 +171,7 @@ local function resetPlayerProgress(Player)
 	destroyPlayerTools(Player, PlayerData)
 	clearBaseProgress(PlayerData)
 
-	PlayersModule.Replace(Player, "Things", {})
+	PlayersModule.Replace(Player, "Anime", {})
 	PlayersModule.Replace(Player, "Tools", {})
 	PlayersModule.Replace(Player, "HotbarOrder", {})
 	PlayersModule.Replace(Player, "Index", reconcileIndex(nil))

@@ -2,7 +2,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
-local ThingsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("ThingsConfigurations"))
+local AnimeConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AnimeConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
 
 local GenerateAnimeViewports = {}
@@ -18,8 +18,8 @@ local function findAnimeTemplate(Name, Mutation)
 	local Animes = ServerStorage:FindFirstChild("Animes")
 	if not Animes then return nil, nil end
 
-	local ThingConfiguration = ThingsConfigurations[Name]
-	local Area = ThingConfiguration and ThingConfiguration.Area
+	local AnimeConfiguration = AnimeConfigurations[Name]
+	local Area = AnimeConfiguration and AnimeConfiguration.Area
 
 	local function findInMutation(MutationName)
 		local MutationFolder = Animes:FindFirstChild(MutationName)
@@ -212,7 +212,7 @@ function GenerateAnimeViewports.Run()
 		MutationFolder.Name = Mutation
 		MutationFolder.Parent = OutputFolder
 
-		for Name in pairs(ThingsConfigurations) do
+		for Name in pairs(AnimeConfigurations) do
 			local Template, TemplateMutation = findAnimeTemplate(Name, Mutation)
 			if not Template then
 				warn(string.format("No anime template found for %s (%s)", Name, Mutation))

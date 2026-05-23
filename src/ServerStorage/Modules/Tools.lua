@@ -3,7 +3,7 @@ local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
 
 local PlayersModule = require(ServerStorage.Modules:WaitForChild("Players"))
-local Things = require(ServerStorage.Modules:WaitForChild("Things"))
+local Anime = require(ServerStorage.Modules:WaitForChild("Anime"))
 local ToolsConfigurations = require(ServerStorage.Configurations.Modules:WaitForChild("ToolsConfigurations"))
 
 local Tools = {}
@@ -136,8 +136,8 @@ function Tools.Create(Player, Name, ToolConfiguration)
 					Tools.Fling(TouchingPlayer, Player, Power)
 				end
 
-				if ToolConfiguration.ReturnCarriedThings then
-					Things.Drop(TouchingPlayer)
+				if ToolConfiguration.ReturnCarriedAnime then
+					Anime.Drop(TouchingPlayer)
 				end
 			end)
 		end

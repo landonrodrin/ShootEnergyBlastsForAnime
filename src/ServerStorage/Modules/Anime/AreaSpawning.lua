@@ -11,14 +11,14 @@ return function(ctx)
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local DropEvent = ctx.DropEvent
-	local Things = ctx.Things
-	local ThingsData = ctx.ThingsData
+	local AnimeModule = ctx.Anime
+	local AnimeRegistry = ctx.AnimeData
 	local FACING_TARGET_PATH = ctx.FACING_TARGET_PATH
 	local DEFAULT_INITIAL_POPULATION = ctx.DEFAULT_INITIAL_POPULATION
 	local DEFAULT_MAX_POPULATION = ctx.DEFAULT_MAX_POPULATION
@@ -28,22 +28,22 @@ return function(ctx)
 	local DEFAULT_INITIAL_TIME_SCALE_MAX = ctx.DEFAULT_INITIAL_TIME_SCALE_MAX
 	local DEFAULT_SPAWN_TIME_SCALE_MIN = ctx.DEFAULT_SPAWN_TIME_SCALE_MIN
 	local DEFAULT_SPAWN_TIME_SCALE_MAX = ctx.DEFAULT_SPAWN_TIME_SCALE_MAX
-	local THING_GUI_MAX_DISTANCE = ctx.THING_GUI_MAX_DISTANCE
-	local THING_CARRY_HOLD_DURATION = ctx.THING_CARRY_HOLD_DURATION
+	local ANIME_GUI_MAX_DISTANCE = ctx.ANIME_GUI_MAX_DISTANCE
+	local ANIME_CARRY_HOLD_DURATION = ctx.ANIME_CARRY_HOLD_DURATION
 	local PICK_UP_PROMPT_TEXT = ctx.PICK_UP_PROMPT_TEXT
-	local CARRIED_THING_WELD_NAME = ctx.CARRIED_THING_WELD_NAME
+	local CARRIED_ANIME_WELD_NAME = ctx.CARRIED_ANIME_WELD_NAME
 	local CARRIED_FORWARD_OFFSET = ctx.CARRIED_FORWARD_OFFSET
 	local CARRIED_BASE_VERTICAL_OFFSET = ctx.CARRIED_BASE_VERTICAL_OFFSET
 	local CARRIED_STACK_PADDING = ctx.CARRIED_STACK_PADDING
 	local CARRIED_PHYSICS_ATTRIBUTE_PREFIX = ctx.CARRIED_PHYSICS_ATTRIBUTE_PREFIX
 	local getSpawnZone = ctx.getSpawnZone
 	local getFacingTarget = ctx.getFacingTarget
-	local getAreaThingConfiguration = ctx.getAreaThingConfiguration
-	local getAreaThings = ctx.getAreaThings
-	local getAreaThingCount = ctx.getAreaThingCount
+	local getAreaAnimeConfiguration = ctx.getAreaAnimeConfiguration
+	local getAreaAnime = ctx.getAreaAnime
+	local getAreaAnimeCount = ctx.getAreaAnimeCount
 	local canSpawnInArea = ctx.canSpawnInArea
-	local getThingGui = ctx.getThingGui
-	local refreshCarriedThingPositions = ctx.refreshCarriedThingPositions
+	local getAnimeGui = ctx.getAnimeGui
+	local refreshCarriedAnimePositions = ctx.refreshCarriedAnimePositions
 	local getGridSpawnPosition = ctx.getGridSpawnPosition
 	local getSpawnCFrame = ctx.getSpawnCFrame
 local function getSpawnZone(Area, AreaConfiguration)
@@ -74,35 +74,35 @@ local function getFacingTarget()
 	end
 end
 
-local function getAreaThingConfiguration(Thing)
-	if not Thing or not Thing.Name then return end
+local function getAreaAnimeConfiguration(Anime)
+	if not Anime or not Anime.Name then return end
 
-	return ThingsConfigurations[Thing.Name]
+	return AnimeConfigurations[Anime.Name]
 end
 
-local function getAreaThings(Area)
-	local AreaThings = {}
-	local ThingsFolder = workspace:FindFirstChild("Things")
-	if not ThingsFolder then return AreaThings end
+local function getAreaAnime(Area)
+	local AreaAnime = {}
+	local AnimeFolder = workspace:FindFirstChild("Anime")
+	if not AnimeFolder then return AreaAnime end
 
-	for _, Thing in ipairs(ThingsFolder:GetChildren()) do
-		local ThingConfiguration = getAreaThingConfiguration(Thing)
-		if ThingConfiguration and ThingConfiguration.Area == Area and Thing.PrimaryPart then
-			table.insert(AreaThings, Thing)
+	for _, Anime in ipairs(AnimeFolder:GetChildren()) do
+		local AnimeConfiguration = getAreaAnimeConfiguration(Anime)
+		if AnimeConfiguration and AnimeConfiguration.Area == Area and Anime.PrimaryPart then
+			table.insert(AreaAnime, Anime)
 		end
 	end
 
-	return AreaThings
+	return AreaAnime
 end
 
-local function getAreaThingCount(Area)
-	return #getAreaThings(Area)
+local function getAreaAnimeCount(Area)
+	return #getAreaAnime(Area)
 end
 
 local function canSpawnInArea(Area, AreaConfiguration)
 	local MaxPopulation = AreaConfiguration.MaxPopulation or DEFAULT_MAX_POPULATION
 
-	return getAreaThingCount(Area) < MaxPopulation
+	return getAreaAnimeCount(Area) < MaxPopulation
 end
 
 local function registerCollisionGroup(Name)
@@ -117,14 +117,14 @@ local function setGroupsCollidable(GroupA, GroupB, Collidable)
 	end)
 end
 
-local function hasThingTemplate(Area, Thing, Mutation)
+local function hasAnimeTemplate(Area, Anime, Mutation)
 	local Animes = ServerStorage:FindFirstChild("Animes")
 
 	local function hasInMutation(MutationName)
 		local MutationFolder = Animes and Animes:FindFirstChild(MutationName)
 		local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
 
-		return AreaFolder and AreaFolder:FindFirstChild(Thing) ~= nil
+		return AreaFolder and AreaFolder:FindFirstChild(Anime) ~= nil
 	end
 
 	if hasInMutation(Mutation) then
@@ -134,17 +134,17 @@ local function hasThingTemplate(Area, Thing, Mutation)
 	return Mutation ~= "Default" and hasInMutation("Default")
 end
 
-local function areaHasSpawnableThings(Area)
-	for Thing, ThingConfiguration in pairs(ThingsConfigurations) do
-		if ThingConfiguration.Area ~= Area then continue end
+local function areaHasSpawnableAnime(Area)
+	for Anime, AnimeConfiguration in pairs(AnimeConfigurations) do
+		if AnimeConfiguration.Area ~= Area then continue end
 
 		for Mutation in pairs(MutationsConfigurations) do
-			if hasThingTemplate(Area, Thing, Mutation) then
+			if hasAnimeTemplate(Area, Anime, Mutation) then
 				return true
 			end
 		end
 
-		if hasThingTemplate(Area, Thing, "Default") then
+		if hasAnimeTemplate(Area, Anime, "Default") then
 			return true
 		end
 	end
@@ -163,84 +163,84 @@ local function getRandomTimeScale(Range, DefaultMinimum, DefaultMaximum)
 	return Minimum + (math.random() * (Maximum - Minimum))
 end
 
-local function getRandomLevel(ThingConfiguration)
+local function getRandomLevel(AnimeConfiguration)
 	local MaximumConfiguredLevel = 1
-	for Level in pairs(ThingConfiguration.Levels or {}) do
+	for Level in pairs(AnimeConfiguration.Levels or {}) do
 		if Level > MaximumConfiguredLevel then
 			MaximumConfiguredLevel = Level
 		end
 	end
 
-	local LevelRange = ThingConfiguration.Level or {}
+	local LevelRange = AnimeConfiguration.Level or {}
 	local Minimum = math.clamp(LevelRange.Minimum or 1, 1, MaximumConfiguredLevel)
 	local Maximum = math.clamp(LevelRange.Maximum or MaximumConfiguredLevel, Minimum, MaximumConfiguredLevel)
 
 	return math.random(Minimum, Maximum)
 end
 
-local function spawnRandomThing(Area, AreaConfiguration, SpawnOptions)
+local function spawnRandomAnime(Area, AreaConfiguration, SpawnOptions)
 	if not canSpawnInArea(Area, AreaConfiguration) then return end
 
 	local Attempts = AreaConfiguration.SpawnAttempts or 30
 	SpawnOptions = SpawnOptions or {}
 
 	for _ = 1, Attempts do
-		local Thing, ThingConfiguration, Mutation, MutationConfiguration, Level = Things.Random(Area)
-		if not Thing then return end
-		if not hasThingTemplate(Area, Thing, Mutation) then continue end
+		local Anime, AnimeConfiguration, Mutation, MutationConfiguration, Level = AnimeModule.Random(Area)
+		if not Anime then return end
+		if not hasAnimeTemplate(Area, Anime, Mutation) then continue end
 
-		local CreatedThing = Things.Create(Area, AreaConfiguration, Thing, ThingConfiguration, Mutation, MutationConfiguration, Level)
-		if CreatedThing then
-			local ThingData = ThingsData[CreatedThing]
-			if ThingData then
-				ThingData.TimeScale = SpawnOptions.TimeScale or getRandomTimeScale(AreaConfiguration.SpawnTimeScale, DEFAULT_SPAWN_TIME_SCALE_MIN, DEFAULT_SPAWN_TIME_SCALE_MAX)
-				ThingData:Spawn()
+		local CreatedAnime = AnimeModule.Create(Area, AreaConfiguration, Anime, AnimeConfiguration, Mutation, MutationConfiguration, Level)
+		if CreatedAnime then
+			local AnimeData = AnimeRegistry[CreatedAnime]
+			if AnimeData then
+				AnimeData.TimeScale = SpawnOptions.TimeScale or getRandomTimeScale(AreaConfiguration.SpawnTimeScale, DEFAULT_SPAWN_TIME_SCALE_MIN, DEFAULT_SPAWN_TIME_SCALE_MAX)
+				AnimeData:Spawn()
 			end
 
-			if CreatedThing.Parent then
-				return CreatedThing
+			if CreatedAnime.Parent then
+				return CreatedAnime
 			end
 		end
 	end
 end
 
-function Things.Setup()
-	local ThingsFolder = workspace:FindFirstChild("Things") or Instance.new("Folder")
-	ThingsFolder.Name = "Things"
-	ThingsFolder.Parent = workspace
-	ThingsFolder:ClearAllChildren()
+function AnimeModule.Setup()
+	local AnimeFolder = workspace:FindFirstChild("Anime") or Instance.new("Folder")
+	AnimeFolder.Name = "Anime"
+	AnimeFolder.Parent = workspace
+	AnimeFolder:ClearAllChildren()
 
-	registerCollisionGroup("Things")
+	registerCollisionGroup("Anime")
 	registerCollisionGroup("Players")
-	setGroupsCollidable("Things", "Players", false)
-	setGroupsCollidable("Things", "Things", false)
+	setGroupsCollidable("Anime", "Players", false)
+	setGroupsCollidable("Anime", "Anime", false)
 
-	RetrieveThingDataFunction.OnInvoke = Things.Retrieve
-	CreateThingFunction.OnInvoke = Things.Create
+	RetrieveAnimeDataFunction.OnInvoke = AnimeModule.Retrieve
+	CreateAnimeFunction.OnInvoke = AnimeModule.Create
 
-	AnimateThingEvent.Event:Connect(Things.Animate)
+	AnimateAnimeEvent.Event:Connect(AnimeModule.Animate)
 
 	Players.PlayerAdded:Connect(function(Player)
 		Player.CharacterRemoving:Connect(function()
-			Things.Drop(Player)
+			AnimeModule.Drop(Player)
 		end)
 	end)
 
 	DropEvent.OnServerEvent:Connect(function(Player)
-		Things.Drop(Player)
+		AnimeModule.Drop(Player)
 	end)
 
 	Players.PlayerRemoving:Connect(function(Player)
-		Things.Drop(Player)
+		AnimeModule.Drop(Player)
 	end)
 
 	FinishBarrier.OnReturn(function(Player)
-		Things.Zone(Player)
+		AnimeModule.Zone(Player)
 	end, 100)
 
 	for Area, AreaConfiguration in pairs(AreasConfigurations) do
 		if AreaConfiguration.Enabled == false then continue end
-		if not areaHasSpawnableThings(Area) then
+		if not areaHasSpawnableAnime(Area) then
 			warn(string.format("Skipping anime area %s: no configured anime templates found.", Area))
 			continue
 		end
@@ -253,7 +253,7 @@ function Things.Setup()
 				TimeScale = math.clamp((TimeScale + EvenScale) / 2, DEFAULT_INITIAL_TIME_SCALE_MIN, DEFAULT_INITIAL_TIME_SCALE_MAX)
 			end
 
-			if not spawnRandomThing(Area, AreaConfiguration, {TimeScale = TimeScale}) then
+			if not spawnRandomAnime(Area, AreaConfiguration, {TimeScale = TimeScale}) then
 				break
 			end
 		end
@@ -268,7 +268,7 @@ function Things.Setup()
 				if not canSpawnInArea(Area, AreaConfiguration) then continue end
 				if math.random() > Chance then continue end
 
-				spawnRandomThing(Area, AreaConfiguration)
+				spawnRandomAnime(Area, AreaConfiguration)
 			end
 		end)
 
@@ -301,49 +301,49 @@ function Things.Setup()
 				Timer = tonumber(AreaConfiguration.Guaranteed)
 				if not canSpawnInArea(Area, AreaConfiguration) then continue end
 
-				spawnRandomThing(Area, AreaConfiguration)
+				spawnRandomAnime(Area, AreaConfiguration)
 			end
 		end)
 	end
 end
 
-function Things.Random(Area)
-	local AreaThings = {}
+function AnimeModule.Random(Area)
+	local AreaAnime = {}
 
 	local TotalChance = 0
 
-	for Thing, ThingConfiguration in pairs(ThingsConfigurations) do
-		local ThingArea = ThingConfiguration.Area
+	for Anime, AnimeConfiguration in pairs(AnimeConfigurations) do
+		local AnimeArea = AnimeConfiguration.Area
 
-		if not ThingArea or ThingArea ~= Area then continue end
+		if not AnimeArea or AnimeArea ~= Area then continue end
 
-		TotalChance += ThingConfiguration.Chance or 1
+		TotalChance += AnimeConfiguration.Chance or 1
 
-		AreaThings[Thing] = ThingConfiguration
+		AreaAnime[Anime] = AnimeConfiguration
 	end
 
 	if TotalChance <= 0 then
 		return
 	end
 
-	local RandomThing = nil
+	local RandomAnime = nil
 	local RandomConfiguration = nil
 
 	local Roll = math.random() * TotalChance
 	local Sum = 0
 
-	for Thing, ThingConfiguration in pairs(AreaThings) do
-		Sum += ThingConfiguration.Chance or 1
+	for Anime, AnimeConfiguration in pairs(AreaAnime) do
+		Sum += AnimeConfiguration.Chance or 1
 
 		if Roll > Sum then continue end
 
-		RandomThing = Thing
-		RandomConfiguration = ThingConfiguration
+		RandomAnime = Anime
+		RandomConfiguration = AnimeConfiguration
 
 		break
 	end
 
-	if not RandomThing then return end
+	if not RandomAnime then return end
 
 	TotalChance = 0
 
@@ -374,12 +374,12 @@ function Things.Random(Area)
 		RandomMutation = "Default"
 	end
 
-	return RandomThing, RandomConfiguration, RandomMutation, RandomMutationConfiguration, getRandomLevel(RandomConfiguration)
+	return RandomAnime, RandomConfiguration, RandomMutation, RandomMutationConfiguration, getRandomLevel(RandomConfiguration)
 end
 	ctx.getSpawnZone = getSpawnZone
 	ctx.getFacingTarget = getFacingTarget
-	ctx.getAreaThingConfiguration = getAreaThingConfiguration
-	ctx.getAreaThings = getAreaThings
-	ctx.getAreaThingCount = getAreaThingCount
+	ctx.getAreaAnimeConfiguration = getAreaAnimeConfiguration
+	ctx.getAreaAnime = getAreaAnime
+	ctx.getAreaAnimeCount = getAreaAnimeCount
 	ctx.canSpawnInArea = canSpawnInArea
 end

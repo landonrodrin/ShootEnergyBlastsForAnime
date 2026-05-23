@@ -12,7 +12,7 @@ return function(ctx)
 	local ZoneTracker = ctx.ZoneTracker
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local UpgradesConfigurations = ctx.UpgradesConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
@@ -22,7 +22,7 @@ return function(ctx)
 	local MoneyDataStore = ctx.MoneyDataStore
 	local SpeedDataStore = ctx.SpeedDataStore
 	local PlayerDataStore = ctx.PlayerDataStore
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
-	local HELD_THING_GUI_MAX_DISTANCE = ctx.HELD_THING_GUI_MAX_DISTANCE
+	local HELD_ANIME_GUI_MAX_DISTANCE = ctx.HELD_ANIME_GUI_MAX_DISTANCE
 	local PLAYER_SPAWN_BASE_NAME = ctx.PLAYER_SPAWN_BASE_NAME
 	local PLAYER_SPAWN_PART_NAME = ctx.PLAYER_SPAWN_PART_NAME
 	local PLAYER_SPAWN_VERTICAL_OFFSET = ctx.PLAYER_SPAWN_VERTICAL_OFFSET
@@ -84,8 +84,8 @@ local function findAnimeTemplate(Name, Mutation)
 	local Animes = ServerStorage:FindFirstChild("Animes")
 	if not Animes then return end
 
-	local ThingConfiguration = ThingsConfigurations[Name]
-	local Area = ThingConfiguration and ThingConfiguration.Area
+	local AnimeConfiguration = AnimeConfigurations[Name]
+	local Area = AnimeConfiguration and AnimeConfiguration.Area
 	if not Area then return end
 
 	local MutationFolder = Animes:FindFirstChild(Mutation or "Default")
@@ -301,70 +301,70 @@ local function applyHeldMutationVisual(Model, Mutation)
 	end
 end
 
-local function createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level, RebirthMultiplier)
+local function createHeldAnimeGui(Model, Name, AnimeConfiguration, Mutation, Level, RebirthMultiplier)
 	local PrimaryPart = Model.PrimaryPart
 	if not PrimaryPart then return end
 
-	local ThingsModule = ServerStorage.Modules:WaitForChild("Things")
-	local Resources = ThingsModule:WaitForChild("Resources")
-	local ThingGui = Resources:WaitForChild("ThingGui"):Clone()
+	local AnimeModule = ServerStorage.Modules:WaitForChild("Anime")
+	local Resources = AnimeModule:WaitForChild("Resources")
+	local AnimeGui = Resources:WaitForChild("AnimeGui"):Clone()
 
-	local TimeLabel = ThingGui:FindFirstChild("Time")
+	local TimeLabel = AnimeGui:FindFirstChild("Time")
 	if TimeLabel then
 		TimeLabel:Destroy()
 	end
 
-	local CarriedLabel = ThingGui:FindFirstChild("Carried")
+	local CarriedLabel = AnimeGui:FindFirstChild("Carried")
 	if CarriedLabel then
 		CarriedLabel:Destroy()
 	end
 
-	ThingGui.Mutation.LayoutOrder = 0
-	ThingGui.Area.LayoutOrder = 1
-	ThingGui.Thing.LayoutOrder = 2
-	ThingGui.Money.LayoutOrder = 3
+	AnimeGui.Mutation.LayoutOrder = 0
+	AnimeGui.Area.LayoutOrder = 1
+	AnimeGui.Anime.LayoutOrder = 2
+	AnimeGui.Money.LayoutOrder = 3
 
-	for _, LabelName in ipairs({"Mutation", "Thing", "Area", "Money"}) do
-		local Label = ThingGui:FindFirstChild(LabelName)
+	for _, LabelName in ipairs({"Mutation", "Anime", "Area", "Money"}) do
+		local Label = AnimeGui:FindFirstChild(LabelName)
 		if Label and Label:IsA("TextLabel") then
 			Label.Size = UDim2.new(0.9, 0, Label.Size.Y.Scale, Label.Size.Y.Offset)
 		end
 	end
 
-	local Area = ThingConfiguration.Area
+	local Area = AnimeConfiguration.Area
 	local AreaConfiguration = Area and AreasConfigurations[Area]
 	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
 	local Multiplier = MutationConfiguration.Multiplier or 1
-	local LevelConfiguration = ThingConfiguration.Levels and ThingConfiguration.Levels[Level] or {}
+	local LevelConfiguration = AnimeConfiguration.Levels and AnimeConfiguration.Levels[Level] or {}
 	RebirthMultiplier = RebirthMultiplier or 1
 
-	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Name, Level)
-	ThingGui.Area.Text = Area or ""
-	ThingGui.Area.TextColor3 = AreaConfiguration and AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
-	ThingGui.Money.Text = string.format("$%s/s", Format.Number((LevelConfiguration.Money or 0) * Multiplier * RebirthMultiplier))
-	ThingGui.Money.Visible = true
+	AnimeGui.Anime.Text = string.format("%s (Lvl %s)", Name, Level)
+	AnimeGui.Area.Text = Area or ""
+	AnimeGui.Area.TextColor3 = AreaConfiguration and AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+	AnimeGui.Money.Text = string.format("$%s/s", Format.Number((LevelConfiguration.Money or 0) * Multiplier * RebirthMultiplier))
+	AnimeGui.Money.Visible = true
 
 	if Mutation and Mutation ~= "Default" then
-		ThingGui.Mutation.Text = Mutation
-		ThingGui.Mutation.TextColor3 = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
-		ThingGui.Mutation.Visible = true
+		AnimeGui.Mutation.Text = Mutation
+		AnimeGui.Mutation.TextColor3 = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		AnimeGui.Mutation.Visible = true
 	else
-		ThingGui.Mutation.Visible = false
+		AnimeGui.Mutation.Visible = false
 	end
 
-	local ExistingAttachment = PrimaryPart:FindFirstChild("ThingAttachment")
+	local ExistingAttachment = PrimaryPart:FindFirstChild("AnimeAttachment")
 	if ExistingAttachment then
 		ExistingAttachment:Destroy()
 	end
 
-	local ThingAttachment = Instance.new("Attachment")
-	ThingAttachment.Name = "ThingAttachment"
-	ThingAttachment.CFrame = CFrame.new(Vector3.new(0, (ThingConfiguration.YOffset or 0) + ThingGui.Size.Y.Scale / 2 + 1, 0))
-	ThingAttachment.Parent = PrimaryPart
+	local AnimeAttachment = Instance.new("Attachment")
+	AnimeAttachment.Name = "AnimeAttachment"
+	AnimeAttachment.CFrame = CFrame.new(Vector3.new(0, (AnimeConfiguration.YOffset or 0) + AnimeGui.Size.Y.Scale / 2 + 1, 0))
+	AnimeAttachment.Parent = PrimaryPart
 
-	ThingGui.Parent = ThingAttachment
-	ThingGui.MaxDistance = HELD_THING_GUI_MAX_DISTANCE
-	ThingGui.Enabled = true
+	AnimeGui.Parent = AnimeAttachment
+	AnimeGui.MaxDistance = HELD_ANIME_GUI_MAX_DISTANCE
+	AnimeGui.Enabled = true
 end
 
 local function removeHeldAnimeWeld(Player)
@@ -408,8 +408,8 @@ local function createHeldModel(Player, Name, Mutation, Level)
 	local Template = findAnimeTemplate(Name, Mutation)
 	if not Template then return end
 
-	local ThingConfiguration = ThingsConfigurations[Name]
-	if not ThingConfiguration then return end
+	local AnimeConfiguration = AnimeConfigurations[Name]
+	if not AnimeConfiguration then return end
 	Level = Level or 1
 
 	local Model = Template:Clone()
@@ -426,7 +426,7 @@ local function createHeldModel(Player, Name, Mutation, Level)
 	applyHeldMutationVisual(Model, Mutation)
 	local PlayerData = PlayersData[Player]
 	local RebirthMultiplier = getRebirthMultiplier(PlayerData and PlayerData.Rebirths or 0)
-	createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level, RebirthMultiplier)
+	createHeldAnimeGui(Model, Name, AnimeConfiguration, Mutation, Level, RebirthMultiplier)
 
 	Model:PivotTo(getHeldAnimeCFrame(Root))
 

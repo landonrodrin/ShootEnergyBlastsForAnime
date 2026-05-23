@@ -12,7 +12,7 @@ return function(ctx)
 	local ZoneTracker = ctx.ZoneTracker
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local UpgradesConfigurations = ctx.UpgradesConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
@@ -22,7 +22,7 @@ return function(ctx)
 	local MoneyDataStore = ctx.MoneyDataStore
 	local SpeedDataStore = ctx.SpeedDataStore
 	local PlayerDataStore = ctx.PlayerDataStore
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
-	local HELD_THING_GUI_MAX_DISTANCE = ctx.HELD_THING_GUI_MAX_DISTANCE
+	local HELD_ANIME_GUI_MAX_DISTANCE = ctx.HELD_ANIME_GUI_MAX_DISTANCE
 	local PLAYER_SPAWN_BASE_NAME = ctx.PLAYER_SPAWN_BASE_NAME
 	local PLAYER_SPAWN_PART_NAME = ctx.PLAYER_SPAWN_PART_NAME
 	local PLAYER_SPAWN_VERTICAL_OFFSET = ctx.PLAYER_SPAWN_VERTICAL_OFFSET
@@ -80,7 +80,7 @@ return function(ctx)
 	local reconcileIndex = ctx.reconcileIndex
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
-function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, ToolIndex, ToolData, AutoEquip)
+function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, ToolIndex, ToolData, AutoEquip)
 	if typeof(ToolIndex) == "boolean" and ToolData == nil and AutoEquip == nil then
 		AutoEquip = ToolIndex
 		ToolIndex = nil
@@ -142,7 +142,7 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, T
 
 				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
 
-				if SlotsData[Slot.Name] and SlotsData[Slot.Name].Thing then
+				if SlotsData[Slot.Name] and SlotsData[Slot.Name].Anime then
 					SetProperties.Client(Player, Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = true})
 				else
 					SetProperties.Client(Player, Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = true})
@@ -185,7 +185,7 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, T
 				SetProperties.Client(Player, Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
 				SetProperties.Client(Player, Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
 
-				if not (SlotsData[Slot.Name] and SlotsData[Slot.Name].Thing) then return end
+				if not (SlotsData[Slot.Name] and SlotsData[Slot.Name].Anime) then return end
 				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
 
 				SetProperties.Client(Player, Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
@@ -209,7 +209,7 @@ function PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level, T
 
 	Tool.Name = Name
 	Tool.ToolTip = Name
-	Tool.TextureId = ThingConfiguration.Icons[Mutation]
+	Tool.TextureId = AnimeConfiguration.Icons[Mutation]
 	Tool.RequiresHandle = false
 	Tool:SetAttribute("InventoryId", Id)
 	Tool:SetAttribute("Mutation", Mutation)

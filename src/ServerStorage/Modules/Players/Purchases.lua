@@ -3,11 +3,11 @@ return function(ctx)
 	local Players = ctx.Players
 	local Bases = ctx.Bases
 	local GameConfigurations = ctx.GameConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local UpgradesConfigurations = ctx.UpgradesConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
@@ -32,36 +32,36 @@ return function(ctx)
 				local Slot = StealingData.Slot
 
 				if StolenPlayer == Bases.Retrieve(Base, "Player") then
-					local Thing = Bases.Retrieve(Base, "SlotsData")[Slot.Name] and Bases.Retrieve(Base, "SlotsData")[Slot.Name].Thing
-					if not Thing then return end
+					local Anime = Bases.Retrieve(Base, "SlotsData")[Slot.Name] and Bases.Retrieve(Base, "SlotsData")[Slot.Name].Anime
+					if not Anime then return end
 
-					local Name = Thing.Name
+					local Name = Anime.Name
 
-					local ThingConfiguration = ThingsConfigurations[Name]
-					if not ThingConfiguration then return end
+					local AnimeConfiguration = AnimeConfigurations[Name]
+					if not AnimeConfiguration then return end
 
-					local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+					local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 					if not Mutation then return end
 
-					local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
+					local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level")
 					if not Level then Level = 1 end
 
-					CreateToolEvent:Fire(Player, Name, ThingConfiguration, Mutation, Level)
+					CreateToolEvent:Fire(Player, Name, AnimeConfiguration, Mutation, Level)
 
 					Bases.Remove(Base, Slot)
 
-					local AreaConfiguration = AreasConfigurations[ThingConfiguration.Area]
+					local AreaConfiguration = AreasConfigurations[AnimeConfiguration.Area]
 					if not AreaConfiguration then return end
 
 					local Colour = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 
 					Colour = string.format("rgb(%d, %d, %d)", Colour.R * 255, Colour.G * 255, Colour.B * 255)
 
-					local Text = string.format("%s stole your <font color=\"%s\">%s</font> Thing!", Player.Name, Colour, Name)
+					local Text = string.format("%s stole your <font color=\"%s\">%s</font> Anime!", Player.Name, Colour, Name)
 
 					AnnouncementEvent:FireClient(StolenPlayer, Text)
 
-					local Text = string.format("You stole %s's <font color=\"%s\">%s</font> Thing!", StolenPlayer.Name, Colour, Name)
+					local Text = string.format("You stole %s's <font color=\"%s\">%s</font> Anime!", StolenPlayer.Name, Colour, Name)
 
 					AnnouncementEvent:FireClient(Player, Text)
 				else

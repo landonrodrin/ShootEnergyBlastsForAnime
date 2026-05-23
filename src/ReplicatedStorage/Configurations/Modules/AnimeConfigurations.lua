@@ -1,4 +1,4 @@
-local ThingsConfigurations = {
+local AnimeConfigurations = {
 	["Luffy"] = {
 		Area = "Common",
 
@@ -117,4 +117,4 @@ local ThingsConfigurations = {
 	}
 }
 
-return ThingsConfigurations
+return AnimeConfigurations

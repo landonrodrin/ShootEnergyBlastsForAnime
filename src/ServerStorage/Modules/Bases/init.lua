@@ -11,14 +11,14 @@ local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local BaseConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("BaseConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AreasConfigurations"))
-local ThingsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("ThingsConfigurations"))
+local AnimeConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AnimeConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("RebirthsConfigurations"))
 
-local RetrieveThingDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveThingData")
-local CreateThingFunction = ServerStorage.Network.BindableFunctions:WaitForChild("CreateThing")
+local RetrieveAnimeDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveAnimeData")
+local CreateAnimeFunction = ServerStorage.Network.BindableFunctions:WaitForChild("CreateAnime")
 local RetrievePlayerDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrievePlayerData")
-local AnimateThingEvent = ServerStorage.Network.BindableEvents:WaitForChild("AnimateThing")
+local AnimateAnimeEvent = ServerStorage.Network.BindableEvents:WaitForChild("AnimateAnime")
 local ReplacePlayerDataEvent = ServerStorage.Network.BindableEvents:WaitForChild("ReplacePlayerData")
 local CreateToolEvent = ServerStorage.Network.BindableEvents:WaitForChild("CreateTool")
 
@@ -35,13 +35,13 @@ local ctx = {
 	GameConfigurations = GameConfigurations,
 	BaseConfigurations = BaseConfigurations,
 	AreasConfigurations = AreasConfigurations,
-	ThingsConfigurations = ThingsConfigurations,
+	AnimeConfigurations = AnimeConfigurations,
 	MutationsConfigurations = MutationsConfigurations,
 	RebirthsConfigurations = RebirthsConfigurations,
-	RetrieveThingDataFunction = RetrieveThingDataFunction,
-	CreateThingFunction = CreateThingFunction,
+	RetrieveAnimeDataFunction = RetrieveAnimeDataFunction,
+	CreateAnimeFunction = CreateAnimeFunction,
 	RetrievePlayerDataFunction = RetrievePlayerDataFunction,
-	AnimateThingEvent = AnimateThingEvent,
+	AnimateAnimeEvent = AnimateAnimeEvent,
 	ReplacePlayerDataEvent = ReplacePlayerDataEvent,
 	CreateToolEvent = CreateToolEvent,
 	LevelEvent = LevelEvent,
@@ -71,7 +71,7 @@ require(script:WaitForChild("Economy"))(ctx)
 require(script:WaitForChild("InfoGui"))(ctx)
 require(script:WaitForChild("Leveling"))(ctx)
 require(script:WaitForChild("State"))(ctx)
-require(script:WaitForChild("SlotThings"))(ctx)
+require(script:WaitForChild("SlotAnime"))(ctx)
 require(script:WaitForChild("SlotPrompts"))(ctx)
 
 return ctx.Bases

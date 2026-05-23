@@ -11,14 +11,14 @@ return function(ctx)
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local DropEvent = ctx.DropEvent
-	local Things = ctx.Things
-	local ThingsData = ctx.ThingsData
+	local AnimeModule = ctx.Anime
+	local AnimeRegistry = ctx.AnimeData
 	local FACING_TARGET_PATH = ctx.FACING_TARGET_PATH
 	local DEFAULT_INITIAL_POPULATION = ctx.DEFAULT_INITIAL_POPULATION
 	local DEFAULT_MAX_POPULATION = ctx.DEFAULT_MAX_POPULATION
@@ -28,49 +28,49 @@ return function(ctx)
 	local DEFAULT_INITIAL_TIME_SCALE_MAX = ctx.DEFAULT_INITIAL_TIME_SCALE_MAX
 	local DEFAULT_SPAWN_TIME_SCALE_MIN = ctx.DEFAULT_SPAWN_TIME_SCALE_MIN
 	local DEFAULT_SPAWN_TIME_SCALE_MAX = ctx.DEFAULT_SPAWN_TIME_SCALE_MAX
-	local THING_GUI_MAX_DISTANCE = ctx.THING_GUI_MAX_DISTANCE
-	local THING_CARRY_HOLD_DURATION = ctx.THING_CARRY_HOLD_DURATION
+	local ANIME_GUI_MAX_DISTANCE = ctx.ANIME_GUI_MAX_DISTANCE
+	local ANIME_CARRY_HOLD_DURATION = ctx.ANIME_CARRY_HOLD_DURATION
 	local PICK_UP_PROMPT_TEXT = ctx.PICK_UP_PROMPT_TEXT
-	local CARRIED_THING_WELD_NAME = ctx.CARRIED_THING_WELD_NAME
+	local CARRIED_ANIME_WELD_NAME = ctx.CARRIED_ANIME_WELD_NAME
 	local CARRIED_FORWARD_OFFSET = ctx.CARRIED_FORWARD_OFFSET
 	local CARRIED_BASE_VERTICAL_OFFSET = ctx.CARRIED_BASE_VERTICAL_OFFSET
 	local CARRIED_STACK_PADDING = ctx.CARRIED_STACK_PADDING
 	local CARRIED_PHYSICS_ATTRIBUTE_PREFIX = ctx.CARRIED_PHYSICS_ATTRIBUTE_PREFIX
 	local getSpawnZone = ctx.getSpawnZone
 	local getFacingTarget = ctx.getFacingTarget
-	local getAreaThingConfiguration = ctx.getAreaThingConfiguration
-	local getAreaThings = ctx.getAreaThings
-	local getAreaThingCount = ctx.getAreaThingCount
+	local getAreaAnimeConfiguration = ctx.getAreaAnimeConfiguration
+	local getAreaAnime = ctx.getAreaAnime
+	local getAreaAnimeCount = ctx.getAreaAnimeCount
 	local canSpawnInArea = ctx.canSpawnInArea
-	local getThingGui = ctx.getThingGui
-	local refreshCarriedThingPositions = ctx.refreshCarriedThingPositions
+	local getAnimeGui = ctx.getAnimeGui
+	local refreshCarriedAnimePositions = ctx.refreshCarriedAnimePositions
 	local getGridSpawnPosition = ctx.getGridSpawnPosition
 	local getSpawnCFrame = ctx.getSpawnCFrame
-local function getThingGui(Thing)
-	local PrimaryPart = Thing and Thing.PrimaryPart
-	local ThingAttachment = PrimaryPart and PrimaryPart:FindFirstChild("ThingAttachment")
-	return ThingAttachment and ThingAttachment:FindFirstChild("ThingGui")
+local function getAnimeGui(Anime)
+	local PrimaryPart = Anime and Anime.PrimaryPart
+	local AnimeAttachment = PrimaryPart and PrimaryPart:FindFirstChild("AnimeAttachment")
+	return AnimeAttachment and AnimeAttachment:FindFirstChild("AnimeGui")
 end
 
-local function resetThingTimer(Thing, ThingData, ThingConfiguration)
-	if not ThingData or not ThingConfiguration then return end
+local function resetAnimeTimer(Anime, AnimeData, AnimeConfiguration)
+	if not AnimeData or not AnimeConfiguration then return end
 
-	local BaseTime = ThingConfiguration.Time or 10
-	local TimeScale = ThingData.TimeScale or 1
+	local BaseTime = AnimeConfiguration.Time or 10
+	local TimeScale = AnimeData.TimeScale or 1
 	local Time = math.max(1, math.floor(BaseTime * TimeScale))
-	ThingData.Time = Time
+	AnimeData.Time = Time
 
-	local ThingGui = getThingGui(Thing)
-	if ThingGui and ThingGui:FindFirstChild("Time") then
-		ThingGui.Time.Text = Format.Time(Time)
-		ThingGui.Time.Visible = true
+	local AnimeGui = getAnimeGui(Anime)
+	if AnimeGui and AnimeGui:FindFirstChild("Time") then
+		AnimeGui.Time.Text = Format.Time(Time)
+		AnimeGui.Time.Visible = true
 	end
 end
 
-local function removeCarryWelds(Player, Thing)
-	if Thing then
-		for _, Descendant in ipairs(Thing:GetDescendants()) do
-			if Descendant:IsA("WeldConstraint") and Descendant.Name == CARRIED_THING_WELD_NAME then
+local function removeCarryWelds(Player, Anime)
+	if Anime then
+		for _, Descendant in ipairs(Anime:GetDescendants()) do
+			if Descendant:IsA("WeldConstraint") and Descendant.Name == CARRIED_ANIME_WELD_NAME then
 				Descendant:Destroy()
 			end
 		end
@@ -80,15 +80,15 @@ local function removeCarryWelds(Player, Thing)
 	local Root = Character and Character.PrimaryPart
 	if Root then
 		for _, Child in ipairs(Root:GetChildren()) do
-			if Child:IsA("WeldConstraint") and Child.Name == CARRIED_THING_WELD_NAME then
+			if Child:IsA("WeldConstraint") and Child.Name == CARRIED_ANIME_WELD_NAME then
 				Child:Destroy()
 			end
 		end
 	end
 end
 
-local function setCarriedPhysics(Thing)
-	for _, Descendant in ipairs(Thing:GetDescendants()) do
+local function setCarriedPhysics(Anime)
+	for _, Descendant in ipairs(Anime:GetDescendants()) do
 		if not Descendant:IsA("BasePart") then continue end
 
 		if Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Anchored") == nil then
@@ -107,8 +107,8 @@ local function setCarriedPhysics(Thing)
 	end
 end
 
-local function restoreThingPhysics(Thing)
-	for _, Descendant in ipairs(Thing:GetDescendants()) do
+local function restoreAnimePhysics(Anime)
+	for _, Descendant in ipairs(Anime:GetDescendants()) do
 		if not Descendant:IsA("BasePart") then continue end
 
 		local OriginalAnchored = Descendant:GetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Anchored")
@@ -129,66 +129,66 @@ local function restoreThingPhysics(Thing)
 		Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "CanQuery", nil)
 		Descendant:SetAttribute(CARRIED_PHYSICS_ATTRIBUTE_PREFIX .. "Massless", nil)
 
-		Descendant.CollisionGroup = "Things"
+		Descendant.CollisionGroup = "Anime"
 	end
 end
 
-local function getCarryCFrame(Character, Thing, StackIndex)
+local function getCarryCFrame(Character, Anime, StackIndex)
 	local Root = Character and Character.PrimaryPart
 	if not Root then return end
 
-	local _, Size = Thing:GetBoundingBox()
+	local _, Size = Anime:GetBoundingBox()
 	local StackOffset = math.max(Size.Y * 0.55 + CARRIED_STACK_PADDING, 1.25) * math.max((StackIndex or 1) - 1, 0)
 	local Position = (Root.CFrame * CFrame.new(0, CARRIED_BASE_VERTICAL_OFFSET + StackOffset, CARRIED_FORWARD_OFFSET)).Position
 
 	return CFrame.lookAt(Position, Position + Root.CFrame.LookVector)
 end
 
-local function weldThingToPlayer(Player, Thing, StackIndex)
+local function weldAnimeToPlayer(Player, Anime, StackIndex)
 	local Character = Player.Character
 	local Root = Character and Character.PrimaryPart
-	if not Root or not Thing.PrimaryPart then return end
+	if not Root or not Anime.PrimaryPart then return end
 
-	removeCarryWelds(Player, Thing)
-	setCarriedPhysics(Thing)
+	removeCarryWelds(Player, Anime)
+	setCarriedPhysics(Anime)
 
-	local CarryCFrame = getCarryCFrame(Character, Thing, StackIndex)
+	local CarryCFrame = getCarryCFrame(Character, Anime, StackIndex)
 	if CarryCFrame then
-		Thing:PivotTo(CarryCFrame)
+		Anime:PivotTo(CarryCFrame)
 	end
 
 	local WeldConstraint = Instance.new("WeldConstraint")
-	WeldConstraint.Name = CARRIED_THING_WELD_NAME
-	WeldConstraint.Part0 = Thing.PrimaryPart
+	WeldConstraint.Name = CARRIED_ANIME_WELD_NAME
+	WeldConstraint.Part0 = Anime.PrimaryPart
 	WeldConstraint.Part1 = Root
-	WeldConstraint.Parent = Thing.PrimaryPart
+	WeldConstraint.Parent = Anime.PrimaryPart
 end
 
-local function refreshCarriedThingPositions(Player, Carrying)
-	for Index, Thing in ipairs(Carrying or {}) do
-		if Thing and Thing.Parent and Thing.PrimaryPart then
-			weldThingToPlayer(Player, Thing, Index)
+local function refreshCarriedAnimePositions(Player, Carrying)
+	for Index, Anime in ipairs(Carrying or {}) do
+		if Anime and Anime.Parent and Anime.PrimaryPart then
+			weldAnimeToPlayer(Player, Anime, Index)
 		end
 	end
 end
 
-local function alignDroppedThingToGround(Player, Thing, ThingConfiguration)
+local function alignDroppedAnimeToGround(Player, Anime, AnimeConfiguration)
 	local Character = Player.Character
 	local Root = Character and Character.PrimaryPart
-	local Origin = (Thing:GetPivot().Position) + Vector3.new(0, 8, 0)
+	local Origin = (Anime:GetPivot().Position) + Vector3.new(0, 8, 0)
 	local RaycastParameters = RaycastParams.new()
 	RaycastParameters.FilterType = Enum.RaycastFilterType.Exclude
-	RaycastParameters.FilterDescendantsInstances = {Thing, Character}
+	RaycastParameters.FilterDescendantsInstances = {Anime, Character}
 
 	local Result = workspace:Raycast(Origin, Vector3.new(0, -80, 0), RaycastParameters)
 	if Result then
-		Grounding.AlignBottomToY(Thing, Result.Position.Y, ThingConfiguration)
+		Grounding.AlignBottomToY(Anime, Result.Position.Y, AnimeConfiguration)
 	elseif Root then
-		Thing:PivotTo(CFrame.lookAt(Root.Position + Root.CFrame.LookVector * 2, Root.Position + Root.CFrame.LookVector * 3))
+		Anime:PivotTo(CFrame.lookAt(Root.Position + Root.CFrame.LookVector * 2, Root.Position + Root.CFrame.LookVector * 3))
 	end
 end
 
-function Things.Drop(Player, ResetTimers)
+function AnimeModule.Drop(Player, ResetTimers)
 	if ResetTimers == nil then
 		ResetTimers = true
 	end
@@ -199,46 +199,46 @@ function Things.Drop(Player, ResetTimers)
 
 	DropEvent:FireClient(Player, false)
 
-	for _, Thing in ipairs(Carrying) do
-		local ThingConfiguration = ThingsConfigurations[Thing.Name]
-		local ThingData = ThingsData[Thing]
-		if not ThingConfiguration or not ThingData then continue end
-		if not Thing.Parent or not Thing.PrimaryPart then
-			ThingsData[Thing] = nil
+	for _, Anime in ipairs(Carrying) do
+		local AnimeConfiguration = AnimeConfigurations[Anime.Name]
+		local AnimeData = AnimeRegistry[Anime]
+		if not AnimeConfiguration or not AnimeData then continue end
+		if not Anime.Parent or not Anime.PrimaryPart then
+			AnimeRegistry[Anime] = nil
 			continue
 		end
 
-		removeCarryWelds(Player, Thing)
+		removeCarryWelds(Player, Anime)
 
-		local ThingsFolder = workspace:FindFirstChild("Things")
-		if ThingsFolder then
-			Thing.Parent = ThingsFolder
+		local AnimeFolder = workspace:FindFirstChild("Anime")
+		if AnimeFolder then
+			Anime.Parent = AnimeFolder
 		end
 
-		restoreThingPhysics(Thing)
-		alignDroppedThingToGround(Player, Thing, ThingConfiguration)
+		restoreAnimePhysics(Anime)
+		alignDroppedAnimeToGround(Player, Anime, AnimeConfiguration)
 
-		local ProximityPrompt = Thing.PrimaryPart:FindFirstChild("ProximityPrompt")
+		local ProximityPrompt = Anime.PrimaryPart:FindFirstChild("ProximityPrompt")
 		if ProximityPrompt then
 			SetProperties.AllClients(ProximityPrompt, {Enabled = true, ActionText = PICK_UP_PROMPT_TEXT})
 		end
 
-		local ThingGui = getThingGui(Thing)
-		if ThingGui and ThingGui:FindFirstChild("Carried") then
-			ThingGui.Carried.Visible = false
+		local AnimeGui = getAnimeGui(Anime)
+		if AnimeGui and AnimeGui:FindFirstChild("Carried") then
+			AnimeGui.Carried.Visible = false
 		end
 
-		ThingData.Carried = nil
+		AnimeData.Carried = nil
 		if ResetTimers then
-			resetThingTimer(Thing, ThingData, ThingConfiguration)
+			resetAnimeTimer(Anime, AnimeData, AnimeConfiguration)
 		end
 	end
 
-	for _, Thing in ipairs(workspace.Things:GetChildren()) do
+	for _, Anime in ipairs(workspace.Anime:GetChildren()) do
 		task.spawn(function()
-			if not Thing.PrimaryPart then return end
+			if not Anime.PrimaryPart then return end
 
-			local OtherProximityPrompt = Thing.PrimaryPart:FindFirstChild("ProximityPrompt")
+			local OtherProximityPrompt = Anime.PrimaryPart:FindFirstChild("ProximityPrompt")
 			if not OtherProximityPrompt then return end
 
 			SetProperties.Client(Player, OtherProximityPrompt, {Enabled = true, ActionText = PICK_UP_PROMPT_TEXT})
@@ -247,7 +247,7 @@ function Things.Drop(Player, ResetTimers)
 				local Carrying = PlayersModule.Retrieve(OtherPlayer, "Carrying")
 				if not Carrying then continue end
 
-				if table.find(Carrying, Thing) then return end
+				if table.find(Carrying, Anime) then return end
 			end
 		end)
 	end
@@ -258,39 +258,39 @@ function Things.Drop(Player, ResetTimers)
 	PlayersModule.Replace(Player, "Carried", nil)
 end
 
-function Things.Zone(Player)
+function AnimeModule.Zone(Player)
 	local Carrying = PlayersModule.Retrieve(Player, "Carrying")
 	if not Carrying then return end
 
-	local ReturningThings = {}
-	for _, Thing in ipairs(Carrying) do
-		local Name = Thing.Name
-		local ThingConfiguration = ThingsConfigurations[Name]
-		local Data = ThingsData[Thing]
+	local ReturningAnime = {}
+	for _, Anime in ipairs(Carrying) do
+		local Name = Anime.Name
+		local AnimeConfiguration = AnimeConfigurations[Name]
+		local Data = AnimeRegistry[Anime]
 
-		if ThingConfiguration and Data then
-			table.insert(ReturningThings, {
-				Thing = Thing,
+		if AnimeConfiguration and Data then
+			table.insert(ReturningAnime, {
+				Anime = Anime,
 				Name = Name,
-				ThingConfiguration = ThingConfiguration,
+				AnimeConfiguration = AnimeConfiguration,
 				Mutation = Data.Mutation,
 				Level = Data.Level or 1
 			})
 		end
 	end
 
-	Things.Drop(Player, false)
+	AnimeModule.Drop(Player, false)
 
-	for _, ThingData in ipairs(ReturningThings) do
-		local Data = ThingsData[ThingData.Thing]
+	for _, AnimeEntry in ipairs(ReturningAnime) do
+		local Data = AnimeRegistry[AnimeEntry.Anime]
 		if not Data then continue end
 
 		Data:Destroy()
 
-		PlayersModule.Tool(Player, ThingData.Name, ThingData.ThingConfiguration, ThingData.Mutation, ThingData.Level, true)
+		PlayersModule.Tool(Player, AnimeEntry.Name, AnimeEntry.AnimeConfiguration, AnimeEntry.Mutation, AnimeEntry.Level, true)
 	end
 end
-	ctx.getThingGui = getThingGui
-	ctx.resetThingTimer = resetThingTimer
-	ctx.refreshCarriedThingPositions = refreshCarriedThingPositions
+	ctx.getAnimeGui = getAnimeGui
+	ctx.resetAnimeTimer = resetAnimeTimer
+	ctx.refreshCarriedAnimePositions = refreshCarriedAnimePositions
 end

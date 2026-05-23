@@ -12,7 +12,7 @@ return function(ctx)
 	local ZoneTracker = ctx.ZoneTracker
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local UpgradesConfigurations = ctx.UpgradesConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
@@ -22,7 +22,7 @@ return function(ctx)
 	local MoneyDataStore = ctx.MoneyDataStore
 	local SpeedDataStore = ctx.SpeedDataStore
 	local PlayerDataStore = ctx.PlayerDataStore
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
-	local HELD_THING_GUI_MAX_DISTANCE = ctx.HELD_THING_GUI_MAX_DISTANCE
+	local HELD_ANIME_GUI_MAX_DISTANCE = ctx.HELD_ANIME_GUI_MAX_DISTANCE
 	local PLAYER_SPAWN_BASE_NAME = ctx.PLAYER_SPAWN_BASE_NAME
 	local PLAYER_SPAWN_PART_NAME = ctx.PLAYER_SPAWN_PART_NAME
 	local PLAYER_SPAWN_VERTICAL_OFFSET = ctx.PLAYER_SPAWN_VERTICAL_OFFSET
@@ -140,13 +140,13 @@ function PlayersModule.Setup()
 	setupOwnerTextChatCommands()
 
 	registerCollisionGroup("Players")
-	registerCollisionGroup("Things")
+	registerCollisionGroup("Anime")
 	registerCollisionGroup("HeldPreviews")
-	setGroupsCollidable("Players", "Things", false)
+	setGroupsCollidable("Players", "Anime", false)
 	setGroupsCollidable("Players", "Players", false)
 	setGroupsCollidable("HeldPreviews", "Default", false)
 	setGroupsCollidable("HeldPreviews", "Players", false)
-	setGroupsCollidable("HeldPreviews", "Things", false)
+	setGroupsCollidable("HeldPreviews", "Anime", false)
 	setGroupsCollidable("HeldPreviews", "HeldPreviews", false)
 
 	local SellStation = getSellStation()
@@ -278,7 +278,7 @@ function PlayersModule.Setup()
 		elseif Mode == "All" then
 			for Index = #PlayerData.Tools, 1, -1 do
 				local ToolData = PlayerData.Tools[Index]
-				if not ToolData or not ThingsConfigurations[ToolData.Name] then continue end
+				if not ToolData or not AnimeConfigurations[ToolData.Name] then continue end
 
 				Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
 				removeToolData(Player, Index, ToolData)
@@ -380,8 +380,8 @@ function PlayersModule.Create(Player)
 				local Mutation = ToolData.Mutation
 				local Level = ToolData.Level
 
-				local ThingConfiguration = ThingsConfigurations[Name]
-				if not ThingConfiguration then return end
+				local AnimeConfiguration = AnimeConfigurations[Name]
+				if not AnimeConfiguration then return end
 
 				table.remove(ToolsData, Index)
 
@@ -389,7 +389,7 @@ function PlayersModule.Create(Player)
 
 				Tool:Destroy()
 
-				PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level)
+				PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level)
 
 				break
 			end
@@ -443,8 +443,8 @@ function PlayersModule.Create(Player)
 				local Mutation = ToolData.Mutation
 				local Level = ToolData.Level
 
-				local ThingConfiguration = ThingsConfigurations[Name]
-				if not ThingConfiguration then return end
+				local AnimeConfiguration = AnimeConfigurations[Name]
+				if not AnimeConfiguration then return end
 
 				table.remove(ToolsData, Index)
 
@@ -452,7 +452,7 @@ function PlayersModule.Create(Player)
 
 				Tool:Destroy()
 
-				PlayersModule.Tool(Player, Name, ThingConfiguration, Mutation, Level)
+				PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level)
 
 				break
 			end

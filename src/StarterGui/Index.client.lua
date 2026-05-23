@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
-local ThingsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("ThingsConfigurations"))
+local AnimeConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AnimeConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AreasConfigurations"))
 
 local IndexEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Index")
@@ -36,7 +36,7 @@ local function applyFallbackIcon(IconObject, Icon, IsUnlocked)
 	IconObject.ImageColor3 = IsUnlocked and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
 end
 
-local function Things(Index, Mutation, Override)
+local function Anime(Index, Mutation, Override)
 	local MutationConfiguration = MutationsConfigurations[Mutation]
 	if not MutationConfiguration then return end
 
@@ -54,22 +54,22 @@ local function Things(Index, Mutation, Override)
 
 	local Colour = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
 
-	for _, ThingFrame in pairs(IndexFrame.Things:GetChildren()) do
-		if not ThingFrame:IsA("Frame") then continue end
+	for _, AnimeFrame in pairs(IndexFrame.Anime:GetChildren()) do
+		if not AnimeFrame:IsA("Frame") then continue end
 
-		ThingFrame:Destroy()
+		AnimeFrame:Destroy()
 	end
 
-	for Thing, ThingConfiguration in pairs(ThingsConfigurations) do
+	for Anime, AnimeConfiguration in pairs(AnimeConfigurations) do
 		task.spawn(function()
-			local Icon = ThingConfiguration.Icons and ThingConfiguration.Icons[Mutation]
-			local IsUnlocked = Index[Mutation] and Index[Mutation][Thing] == true
+			local Icon = AnimeConfiguration.Icons and AnimeConfiguration.Icons[Mutation]
+			local IsUnlocked = Index[Mutation] and Index[Mutation][Anime] == true
 
-			local ThingFrame = script:WaitForChild("Thing")
-			ThingFrame = ThingFrame:Clone()
+			local AnimeFrame = script:WaitForChild("Anime")
+			AnimeFrame = AnimeFrame:Clone()
 
-			local IconObject = ThingFrame:FindFirstChild("Icon")
-			local Viewport = AnimeViewports.Mount(IconObject, Thing, Mutation, {
+			local IconObject = AnimeFrame:FindFirstChild("Icon")
+			local Viewport = AnimeViewports.Mount(IconObject, Anime, Mutation, {
 				Silhouette = not IsUnlocked
 			})
 
@@ -77,19 +77,19 @@ local function Things(Index, Mutation, Override)
 				applyFallbackIcon(IconObject, Icon, IsUnlocked)
 			end
 
-			ThingFrame.Area.Text = ThingConfiguration.Area
-			ThingFrame.Area.TextColor3 = AreasConfigurations[ThingConfiguration.Area].Colour or Color3.fromRGB(255, 255, 255)
+			AnimeFrame.Area.Text = AnimeConfiguration.Area
+			AnimeFrame.Area.TextColor3 = AreasConfigurations[AnimeConfiguration.Area].Colour or Color3.fromRGB(255, 255, 255)
 
-			ThingFrame.Mutation.Text = Mutation
-			ThingFrame.Mutation.TextColor3 = Colour
+			AnimeFrame.Mutation.Text = Mutation
+			AnimeFrame.Mutation.TextColor3 = Colour
 
-			ThingFrame.Thing.Text = IsUnlocked and Thing or "?"
+			AnimeFrame.Anime.Text = IsUnlocked and Anime or "?"
 
-			ThingFrame.LayoutOrder = ThingConfiguration.Index or 0
+			AnimeFrame.LayoutOrder = AnimeConfiguration.Index or 0
 
-			ThingFrame.Name = Thing
-			ThingFrame.Parent = IndexFrame:WaitForChild("Things")
-			ThingFrame.Visible = true
+			AnimeFrame.Name = Anime
+			AnimeFrame.Parent = IndexFrame:WaitForChild("Anime")
+			AnimeFrame.Visible = true
 		end)
 	end
 
@@ -115,7 +115,7 @@ IndexEvent.OnClientEvent:Connect(function(Index, Mutation)
 
 	if not Mutation then Mutation = "Default" end
 
-	Things(Index, Mutation, Override)
+	Anime(Index, Mutation, Override)
 end)
 
 for Mutation, MutationConfiguration in pairs(MutationsConfigurations) do

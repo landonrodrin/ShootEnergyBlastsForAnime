@@ -8,13 +8,13 @@ return function(ctx)
 	local GameConfigurations = ctx.GameConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
 	local LevelEvent = ctx.LevelEvent
@@ -48,7 +48,7 @@ return function(ctx)
 	local setSlotLevelVisible = ctx.setSlotLevelVisible
 	local getPlayerRebirthMultiplier = ctx.getPlayerRebirthMultiplier
 	local getBaseSellValue = ctx.getBaseSellValue
-	local updateBaseThingMoneyText = ctx.updateBaseThingMoneyText
+	local updateBaseAnimeMoneyText = ctx.updateBaseAnimeMoneyText
 	local updateBaseSlotSellPrompt = ctx.updateBaseSlotSellPrompt
 	local updateBaseInfoMoneyPerSecond = ctx.updateBaseInfoMoneyPerSecond
 	local createBaseInfoGui = ctx.createBaseInfoGui
@@ -89,12 +89,12 @@ function Bases.Create(PlayerData)
 
 	BasesData[Base] = Data
 
-	for _, ThingData in ipairs(PlayerData.Things) do
+	for _, AnimeData in ipairs(PlayerData.Anime) do
 		task.spawn(function()
-			local Name = ThingData.Name
-			local Mutation = ThingData.Mutation
-			local Level = ThingData.Level
-			local Slot = ThingData.Slot
+			local Name = AnimeData.Name
+			local Mutation = AnimeData.Mutation
+			local Level = AnimeData.Level
+			local Slot = AnimeData.Slot
 
 			Slot = getSlotByName(Base, Slot)
 
@@ -105,9 +105,9 @@ function Bases.Create(PlayerData)
 	return Data
 end
 function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
-	local ThingConfiguration = ThingsConfigurations[Name]
+	local AnimeConfiguration = AnimeConfigurations[Name]
 
-	local Area = ThingConfiguration.Area
+	local Area = AnimeConfiguration.Area
 
 	local AreaConfiguration = AreasConfigurations[Area]
 	local MutationConfiguration = MutationsConfigurations[Mutation]
@@ -116,7 +116,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	if not Slot then
 		for _, PossibleSlot in ipairs(getOrderedSlots(Base)) do
-			if BasesData[Base].SlotsData[PossibleSlot.Name] and BasesData[Base].SlotsData[PossibleSlot.Name].Thing then continue end
+			if BasesData[Base].SlotsData[PossibleSlot.Name] and BasesData[Base].SlotsData[PossibleSlot.Name].Anime then continue end
 
 			if getUnlockedSlots(RetrievePlayerDataFunction:Invoke(Player, "Level")) < tonumber(PossibleSlot.Name) then continue end
 
@@ -134,7 +134,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		end
 	end
 
-	if BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Thing then return end
+	if BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Anime then return end
 	if getUnlockedSlots(RetrievePlayerDataFunction:Invoke(Player, "Level")) < tonumber(Slot.Name) then return end
 
 	local SlotSpawn = getSlotSpawn(Slot)
@@ -144,11 +144,11 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 	Money = Money or 0
 
-	local Thing = CreateThingFunction:Invoke(Area, AreaConfiguration, Name, ThingConfiguration, Mutation, MutationConfiguration, Level)
+	local Anime = CreateAnimeFunction:Invoke(Area, AreaConfiguration, Name, AnimeConfiguration, Mutation, MutationConfiguration, Level)
 
-	local ThingsData = RetrievePlayerDataFunction:Invoke(Player, "Things")
+	local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
 
-	local ThingData = {
+	local AnimeEntry = {
 		Name = Name,
 		Mutation = Mutation,
 		Level = Level,
@@ -156,37 +156,37 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	}
 
 	local Exists = false
-	for Index, Data in ipairs(ThingsData) do
-		if Data.Name ~= Thing.Name or Data.Mutation ~= Mutation or Data.Level ~= Level or Data.Slot ~= Slot.Name then continue end
+	for Index, Data in ipairs(SavedAnime) do
+		if Data.Name ~= Anime.Name or Data.Mutation ~= Mutation or Data.Level ~= Level or Data.Slot ~= Slot.Name then continue end
 
 		Exists = true
 	end
 
 	if not Exists then
-		table.insert(ThingsData, ThingData)
+		table.insert(SavedAnime, AnimeEntry)
 
-		ReplacePlayerDataEvent:Fire(Player, "Things", ThingsData)
+		ReplacePlayerDataEvent:Fire(Player, "Anime", SavedAnime)
 	end
 
 	local SlotName = Slot.Name
 
 	BasesData[Base].SlotsData[SlotName] = {
-		Thing = Thing,
+		Anime = Anime,
 		Money = Money,
 		Connections = {}
 	}
 
-	Thing.Parent = workspace
+	Anime.Parent = workspace
 
 	local TargetCFrame = SlotSpawn.CFrame
 
-	Thing:PivotTo(TargetCFrame)
+	Anime:PivotTo(TargetCFrame)
 
 	local RebirthMultiplier = getPlayerRebirthMultiplier(Player)
-	updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 
-	AnimateThingEvent:Fire(Thing, ThingConfiguration.AnimationsIds.Idle, true)
-	Grounding.AlignBottomToSurfaceAfterAnimation(Thing, SlotSpawn, ThingConfiguration)
+	AnimateAnimeEvent:Fire(Anime, AnimeConfiguration.AnimationsIds.Idle, true)
+	Grounding.AlignBottomToSurfaceAfterAnimation(Anime, SlotSpawn, AnimeConfiguration)
 
 	local MoneyGui = ctx.Resources:WaitForChild("MoneyGui")
 
@@ -211,15 +211,15 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		LevelGui.Level.BackgroundTransparency = 0
 	end
 
-	if ThingConfiguration.Levels[Level + 1] then
-		LevelGui.Level.Money.Text = string.format("$%s", Format.Number(ThingConfiguration.Levels[Level + 1].Upgrade))
+	if AnimeConfiguration.Levels[Level + 1] then
+		LevelGui.Level.Money.Text = string.format("$%s", Format.Number(AnimeConfiguration.Levels[Level + 1].Upgrade))
 		LevelGui.Level.Level.Text = string.format("Lvl %s > Lvl %s", Level, Level + 1)
 
 		LevelGui.Level.Money.Visible = true
 		LevelGui.Level.Arrow.Visible = true
 
 		task.delay(1, function()
-			if not Thing or not Thing.Parent then return end
+			if not Anime or not Anime.Parent then return end
 
 			local Identifier = HttpService:GenerateGUID(false)
 
@@ -230,9 +230,9 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 				local Level = Level + 1
 
-				if not ThingConfiguration.Levels[Level] then return end
+				if not AnimeConfiguration.Levels[Level] then return end
 
-				local Money = ThingConfiguration.Levels[Level].Upgrade
+				local Money = AnimeConfiguration.Levels[Level].Upgrade
 
 				if RetrievePlayerDataFunction:Invoke(Player, "Money") < Money then return end
 
@@ -292,15 +292,15 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	table.insert(BasesData[Base].SlotsData[Slot.Name].Connections, Connection)
 
 	task.spawn(function()
-		while BasesData[Base] and BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Money and BasesData[Base].SlotsData[Slot.Name].Thing and BasesData[Base].SlotsData[Slot.Name].Thing == Thing do
+		while BasesData[Base] and BasesData[Base].SlotsData[Slot.Name] and BasesData[Base].SlotsData[Slot.Name].Money and BasesData[Base].SlotsData[Slot.Name].Anime and BasesData[Base].SlotsData[Slot.Name].Anime == Anime do
 			task.wait(1)
 
-			if not BasesData[Base] or not BasesData[Base].SlotsData[Slot.Name] or not BasesData[Base].SlotsData[Slot.Name].Money or not BasesData[Base].SlotsData[Slot.Name].Thing or BasesData[Base].SlotsData[Slot.Name].Thing ~= Thing then break end
+			if not BasesData[Base] or not BasesData[Base].SlotsData[Slot.Name] or not BasesData[Base].SlotsData[Slot.Name].Money or not BasesData[Base].SlotsData[Slot.Name].Anime or BasesData[Base].SlotsData[Slot.Name].Anime ~= Anime then break end
 
 			local Multiplier = MutationConfiguration.Multiplier or 1
 			local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
 
-			BasesData[Base].SlotsData[Slot.Name].Money += ThingConfiguration.Levels[Level].Money * Multiplier * RebirthMutiplier
+			BasesData[Base].SlotsData[Slot.Name].Money += AnimeConfiguration.Levels[Level].Money * Multiplier * RebirthMutiplier
 
 			MoneyGui.Money.Money.Text = string.format("$%s", Format.Number(BasesData[Base].SlotsData[Slot.Name].Money))
 		end
@@ -311,12 +311,12 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	end
 
 	local SlotAttachment = getSlotAttachment(Slot)
-	if not SlotAttachment then return Thing end
+	if not SlotAttachment then return Anime end
 
-	SlotAttachment.Position = Vector3.new(0, (ThingConfiguration.YOffset or 3) - SlotSpawn.Size.Y / 2, 0)
+	SlotAttachment.Position = Vector3.new(0, (AnimeConfiguration.YOffset or 3) - SlotSpawn.Size.Y / 2, 0)
 
 	SlotAttachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
-	updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+	updateBaseSlotSellPrompt(Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 
 	SetProperties.AllClients(SlotAttachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
 	SetProperties.AllClients(SlotAttachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
@@ -333,17 +333,17 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 		local MoneyPerSecond = 0
 
-		local ThingsData = RetrievePlayerDataFunction:Invoke(Player, "Things")
-		for _, ThingData in ipairs(ThingsData) do
-			local Name = ThingData.Name
-			local ThingConfiguration = ThingsConfigurations[Name]
-			local Mutation = ThingData.Mutation
+		local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
+		for _, AnimeEntry in ipairs(SavedAnime) do
+			local Name = AnimeEntry.Name
+			local AnimeConfiguration = AnimeConfigurations[Name]
+			local Mutation = AnimeEntry.Mutation
 			local MutationConfiguration = MutationsConfigurations[Mutation]
-			local Level = ThingData.Level or 1
+			local Level = AnimeEntry.Level or 1
 
 			local Multiplier = MutationConfiguration.Multiplier or 1
 
-			MoneyPerSecond += ThingConfiguration.Levels[Level].Money * Multiplier
+			MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
 		end
 
 		local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
@@ -360,17 +360,17 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 		local MoneyPerSecond = 0
 
-		local ThingsData = RetrievePlayerDataFunction:Invoke(Player, "Things")
-		for _, ThingData in ipairs(ThingsData) do
-			local Name = ThingData.Name
-			local ThingConfiguration = ThingsConfigurations[Name]
-			local Mutation = ThingData.Mutation
+		local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
+		for _, AnimeEntry in ipairs(SavedAnime) do
+			local Name = AnimeEntry.Name
+			local AnimeConfiguration = AnimeConfigurations[Name]
+			local Mutation = AnimeEntry.Mutation
 			local MutationConfiguration = MutationsConfigurations[Mutation]
-			local Level = ThingData.Level or 1
+			local Level = AnimeEntry.Level or 1
 
 			local Multiplier = MutationConfiguration.Multiplier or 1
 
-			MoneyPerSecond += ThingConfiguration.Levels[Level].Money * Multiplier
+			MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
 		end
 
 		local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
@@ -382,7 +382,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 	end)
 
-	return Thing
+	return Anime
 end
 
 function Bases.UpdateIncomeDisplay(Base, MoneyPerSecond)
@@ -396,20 +396,20 @@ function Bases.RefreshPlayerEconomyDisplays(Player)
 		local RebirthMultiplier = getPlayerRebirthMultiplier(Player)
 
 		for SlotName, SlotData in pairs(BaseData.SlotsData or {}) do
-			local Thing = SlotData.Thing
-			if not Thing then continue end
+			local Anime = SlotData.Anime
+			if not Anime then continue end
 
 			local Slot = getSlotByName(Base, SlotName)
 			if not Slot then continue end
 
-			local ThingConfiguration = ThingsConfigurations[Thing.Name]
-			if not ThingConfiguration then continue end
+			local AnimeConfiguration = AnimeConfigurations[Anime.Name]
+			if not AnimeConfiguration then continue end
 
-			local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
-			local Level = RetrieveThingDataFunction:Invoke(Thing, "Level") or 1
+			local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
+			local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level") or 1
 
-			updateBaseThingMoneyText(Thing, ThingConfiguration, Level, Mutation, RebirthMultiplier)
-			updateBaseSlotSellPrompt(Slot, ThingConfiguration, Level, Mutation, RebirthMultiplier)
+			updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+			updateBaseSlotSellPrompt(Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 		end
 	end
 end
@@ -448,38 +448,31 @@ function Bases.Remove(Base, Slot, Save)
 
 	setSlotLevelVisible(Slot, false)
 
-	local Thing = BasesData[Base].SlotsData[Slot.Name].Thing
-	if Thing and Thing.Parent then
-		local Mutation = RetrieveThingDataFunction:Invoke(Thing, "Mutation")
+	local Anime = BasesData[Base].SlotsData[Slot.Name].Anime
+	if Anime and Anime.Parent then
+		local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 		if Mutation and not Save then
-			local Level = RetrieveThingDataFunction:Invoke(Thing, "Level")
+			local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level")
 			if not Level then Level = 1 end
 
 			local Player = BasesData[Base].Player
 
-			local ThingsData = RetrievePlayerDataFunction:Invoke(Player, "Things")
+			local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
 
-			local ThingData = {
-				Name = Thing.Name,
-				Mutation = Mutation,
-				Level = Level,
-				Slot = Slot.Name
-			}
+			for Index, Data in ipairs(SavedAnime) do
+				if Data.Name ~= Anime.Name or Data.Mutation ~= Mutation or Data.Level ~= Level or Data.Slot ~= Slot.Name then continue end
 
-			for Index, Data in ipairs(ThingsData) do
-				if Data.Name ~= Thing.Name or Data.Mutation ~= Mutation or Data.Level ~= Level or Data.Slot ~= Slot.Name then continue end
-
-				table.remove(ThingsData, Index)
+				table.remove(SavedAnime, Index)
 
 				break
 			end
 
-			ReplacePlayerDataEvent:Fire(Player, "Things", ThingsData)
+			ReplacePlayerDataEvent:Fire(Player, "Anime", SavedAnime)
 		end
 
-		Thing:Destroy()
+		Anime:Destroy()
 
-		BasesData[Base].SlotsData[Slot.Name].Thing = nil
+		BasesData[Base].SlotsData[Slot.Name].Anime = nil
 	end
 
 	if SlotSpawn and SlotAttachment then
@@ -501,17 +494,17 @@ function Bases.Remove(Base, Slot, Save)
 
 			local MoneyPerSecond = 0
 
-			local ThingsData = RetrievePlayerDataFunction:Invoke(BasesData[Base].Player, "Things")
-			for _, ThingData in ipairs(ThingsData) do
-				local Name = ThingData.Name
-				local ThingConfiguration = ThingsConfigurations[Name]
-				local Mutation = ThingData.Mutation
+			local SavedAnime = RetrievePlayerDataFunction:Invoke(BasesData[Base].Player, "Anime")
+			for _, AnimeEntry in ipairs(SavedAnime) do
+				local Name = AnimeEntry.Name
+				local AnimeConfiguration = AnimeConfigurations[Name]
+				local Mutation = AnimeEntry.Mutation
 				local MutationConfiguration = MutationsConfigurations[Mutation]
-				local Level = ThingData.Level or 1
+				local Level = AnimeEntry.Level or 1
 
 				local Multiplier = MutationConfiguration.Multiplier or 1
 
-				MoneyPerSecond += ThingConfiguration.Levels[Level].Money * Multiplier
+				MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
 			end
 
 			local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
@@ -528,17 +521,17 @@ function Bases.Remove(Base, Slot, Save)
 
 			local MoneyPerSecond = 0
 
-			local ThingsData = RetrievePlayerDataFunction:Invoke(BasesData[Base].Player, "Things")
-			for _, ThingData in ipairs(ThingsData) do
-				local Name = ThingData.Name
-				local ThingConfiguration = ThingsConfigurations[Name]
-				local Mutation = ThingData.Mutation
+			local SavedAnime = RetrievePlayerDataFunction:Invoke(BasesData[Base].Player, "Anime")
+			for _, AnimeEntry in ipairs(SavedAnime) do
+				local Name = AnimeEntry.Name
+				local AnimeConfiguration = AnimeConfigurations[Name]
+				local Mutation = AnimeEntry.Mutation
 				local MutationConfiguration = MutationsConfigurations[Mutation]
-				local Level = ThingData.Level or 1
+				local Level = AnimeEntry.Level or 1
 
 				local Multiplier = MutationConfiguration.Multiplier or 1
 
-				MoneyPerSecond += ThingConfiguration.Levels[Level].Money * Multiplier
+				MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
 			end
 
 			local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1

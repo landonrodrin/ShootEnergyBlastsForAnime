@@ -11,14 +11,14 @@ return function(ctx)
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
-	local ThingsConfigurations = ctx.ThingsConfigurations
+	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
-	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
-	local CreateThingFunction = ctx.CreateThingFunction
-	local AnimateThingEvent = ctx.AnimateThingEvent
+	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
+	local CreateAnimeFunction = ctx.CreateAnimeFunction
+	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local DropEvent = ctx.DropEvent
-	local Things = ctx.Things
-	local ThingsData = ctx.ThingsData
+	local AnimeModule = ctx.Anime
+	local AnimeRegistry = ctx.AnimeData
 	local FACING_TARGET_PATH = ctx.FACING_TARGET_PATH
 	local DEFAULT_INITIAL_POPULATION = ctx.DEFAULT_INITIAL_POPULATION
 	local DEFAULT_MAX_POPULATION = ctx.DEFAULT_MAX_POPULATION
@@ -28,46 +28,46 @@ return function(ctx)
 	local DEFAULT_INITIAL_TIME_SCALE_MAX = ctx.DEFAULT_INITIAL_TIME_SCALE_MAX
 	local DEFAULT_SPAWN_TIME_SCALE_MIN = ctx.DEFAULT_SPAWN_TIME_SCALE_MIN
 	local DEFAULT_SPAWN_TIME_SCALE_MAX = ctx.DEFAULT_SPAWN_TIME_SCALE_MAX
-	local THING_GUI_MAX_DISTANCE = ctx.THING_GUI_MAX_DISTANCE
-	local THING_CARRY_HOLD_DURATION = ctx.THING_CARRY_HOLD_DURATION
+	local ANIME_GUI_MAX_DISTANCE = ctx.ANIME_GUI_MAX_DISTANCE
+	local ANIME_CARRY_HOLD_DURATION = ctx.ANIME_CARRY_HOLD_DURATION
 	local PICK_UP_PROMPT_TEXT = ctx.PICK_UP_PROMPT_TEXT
-	local CARRIED_THING_WELD_NAME = ctx.CARRIED_THING_WELD_NAME
+	local CARRIED_ANIME_WELD_NAME = ctx.CARRIED_ANIME_WELD_NAME
 	local CARRIED_FORWARD_OFFSET = ctx.CARRIED_FORWARD_OFFSET
 	local CARRIED_BASE_VERTICAL_OFFSET = ctx.CARRIED_BASE_VERTICAL_OFFSET
 	local CARRIED_STACK_PADDING = ctx.CARRIED_STACK_PADDING
 	local CARRIED_PHYSICS_ATTRIBUTE_PREFIX = ctx.CARRIED_PHYSICS_ATTRIBUTE_PREFIX
 	local getSpawnZone = ctx.getSpawnZone
 	local getFacingTarget = ctx.getFacingTarget
-	local getAreaThingConfiguration = ctx.getAreaThingConfiguration
-	local getAreaThings = ctx.getAreaThings
-	local getAreaThingCount = ctx.getAreaThingCount
+	local getAreaAnimeConfiguration = ctx.getAreaAnimeConfiguration
+	local getAreaAnime = ctx.getAreaAnime
+	local getAreaAnimeCount = ctx.getAreaAnimeCount
 	local canSpawnInArea = ctx.canSpawnInArea
-	local getThingGui = ctx.getThingGui
-	local refreshCarriedThingPositions = ctx.refreshCarriedThingPositions
+	local getAnimeGui = ctx.getAnimeGui
+	local refreshCarriedAnimePositions = ctx.refreshCarriedAnimePositions
 	local getGridSpawnPosition = ctx.getGridSpawnPosition
 	local getSpawnCFrame = ctx.getSpawnCFrame
-local function getCandidateSpacing(AreaConfiguration, ThingConfiguration)
+local function getCandidateSpacing(AreaConfiguration, AnimeConfiguration)
 	return math.max(
 		AreaConfiguration.SpawnSpacing or DEFAULT_SPAWN_SPACING,
-		(ThingConfiguration.Distance or 0) * 3
+		(AnimeConfiguration.Distance or 0) * 3
 	)
 end
 
-local function scoreSpawnCandidate(Area, AreaConfiguration, ThingConfiguration, Candidate)
-	local Spacing = getCandidateSpacing(AreaConfiguration, ThingConfiguration)
+local function scoreSpawnCandidate(Area, AreaConfiguration, AnimeConfiguration, Candidate)
+	local Spacing = getCandidateSpacing(AreaConfiguration, AnimeConfiguration)
 	local RequiredSpacing = Spacing * 0.75
 	local NearbyCount = 0
 	local NearestDistance = math.huge
 
-	for _, OtherThing in ipairs(getAreaThings(Area)) do
-		local OtherConfiguration = getAreaThingConfiguration(OtherThing)
+	for _, OtherAnime in ipairs(getAreaAnime(Area)) do
+		local OtherConfiguration = getAreaAnimeConfiguration(OtherAnime)
 		if not OtherConfiguration then continue end
 
 		local RequiredDistance = math.max(
 			RequiredSpacing,
-			(ThingConfiguration.Distance or 0) + (OtherConfiguration.Distance or 0)
+			(AnimeConfiguration.Distance or 0) + (OtherConfiguration.Distance or 0)
 		)
-		local Delta = OtherThing.PrimaryPart.Position - Candidate
+		local Delta = OtherAnime.PrimaryPart.Position - Candidate
 		local Distance = Vector2.new(Delta.X, Delta.Z).Magnitude
 
 		if Distance < RequiredDistance then
@@ -86,13 +86,13 @@ local function scoreSpawnCandidate(Area, AreaConfiguration, ThingConfiguration, 
 	return NearbyCount * 1000 - NearestDistance
 end
 
-local function getGridSpawnPosition(Area, AreaConfiguration, ThingConfiguration, SpawnZone)
+local function getGridSpawnPosition(Area, AreaConfiguration, AnimeConfiguration, SpawnZone)
 	local AreaCFrame = SpawnZone.CFrame
 	local AreaSize = SpawnZone.Size
-	local Spacing = getCandidateSpacing(AreaConfiguration, ThingConfiguration)
+	local Spacing = getCandidateSpacing(AreaConfiguration, AnimeConfiguration)
 	local Jitter = math.min(AreaConfiguration.SpawnJitter or DEFAULT_SPAWN_JITTER, Spacing * 0.35)
 
-	local Padding = math.max(ThingConfiguration.Distance or 0, 2)
+	local Padding = math.max(AnimeConfiguration.Distance or 0, 2)
 	local HalfX = (AreaSize.X / 2) - Padding
 	local HalfZ = (AreaSize.Z / 2) - Padding
 	if HalfX <= 0 or HalfZ <= 0 then return end
@@ -115,7 +115,7 @@ local function getGridSpawnPosition(Area, AreaConfiguration, ThingConfiguration,
 			LocalZ = math.clamp(LocalZ, -HalfZ, HalfZ)
 
 			local Candidate = AreaCFrame:PointToWorldSpace(Vector3.new(LocalX, AreaSize.Y / 2, LocalZ))
-			local Score = scoreSpawnCandidate(Area, AreaConfiguration, ThingConfiguration, Candidate)
+			local Score = scoreSpawnCandidate(Area, AreaConfiguration, AnimeConfiguration, Candidate)
 			if Score and (not BestScore or Score < BestScore) then
 				BestPosition = Candidate
 				BestScore = Score
@@ -126,7 +126,7 @@ local function getGridSpawnPosition(Area, AreaConfiguration, ThingConfiguration,
 	return BestPosition
 end
 
-local function getSpawnCFrame(Position, ThingConfiguration, SpawnZone)
+local function getSpawnCFrame(Position, AnimeConfiguration, SpawnZone)
 	local SpawnPosition = Position
 	local FacingTarget = getFacingTarget()
 

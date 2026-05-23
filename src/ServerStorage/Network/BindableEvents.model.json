@@ -1,7 +1,7 @@
 {
   "ClassName": "Folder",
   "Children": [
-    {"Name": "AnimateThing", "ClassName": "BindableEvent"},
+    {"Name": "AnimateAnime", "ClassName": "BindableEvent"},
     {"Name": "CreateTool", "ClassName": "BindableEvent"},
     {"Name": "ReplacePlayerData", "ClassName": "BindableEvent"}
   ]

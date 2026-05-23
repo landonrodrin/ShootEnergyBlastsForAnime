@@ -1,8 +1,8 @@
 {
   "ClassName": "Folder",
   "Children": [
-    {"Name": "CreateThing", "ClassName": "BindableFunction"},
+    {"Name": "CreateAnime", "ClassName": "BindableFunction"},
     {"Name": "RetrievePlayerData", "ClassName": "BindableFunction"},
-    {"Name": "RetrieveThingData", "ClassName": "BindableFunction"}
+    {"Name": "RetrieveAnimeData", "ClassName": "BindableFunction"}
   ]
 }
