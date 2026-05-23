@@ -55,12 +55,52 @@ return function(ctx)
 	local removeLegacyBaseInfoGuis = ctx.removeLegacyBaseInfoGuis
 	local removeBaseLevelGuis = ctx.removeBaseLevelGuis
 	local BASE_SELL_SUCCESS_COLOUR = Color3.fromRGB(95, 255, 140)
+
+local function applyOccupiedSlotPromptState(Player, Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	local SlotSpawn = getSlotSpawn(Slot)
+	local SlotAttachment = getSlotAttachment(Slot)
+	if not (SlotSpawn and SlotAttachment) then return false end
+
+	local GrabProximityPrompt = SlotAttachment:FindFirstChild("GrabProximityPrompt")
+	local PlaceProximityPrompt = SlotAttachment:FindFirstChild("PlaceProximityPrompt")
+	local SwapProximityPrompt = SlotAttachment:FindFirstChild("SwapProximityPrompt")
+	local StealProximityPrompt = SlotAttachment:FindFirstChild("StealProximityPrompt")
+	local SellProximityPrompt = SlotAttachment:FindFirstChild("SellProximityPrompt")
+
+	if not (GrabProximityPrompt and PlaceProximityPrompt and SwapProximityPrompt and StealProximityPrompt and SellProximityPrompt) then
+		return false
+	end
+
+	SlotAttachment.Position = Vector3.new(0, (AnimeConfiguration.YOffset or 3) - SlotSpawn.Size.Y / 2, 0)
+
+	GrabProximityPrompt.ActionText = PICK_UP_PROMPT_TEXT
+	updateBaseSlotSellPrompt(Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+
+	local SetNonOwnerProperties = SetProperties.AllClientsExcept or function(_, Object, Properties)
+		SetProperties.AllClients(Object, Properties)
+	end
+
+	SetNonOwnerProperties(Player, GrabProximityPrompt, {Enabled = false})
+	SetNonOwnerProperties(Player, PlaceProximityPrompt, {Enabled = false})
+	SetNonOwnerProperties(Player, SwapProximityPrompt, {Enabled = false})
+	SetNonOwnerProperties(Player, StealProximityPrompt, {Enabled = true})
+	SetNonOwnerProperties(Player, SellProximityPrompt, {Enabled = false})
+
+	SetProperties.Client(Player, StealProximityPrompt, {Enabled = false})
+	SetProperties.Client(Player, PlaceProximityPrompt, {Enabled = false})
+	SetProperties.Client(Player, SwapProximityPrompt, {Enabled = false})
+	SetProperties.Client(Player, GrabProximityPrompt, {Enabled = true})
+	SetProperties.Client(Player, SellProximityPrompt, {Enabled = true})
+
+	return true
+end
+
 function Bases.Setup()
 	for _, Base in ipairs(workspace.Bases:GetChildren()) do
 		for _, Slot in ipairs(getOrderedSlots(Base)) do
-			task.spawn(function()
+			do
 				local SlotSpawn = getSlotSpawn(Slot)
-				if not (SlotSpawn and SlotSpawn:IsA("BasePart")) then return end
+				if not (SlotSpawn and SlotSpawn:IsA("BasePart")) then continue end
 
 				local Attachment = Instance.new("Attachment")
 				Attachment.Position = Vector3.new(0, 3 - SlotSpawn.Size.Y / 2, 0)
@@ -299,8 +339,9 @@ function Bases.Setup()
 					ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") + Sell)
 					AnnouncementEvent:FireClient(Player, string.format("Sold anime for $%s.", Format.Number(Sell)), BASE_SELL_SUCCESS_COLOUR)
 				end)
-			end)
+			end
 		end
 	end
 end
+	ctx.applyOccupiedSlotPromptState = applyOccupiedSlotPromptState
 end

@@ -54,6 +54,38 @@ return function(ctx)
 	local createBaseInfoGui = ctx.createBaseInfoGui
 	local removeLegacyBaseInfoGuis = ctx.removeLegacyBaseInfoGuis
 	local removeBaseLevelGuis = ctx.removeBaseLevelGuis
+
+local function refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	local ApplyOccupiedSlotPromptState = ctx.applyOccupiedSlotPromptState
+	if ApplyOccupiedSlotPromptState and ApplyOccupiedSlotPromptState(Player, Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier) then
+		return true
+	end
+
+	task.delay(0.25, function()
+		local SlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
+		if not SlotData or SlotData.Anime ~= Anime then return end
+
+		local RetryApply = ctx.applyOccupiedSlotPromptState
+		if RetryApply and RetryApply(Player, Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier) then
+			return
+		end
+
+		task.delay(1, function()
+			local CurrentSlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
+			if not CurrentSlotData or CurrentSlotData.Anime ~= Anime then return end
+
+			local FinalApply = ctx.applyOccupiedSlotPromptState
+			if FinalApply and FinalApply(Player, Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier) then
+				return
+			end
+
+			warn(string.format("Unable to refresh occupied slot prompts for Base%s Slot%s.", Base.Name, Slot.Name))
+		end)
+	end)
+
+	return false
+end
+
 function Bases.Create(PlayerData)
 	local Player = PlayerData.Player
 
@@ -101,6 +133,12 @@ function Bases.Create(PlayerData)
 			Bases.Add(Player, Base, Slot, Name, Mutation, Level)
 		end)
 	end
+
+	task.delay(1, function()
+		if BasesData[Base] and BasesData[Base].Player == Player then
+			Bases.RefreshPlayerBasePrompts(Player)
+		end
+	end)
 
 	return Data
 end
@@ -211,48 +249,14 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		LevelGui.Level.BackgroundTransparency = 0
 	end
 
-	if AnimeConfiguration.Levels[Level + 1] then
-		LevelGui.Level.Money.Text = string.format("$%s", Format.Number(AnimeConfiguration.Levels[Level + 1].Upgrade))
+	local NextLevelConfiguration = AnimeConfiguration.Levels[Level + 1]
+
+	if NextLevelConfiguration then
+		LevelGui.Level.Money.Text = string.format("$%s", Format.Number(NextLevelConfiguration.Upgrade))
 		LevelGui.Level.Level.Text = string.format("Lvl %s > Lvl %s", Level, Level + 1)
 
 		LevelGui.Level.Money.Visible = true
 		LevelGui.Level.Arrow.Visible = true
-
-		task.delay(1, function()
-			if not Anime or not Anime.Parent then return end
-
-			local Identifier = HttpService:GenerateGUID(false)
-
-			local Connection
-			Connection = LevelEvent.OnServerEvent:Connect(function(EventPlayer, EventIdentifier)
-				if EventPlayer ~= Player then return end
-				if EventIdentifier ~= Identifier then return end
-
-				local Level = Level + 1
-
-				if not AnimeConfiguration.Levels[Level] then return end
-
-				local Money = AnimeConfiguration.Levels[Level].Upgrade
-
-				if RetrievePlayerDataFunction:Invoke(Player, "Money") < Money then return end
-
-				LevelEvent:FireClient(Player, nil, Identifier, true)
-
-				ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") - Money)
-
-				local Money = BasesData[Base].SlotsData[Slot.Name].Money
-
-				Bases.Remove(Base, Slot)
-
-				task.wait()
-
-				Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
-			end)
-
-			table.insert(BasesData[Base].SlotsData[Slot.Name].Connections, Connection)
-
-			LevelEvent:FireClient(Player, LevelGui, Identifier)
-		end)
 	else
 		LevelGui.Level.Level.Text = string.format("Lvl %s (MAX)", Level)
 	end
@@ -260,6 +264,51 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	LevelGui.Parent = SlotLevel
 
 	SetProperties.Client(Player, LevelGui, {Enabled = true})
+
+	if NextLevelConfiguration then
+		local Identifier = HttpService:GenerateGUID(false)
+
+		local Connection
+		Connection = LevelEvent.OnServerEvent:Connect(function(EventPlayer, EventIdentifier)
+			if EventPlayer ~= Player then return end
+			if EventIdentifier ~= Identifier then return end
+
+			local CurrentSlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
+			if not CurrentSlotData or CurrentSlotData.Anime ~= Anime then return end
+
+			local NextLevel = Level + 1
+
+			if not AnimeConfiguration.Levels[NextLevel] then return end
+
+			local UpgradeMoney = AnimeConfiguration.Levels[NextLevel].Upgrade
+
+			if RetrievePlayerDataFunction:Invoke(Player, "Money") < UpgradeMoney then return end
+
+			LevelEvent:FireClient(Player, nil, Identifier, true)
+
+			ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") - UpgradeMoney)
+
+			local SavedMoney = CurrentSlotData.Money
+
+			Bases.Remove(Base, Slot)
+
+			task.wait()
+
+			Bases.Add(Player, Base, Slot, Name, Mutation, NextLevel, SavedMoney)
+		end)
+
+		table.insert(BasesData[Base].SlotsData[Slot.Name].Connections, Connection)
+
+		local BindLevelGui = ctx.bindLevelGui
+		if BindLevelGui then
+			BindLevelGui(Player, LevelGui, Identifier, function()
+				local CurrentSlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
+				return CurrentSlotData and CurrentSlotData.Anime == Anime
+			end)
+		else
+			LevelEvent:FireClient(Player, LevelGui, Identifier)
+		end
+	end
 
 	local Debounce = false
 
@@ -310,23 +359,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		GameConfigurations.ProductsIds.Steal = 3524104512
 	end
 
-	local SlotAttachment = getSlotAttachment(Slot)
-	if not SlotAttachment then return Anime end
-
-	SlotAttachment.Position = Vector3.new(0, (AnimeConfiguration.YOffset or 3) - SlotSpawn.Size.Y / 2, 0)
-
-	SlotAttachment:WaitForChild("GrabProximityPrompt").ActionText = PICK_UP_PROMPT_TEXT
-	updateBaseSlotSellPrompt(Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
-
-	SetProperties.AllClients(SlotAttachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(SlotAttachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(SlotAttachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
-	SetProperties.AllClients(SlotAttachment:WaitForChild("StealProximityPrompt"), {Enabled = true})
-	SetProperties.AllClients(SlotAttachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
-
-	SetProperties.Client(Player, SlotAttachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
-	SetProperties.Client(Player, SlotAttachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
-	SetProperties.Client(Player, SlotAttachment:WaitForChild("SellProximityPrompt"), {Enabled = true})
+	refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 
 	task.delay(1, function()
 		if not BasesData[Base] or not Player then return end
@@ -410,6 +443,30 @@ function Bases.RefreshPlayerEconomyDisplays(Player)
 
 			updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 			updateBaseSlotSellPrompt(Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+		end
+	end
+end
+
+function Bases.RefreshPlayerBasePrompts(Player)
+	for Base, BaseData in pairs(BasesData) do
+		if BaseData.Player ~= Player then continue end
+
+		local RebirthMultiplier = getPlayerRebirthMultiplier(Player)
+
+		for SlotName, SlotData in pairs(BaseData.SlotsData or {}) do
+			local Anime = SlotData.Anime
+			if not Anime then continue end
+
+			local Slot = getSlotByName(Base, SlotName)
+			if not Slot then continue end
+
+			local AnimeConfiguration = AnimeConfigurations[Anime.Name]
+			if not AnimeConfiguration then continue end
+
+			local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
+			local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level") or 1
+
+			refreshOccupiedSlotPrompts(Player, Base, Slot, Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 		end
 	end
 end

@@ -2,34 +2,45 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LevelEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Level")
 
-local connections = {}
+local connectionsByIdentifier = {}
+local identifiersByGui = setmetatable({}, {__mode = "k"})
 
-local function disconnect(Gui)
-	local Connection = connections[Gui]
+local function disconnectIdentifier(Identifier)
+	local Connection = connectionsByIdentifier[Identifier]
 	if not Connection then return end
 
 	Connection:Disconnect()
-	connections[Gui] = nil
+	connectionsByIdentifier[Identifier] = nil
+end
+
+local function disconnectGui(Gui)
+	local Identifier = identifiersByGui[Gui]
+	if not Identifier then return end
+
+	disconnectIdentifier(Identifier)
+	identifiersByGui[Gui] = nil
 end
 
 LevelEvent.OnClientEvent:Connect(function(Gui, Identifier, Purchased)
 	if Purchased then
-		for ExistingGui in pairs(connections) do
-			disconnect(ExistingGui)
+		if Identifier then
+			disconnectIdentifier(Identifier)
 		end
 		return
 	end
 
-	if not Gui then return end
-
-	disconnect(Gui)
+	if Gui then
+		disconnectGui(Gui)
+	end
 
 	if not Identifier then return end
+	if not Gui then return end
 
 	local Button = Gui:FindFirstChild("Level", true)
 	if not Button or not Button:IsA("GuiButton") then return end
 
-	connections[Gui] = Button.Activated:Connect(function()
+	connectionsByIdentifier[Identifier] = Button.Activated:Connect(function()
 		LevelEvent:FireServer(Identifier)
 	end)
+	identifiersByGui[Gui] = Identifier
 end)

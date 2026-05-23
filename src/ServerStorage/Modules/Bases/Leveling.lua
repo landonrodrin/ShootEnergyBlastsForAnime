@@ -172,6 +172,26 @@ local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
 		end
 	end
 end
+
+local function bindLevelGui(Player, Gui, Identifier, IsCurrent)
+	if not (Player and Gui and Identifier) then return end
+
+	local function fire()
+		if not Player.Parent then return false end
+		if not Gui.Parent then return false end
+		if IsCurrent and not IsCurrent() then return false end
+
+		LevelEvent:FireClient(Player, Gui, Identifier)
+
+		return true
+	end
+
+	fire()
+
+	task.delay(BASE_LEVEL_BIND_DELAY, fire)
+	task.delay(1, fire)
+end
+
 function Bases.Level(PlayerData, Base)
 	local Player = PlayerData.Player
 	local Level = PlayerData.Level
@@ -201,10 +221,7 @@ function Bases.Level(PlayerData, Base)
 		configureBaseLevelGui(BaseLevelGui, "Upgrade", Level, Money)
 		SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
 
-		task.delay(BASE_LEVEL_BIND_DELAY, function()
-			if not BasesData[Base] or BasesData[Base].Player ~= Player then return end
-			if RetrievePlayerDataFunction:Invoke(Player, "Level") ~= Level then return end
-
+		if BasesData[Base] and BasesData[Base].Player == Player then
 			BasesData[Base].LevelUpgradePending = false
 
 			local Identifier = HttpService:GenerateGUID(false)
@@ -244,10 +261,10 @@ function Bases.Level(PlayerData, Base)
 				ReplacePlayerDataEvent:Fire(Player, "Level", Level)
 			end)
 
-			if BaseLevelGui.Parent then
-				LevelEvent:FireClient(Player, BaseLevelGui, Identifier)
-			end
-		end)
+			bindLevelGui(Player, BaseLevelGui, Identifier, function()
+				return BasesData[Base] and BasesData[Base].Player == Player and RetrievePlayerDataFunction:Invoke(Player, "Level") == Level
+			end)
+		end
 	end
 
 	local Configuration = getBaseConfiguration(Level)
@@ -339,4 +356,5 @@ end
 	ctx.removeBaseLevelGuis = removeBaseLevelGuis
 	ctx.getBaseLevelGui = getBaseLevelGui
 	ctx.configureBaseLevelGui = configureBaseLevelGui
+	ctx.bindLevelGui = bindLevelGui
 end

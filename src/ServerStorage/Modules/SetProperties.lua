@@ -57,6 +57,20 @@ function SetProperties.AllClients(Object, Properties)
 	end
 end
 
+function SetProperties.AllClientsExcept(ExceptPlayer, Object, Properties)
+	for _, Player in ipairs(Players:GetPlayers()) do
+		if Player == ExceptPlayer then continue end
+
+		task.spawn(SetPropertiesUntilConfirmed, Player, Object, Properties)
+	end
+
+	PropertyCache[Object] = PropertyCache[Object] or {}
+
+	for Property, Value in pairs(Properties) do
+		PropertyCache[Object][Property] = Value
+	end
+end
+
 Players.PlayerAdded:Connect(function(Player)
 	local PlayerCache = PlayerPropertyCache[Player] or {}
 
