@@ -235,21 +235,19 @@ function AnimeModule.Drop(Player, ResetTimers)
 	end
 
 	for _, Anime in ipairs(workspace.Anime:GetChildren()) do
-		task.spawn(function()
-			if not Anime.PrimaryPart then return end
+		if not Anime.PrimaryPart then continue end
 
-			local OtherProximityPrompt = Anime.PrimaryPart:FindFirstChild("ProximityPrompt")
-			if not OtherProximityPrompt then return end
+		local OtherProximityPrompt = Anime.PrimaryPart:FindFirstChild("ProximityPrompt")
+		if not OtherProximityPrompt then continue end
 
-			SetProperties.Client(Player, OtherProximityPrompt, {Enabled = true, ActionText = PICK_UP_PROMPT_TEXT})
+		SetProperties.Client(Player, OtherProximityPrompt, {Enabled = true, ActionText = PICK_UP_PROMPT_TEXT})
 
-			for _, OtherPlayer in ipairs(Players:GetPlayers()) do
-				local Carrying = PlayersModule.Retrieve(OtherPlayer, "Carrying")
-				if not Carrying then continue end
+		for _, OtherPlayer in ipairs(Players:GetPlayers()) do
+			local Carrying = PlayersModule.Retrieve(OtherPlayer, "Carrying")
+			if not Carrying then continue end
 
-				if table.find(Carrying, Anime) then return end
-			end
-		end)
+			if table.find(Carrying, Anime) then break end
+		end
 	end
 
 	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, false)

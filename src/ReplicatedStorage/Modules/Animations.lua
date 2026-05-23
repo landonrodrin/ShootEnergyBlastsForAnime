@@ -1,23 +1,64 @@
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 
 local Frames = {} 
+local FrameTroves = setmetatable({}, {__mode = "k"})
+local ButtonTroves = setmetatable({}, {__mode = "k"})
 
 local Animations = {}
 
 function Animations.Frame(Frame)
-	if table.find(Frames, Frame) then return end
+	local FrameTrove = FrameTroves[Frame]
+	if FrameTrove then
+		return FrameTrove
+	end
 	
 	table.insert(Frames, Frame)
+	FrameTrove = Trove.new()
+	FrameTroves[Frame] = FrameTrove
+
+	FrameTrove:Add(function()
+		FrameTroves[Frame] = nil
+
+		local Index = table.find(Frames, Frame)
+		if Index then
+			table.remove(Frames, Index)
+		end
+	end)
+
+	FrameTrove:Connect(Frame.Destroying, function()
+		FrameTrove:Destroy()
+	end)
 	
 	local UIScale = Frame:FindFirstChildOfClass("UIScale")
 	if not UIScale then
-		UIScale = Instance.new("UIScale")
+		UIScale = FrameTrove:Add(Instance.new("UIScale"))
 		UIScale.Scale = Frame.Visible and 1 or 0
 		UIScale.Parent = Frame
 	end
+
+	return FrameTrove
 end
 
 function Animations.Button(Frame, Button)
+	local ButtonTrove = ButtonTroves[Button]
+	if ButtonTrove then
+		return ButtonTrove
+	end
+
+	ButtonTrove = Trove.new()
+	ButtonTroves[Button] = ButtonTrove
+
+	ButtonTrove:Add(function()
+		ButtonTroves[Button] = nil
+	end)
+
+	ButtonTrove:Connect(Button.Destroying, function()
+		ButtonTrove:Destroy()
+	end)
+
 	local UIScale = Frame:FindFirstChildOfClass("UIScale")
 	if not UIScale then
 		UIScale = Instance.new("UIScale")
@@ -36,25 +77,27 @@ function Animations.Button(Frame, Button)
 		Tween:Play()
 	end
 
-	Button.MouseEnter:Connect(function()
+	ButtonTrove:Connect(Button.MouseEnter, function()
 		Tween(1.1)
 	end)
 
-	Button.MouseLeave:Connect(function()
+	ButtonTrove:Connect(Button.MouseLeave, function()
 		Tween(1)
 	end)
 
-	Button.MouseButton1Down:Connect(function()
+	ButtonTrove:Connect(Button.MouseButton1Down, function()
 		Tween(0.9)
 	end)
 
-	Button.MouseButton1Up:Connect(function()
+	ButtonTrove:Connect(Button.MouseButton1Up, function()
 		Tween(1)
 	end)
 
-	Button.Activated:Connect(function()
+	ButtonTrove:Connect(Button.Activated, function()
 		Tween(1)
 	end)
+
+	return ButtonTrove
 end
 
 function Animations.ToggleFrame(Frame)

@@ -90,11 +90,18 @@ function Tools.Fling(TargetPlayer, Player, Power)
 	
 	Debris:AddItem(BodyAngularVelocity, 0.35)
 
-	task.delay(0.5, function()
+	local HumanoidTrove = Trove.new()
+	HumanoidTrove:Connect(TargetHumanoid.Destroying, function()
+		HumanoidTrove:Destroy()
+	end)
+
+	HumanoidTrove:Add(task.delay(0.5, function()
 		if TargetHumanoid then
 			TargetHumanoid.Sit = false
 		end
-	end)
+
+		HumanoidTrove:Destroy()
+	end))
 end
 
 function Tools.Create(Player, Name, ToolConfiguration)
@@ -210,8 +217,13 @@ function Tools.Create(Player, Name, ToolConfiguration)
 end
 
 function Tools.Load(Player)
+	local PlayerTrove = PlayerTroves[Player]
+
 	for Name, ToolConfiguration in pairs(ToolsConfigurations) do
-		task.spawn(Tools.Create, Player, Name, ToolConfiguration)
+		local Thread = task.spawn(Tools.Create, Player, Name, ToolConfiguration)
+		if PlayerTrove then
+			PlayerTrove:Add(Thread)
+		end
 	end
 end
 

@@ -86,7 +86,7 @@ function AnimeModule:Spawn()
 	Grounding.AlignBottomToSurface(Anime, SpawnZone, AnimeConfiguration)
 
 	local _IdleTrack = AnimeModule.Animate(Anime, AnimeConfiguration.AnimationsIds.Idle, true)
-	Grounding.AlignBottomToSurfaceAfterAnimation(Anime, SpawnZone, AnimeConfiguration)
+	Grounding.AlignBottomToSurfaceAfterAnimation(Anime, SpawnZone, AnimeConfiguration, SpawnTrove)
 
 	local ProximityPrompt = SpawnTrove:Add(Instance.new("ProximityPrompt"))
 	ProximityPrompt.Enabled = true
@@ -149,7 +149,7 @@ function AnimeModule:Spawn()
 		end
 
 		for _, OtherAnime in ipairs(workspace.Anime:GetChildren()) do
-			task.spawn(function()
+			SpawnTrove:Add(task.spawn(function()
 				if not OtherAnime.PrimaryPart then return end
 
 				local OtherProximityPrompt = OtherAnime.PrimaryPart:FindFirstChild("ProximityPrompt")
@@ -164,7 +164,7 @@ function AnimeModule:Spawn()
 				if #Carrying < PlayersModule.Retrieve(Player, "Carry") then return end
 
 				SetProperties.Client(Player, OtherProximityPrompt, {Enabled = false, ActionText = PICK_UP_PROMPT_TEXT})
-			end)
+			end))
 		end
 
 		refreshCarriedAnimePositions(Player, Carrying)
@@ -186,7 +186,7 @@ function AnimeModule:Spawn()
 		CountdownActive = false
 	end)
 
-	task.spawn(function()
+	SpawnTrove:Add(task.spawn(function()
 		while CountdownActive and Anime and Anime.Parent and not self.Destroyed do
 			while self.Carried do
 				task.wait(0.01)
@@ -208,7 +208,7 @@ function AnimeModule:Spawn()
 
 			AnimeGui.Time.Text = Format.Time(self.Time)
 		end
-	end)
+	end))
 
 	AnimeGui.Time.Visible = true
 end

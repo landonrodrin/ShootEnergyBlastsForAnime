@@ -255,9 +255,9 @@ function AnimeModule.Setup()
 		AnimeModule.Drop(Player)
 	end)
 
-	FinishBarrier.OnReturn(function(Player)
+	SetupTrove:Add(FinishBarrier.OnReturn(function(Player)
 		AnimeModule.Zone(Player)
-	end, 100)
+	end, 100))
 
 	for Area, AreaConfiguration in pairs(AreasConfigurations) do
 		if AreaConfiguration.Enabled == false then continue end
@@ -284,7 +284,7 @@ function AnimeModule.Setup()
 			SpawnLoopActive = false
 		end)
 
-		task.spawn(function()
+		SetupTrove:Add(task.spawn(function()
 			local Minimum = AreaConfiguration.Rate and AreaConfiguration.Rate.Minimum and math.clamp(AreaConfiguration.Rate.Minimum, 0.01, math.huge) or 0.01
 			local Maximum = AreaConfiguration.Rate and AreaConfiguration.Rate.Maximum and AreaConfiguration.Rate.Maximum or 5
 
@@ -296,7 +296,7 @@ function AnimeModule.Setup()
 
 				spawnRandomAnime(Area, AreaConfiguration)
 			end
-		end)
+		end))
 
 		if not AreaConfiguration.Guaranteed or AreaConfiguration.Guaranteed <= 0 then continue end
 
@@ -305,7 +305,7 @@ function AnimeModule.Setup()
 			GuaranteedLoopActive = false
 		end)
 
-		task.spawn(function()
+		SetupTrove:Add(task.spawn(function()
 			local GuaranteedArea = ctx.Resources:WaitForChild("GuaranteedArea")
 
 			GuaranteedArea = GuaranteedArea:Clone()
@@ -335,7 +335,7 @@ function AnimeModule.Setup()
 
 				spawnRandomAnime(Area, AreaConfiguration)
 			end
-		end)
+		end))
 	end
 end
 

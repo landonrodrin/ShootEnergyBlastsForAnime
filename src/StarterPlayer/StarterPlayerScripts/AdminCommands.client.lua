@@ -1,6 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
 
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+
+local ScriptTrove = Trove.new()
+
 local ADMIN_COMMANDS = {
 	{
 		Name = "OwnerResetCommand",
@@ -61,11 +65,11 @@ end
 for _, CommandConfiguration in ipairs(ADMIN_COMMANDS) do
 	local Command = getOrCreateAdminCommand(CommandConfiguration)
 
-	Command.Triggered:Connect(function(_, UnfilteredText)
+	ScriptTrove:Connect(Command.Triggered, function(_, UnfilteredText)
 		requestAdminCommand(UnfilteredText or CommandConfiguration.PrimaryAlias)
 	end)
 end
 
-TextChatService.SendingMessage:Connect(function(TextChatMessage)
+ScriptTrove:Connect(TextChatService.SendingMessage, function(TextChatMessage)
 	requestAdminCommand(TextChatMessage.Text)
 end)

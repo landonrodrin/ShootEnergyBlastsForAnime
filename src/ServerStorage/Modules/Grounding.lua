@@ -31,14 +31,22 @@ function Grounding.AlignBottomToSurface(Model, Surface, Configuration)
 	Grounding.AlignBottomToY(Model, Grounding.SurfaceY(Surface), Configuration)
 end
 
-function Grounding.AlignBottomToSurfaceAfterAnimation(Model, Surface, Configuration)
+local function addOwnedDelay(OwnerTrove, Delay, Callback)
+	local Thread = task.delay(Delay, Callback)
+	if OwnerTrove then
+		OwnerTrove:Add(Thread)
+	end
+	return Thread
+end
+
+function Grounding.AlignBottomToSurfaceAfterAnimation(Model, Surface, Configuration, OwnerTrove)
 	Grounding.AlignBottomToSurface(Model, Surface, Configuration)
 
-	task.delay(0.1, function()
+	addOwnedDelay(OwnerTrove, 0.1, function()
 		Grounding.AlignBottomToSurface(Model, Surface, Configuration)
 	end)
 
-	task.delay(0.35, function()
+	addOwnedDelay(OwnerTrove, 0.35, function()
 		Grounding.AlignBottomToSurface(Model, Surface, Configuration)
 	end)
 end

@@ -10,6 +10,7 @@ return function(ctx)
 	local Bases = ctx.Bases
 	local SetProperties = ctx.SetProperties
 	local ZoneTracker = ctx.ZoneTracker
+	local Trove = ctx.Trove
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AnimeConfigurations = ctx.AnimeConfigurations
@@ -81,6 +82,8 @@ return function(ctx)
 	local reconcileIndex = ctx.reconcileIndex
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
+	local AdminCommandTrove = Trove.new()
+
 local function trim(Value)
 	return (Value or ""):match("^%s*(.-)%s*$")
 end
@@ -252,7 +255,7 @@ local function setupOwnerTextChatCommand(CommandName, PrimaryAlias, SecondaryAli
 	Command.Parent = CommandsFolder
 	print(string.format("Owner admin command registered as %s", PrimaryAlias))
 
-	Command.Triggered:Connect(function(TextSource, UnfilteredText)
+	AdminCommandTrove:Connect(Command.Triggered, function(TextSource, UnfilteredText)
 		local UserId = TextSource and TextSource.UserId
 		local Player = UserId and Players:GetPlayerByUserId(UserId)
 		if not Player then return end
@@ -262,6 +265,8 @@ local function setupOwnerTextChatCommand(CommandName, PrimaryAlias, SecondaryAli
 end
 
 local function setupOwnerTextChatCommands()
+	AdminCommandTrove:Clean()
+
 	local Prefix = CommandsConfigurations.Prefix or "/"
 
 	setupOwnerTextChatCommand(RESET_COMMAND_NAME, Prefix .. "reset", "reset")

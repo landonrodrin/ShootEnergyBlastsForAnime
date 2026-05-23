@@ -272,7 +272,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 
 	AnimateAnimeEvent:Fire(Anime, AnimeConfiguration.AnimationsIds.Idle, true)
-	Grounding.AlignBottomToSurfaceAfterAnimation(Anime, SlotSpawn, AnimeConfiguration)
+	Grounding.AlignBottomToSurfaceAfterAnimation(Anime, SlotSpawn, AnimeConfiguration, SlotTrove)
 
 	local MoneyGui = ctx.Resources:WaitForChild("MoneyGui")
 
