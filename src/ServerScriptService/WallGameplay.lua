@@ -5,6 +5,7 @@ local PhysicsService = game:GetService("PhysicsService")
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
+local Trove = require(shared:WaitForChild("Trove"))
 local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"))
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
@@ -17,6 +18,9 @@ local started = false
 local wallStates = {}
 local wallsByPart = {}
 local lastShotAt = {}
+local setupTrove = Trove.new()
+local playerTroves = {}
+local characterTroves = {}
 local PLAYER_COLLISION_GROUP = "Players"
 local LOCAL_DEBRIS_COLLISION_GROUP = "LocalWallDebris"
 
@@ -41,26 +45,76 @@ local function setPartCollisionGroup(part, groupName)
 	end)
 end
 
-local function assignCharacterCollisionGroup(character)
+local function assignCharacterCollisionGroup(character, characterTrove)
 	for _, descendant in ipairs(character:GetDescendants()) do
 		if descendant:IsA("BasePart") then
 			setPartCollisionGroup(descendant, PLAYER_COLLISION_GROUP)
 		end
 	end
 
-	character.DescendantAdded:Connect(function(descendant)
+	characterTrove:Connect(character.DescendantAdded, function(descendant)
 		if descendant:IsA("BasePart") then
 			setPartCollisionGroup(descendant, PLAYER_COLLISION_GROUP)
 		end
 	end)
 end
 
-local function setupPlayerCollision(player)
-	if player.Character then
-		assignCharacterCollisionGroup(player.Character)
+local function cleanupPlayerCollision(player)
+	local playerTrove = playerTroves[player]
+	if playerTrove then
+		playerTrove:Destroy()
+		playerTroves[player] = nil
 	end
 
-	player.CharacterAdded:Connect(assignCharacterCollisionGroup)
+	characterTroves[player] = nil
+end
+
+local function setupCharacterCollision(player, character)
+	local previousCharacterTrove = characterTroves[player]
+	if previousCharacterTrove then
+		previousCharacterTrove:Destroy()
+	end
+
+	local playerTrove = playerTroves[player]
+	if not playerTrove then
+		return
+	end
+
+	local characterTrove = playerTrove:Extend()
+	characterTroves[player] = characterTrove
+
+	characterTrove:Add(function()
+		if characterTroves[player] == characterTrove then
+			characterTroves[player] = nil
+		end
+	end)
+
+	characterTrove:Connect(character.Destroying, function()
+		characterTrove:Destroy()
+	end)
+
+	assignCharacterCollisionGroup(character, characterTrove)
+end
+
+local function setupPlayerCollision(player)
+	cleanupPlayerCollision(player)
+
+	local playerTrove = setupTrove:Extend()
+	playerTroves[player] = playerTrove
+
+	playerTrove:Add(function()
+		if playerTroves[player] == playerTrove then
+			playerTroves[player] = nil
+		end
+	end)
+
+	if player.Character then
+		setupCharacterCollision(player, player.Character)
+	end
+
+	playerTrove:Connect(player.CharacterAdded, function(character)
+		setupCharacterCollision(player, character)
+	end)
 end
 
 local function warnAndRepairWallUi(wall, missingName)
@@ -569,14 +623,15 @@ function WallGameplay.Start()
 	started = true
 
 	setupCollisionGroups()
-	shootRemote.OnServerEvent:Connect(onShoot)
+	setupTrove:Connect(shootRemote.OnServerEvent, onShoot)
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		setupPlayerCollision(player)
 	end
-	Players.PlayerAdded:Connect(setupPlayerCollision)
+	setupTrove:Connect(Players.PlayerAdded, setupPlayerCollision)
 
-	Players.PlayerRemoving:Connect(function(player)
+	setupTrove:Connect(Players.PlayerRemoving, function(player)
+		cleanupPlayerCollision(player)
 		lastShotAt[player] = nil
 	end)
 

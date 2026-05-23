@@ -4,6 +4,7 @@ return function(ctx)
 	local HttpService = ctx.HttpService
 	local SetProperties = ctx.SetProperties
 	local Grounding = ctx.Grounding
+	local Trove = ctx.Trove
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
@@ -55,6 +56,7 @@ return function(ctx)
 	local removeLegacyBaseInfoGuis = ctx.removeLegacyBaseInfoGuis
 	local removeBaseLevelGuis = ctx.removeBaseLevelGuis
 	local BASE_SELL_SUCCESS_COLOUR = Color3.fromRGB(95, 255, 140)
+	local PromptTroves = {}
 
 local function applyOccupiedSlotPromptState(Player, Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 	local SlotSpawn = getSlotSpawn(Slot)
@@ -102,9 +104,27 @@ function Bases.Setup()
 				local SlotSpawn = getSlotSpawn(Slot)
 				if not (SlotSpawn and SlotSpawn:IsA("BasePart")) then continue end
 
-				local Attachment = Instance.new("Attachment")
+				if PromptTroves[Slot] then
+					PromptTroves[Slot]:Destroy()
+					PromptTroves[Slot] = nil
+				end
+
+				local PromptTrove = Trove.new()
+				PromptTroves[Slot] = PromptTrove
+
+				PromptTrove:Add(function()
+					if PromptTroves[Slot] == PromptTrove then
+						PromptTroves[Slot] = nil
+					end
+				end)
+
+				local Attachment = PromptTrove:Add(Instance.new("Attachment"))
 				Attachment.Position = Vector3.new(0, 3 - SlotSpawn.Size.Y / 2, 0)
 				Attachment.Parent = SlotSpawn
+
+				PromptTrove:Connect(SlotSpawn.Destroying, function()
+					PromptTrove:Destroy()
+				end)
 
 				local GrabProximityPrompt = Instance.new("ProximityPrompt")
 				GrabProximityPrompt.Enabled = false
@@ -157,7 +177,7 @@ function Bases.Setup()
 				SellProximityPrompt.Name = "SellProximityPrompt"
 				SellProximityPrompt.Parent = Attachment
 
-				GrabProximityPrompt.Triggered:Connect(function(TriggeringPlayer)
+				PromptTrove:Connect(GrabProximityPrompt.Triggered, function(TriggeringPlayer)
 					if not BasesData[Base] then return end
 
 					local Player = BasesData[Base].Player
@@ -184,7 +204,7 @@ function Bases.Setup()
 					Bases.Remove(Base, Slot)
 				end)
 
-				PlaceProximityPrompt.Triggered:Connect(function(TriggeringPlayer)
+				PromptTrove:Connect(PlaceProximityPrompt.Triggered, function(TriggeringPlayer)
 					if not BasesData[Base] then return end
 
 					local Player = BasesData[Base].Player
@@ -218,7 +238,7 @@ function Bases.Setup()
 					end
 				end)
 
-				SwapProximityPrompt.Triggered:Connect(function(TriggeringPlayer)
+				PromptTrove:Connect(SwapProximityPrompt.Triggered, function(TriggeringPlayer)
 					if not BasesData[Base] then return end
 
 					local Player = BasesData[Base].Player
@@ -270,7 +290,7 @@ function Bases.Setup()
 					end
 				end)
 
-				StealProximityPrompt.Triggered:Connect(function(TriggeringPlayer)
+				PromptTrove:Connect(StealProximityPrompt.Triggered, function(TriggeringPlayer)
 					if not BasesData[Base] then return end
 
 					local Player = BasesData[Base].Player
@@ -311,7 +331,7 @@ function Bases.Setup()
 					end
 				end)
 
-				SellProximityPrompt.Triggered:Connect(function(TriggeringPlayer)
+				PromptTrove:Connect(SellProximityPrompt.Triggered, function(TriggeringPlayer)
 					if not BasesData[Base] then return end
 
 					local Player = BasesData[Base].Player

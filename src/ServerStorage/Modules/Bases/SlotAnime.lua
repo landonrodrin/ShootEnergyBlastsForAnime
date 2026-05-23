@@ -303,7 +303,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 			BindLevelGui(Player, LevelGui, Identifier, function()
 				local CurrentSlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
 				return CurrentSlotData and CurrentSlotData.Anime == Anime
-			end)
+			end, SlotTrove)
 		else
 			LevelEvent:FireClient(Player, LevelGui, Identifier)
 		end
@@ -615,9 +615,9 @@ function Bases.Destroy(Base)
 	removeLegacyBaseInfoGuis(Base)
 	removeBaseLevelGuis(Base)
 
-	if BasesData[Base].Connection then
-		BasesData[Base].Connection:Disconnect()
-		BasesData[Base].Connection = nil
+	if BaseData and BaseData.LevelTrove then
+		BaseData.LevelTrove:Destroy()
+		BaseData.LevelTrove = nil
 	end
 
 	for _, Slot in ipairs(getOrderedSlots(Base)) do

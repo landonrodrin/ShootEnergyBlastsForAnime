@@ -4,12 +4,34 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 
 local Vip = {}
+local SetupTrove = Trove.new()
+
+local function setupPlayerPasses(Player)
+	local Success, Result = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(Player.UserId, GameConfigurations.PassesIds.Vip)
+	end)
+
+	if Success and Result then
+		Vip.Player(Player, "Vip")
+	end
+
+	local Success, Result = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(Player.UserId, GameConfigurations.PassesIds.VipPlus)
+	end)
+
+	if Success and Result then
+		Vip.Player(Player, "VipPlus")
+	end
+end
 
 function Vip.Setup()
+	SetupTrove:Clean()
+
 	for _, Descendant in pairs(workspace.Zones.Vip:GetDescendants()) do
 		if not Descendant:IsA("BasePart") then continue end
 		
@@ -20,8 +42,9 @@ function Vip.Setup()
 
 			VipGui.Parent = Descendant
 			VipGui.Enabled = true
+			SetupTrove:Add(VipGui)
 		elseif Descendant.Name == "Zone" then
-			Descendant.Touched:Connect(function(Hit)
+			SetupTrove:Connect(Descendant.Touched, function(Hit)
 				local Player = Players:GetPlayerFromCharacter(Hit.Parent)
 				if not Player then return end
 				
@@ -40,8 +63,9 @@ function Vip.Setup()
 
 			VipPlusGui.Parent = Descendant
 			VipPlusGui.Enabled = true
+			SetupTrove:Add(VipPlusGui)
 		elseif Descendant.Name == "Zone" then
-			Descendant.Touched:Connect(function(Hit)
+			SetupTrove:Connect(Descendant.Touched, function(Hit)
 				local Player = Players:GetPlayerFromCharacter(Hit.Parent)
 				if not Player then return end
 
@@ -49,26 +73,14 @@ function Vip.Setup()
 			end)
 		end
 	end
-	
-	Players.PlayerAdded:Connect(function(Player)
-		local Success, Result = pcall(function()
-			return MarketplaceService:UserOwnsGamePassAsync(Player.UserId, GameConfigurations.PassesIds.Vip)
-		end)
-		
-		if Success and Result then
-			Vip.Player(Player, "Vip")
-		end
-		
-		local Success, Result = pcall(function()
-			return MarketplaceService:UserOwnsGamePassAsync(Player.UserId, GameConfigurations.PassesIds.VipPlus)
-		end)
 
-		if Success and Result then
-			Vip.Player(Player, "VipPlus")
-		end
-	end)
+	SetupTrove:Connect(Players.PlayerAdded, setupPlayerPasses)
+
+	for _, Player in ipairs(Players:GetPlayers()) do
+		setupPlayerPasses(Player)
+	end
 	
-	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(Player, GamepassId, WasPurchased)
+	SetupTrove:Connect(MarketplaceService.PromptGamePassPurchaseFinished, function(Player, GamepassId, WasPurchased)
 		if not WasPurchased then return end
 
 		if GamepassId == GameConfigurations.PassesIds.Vip then

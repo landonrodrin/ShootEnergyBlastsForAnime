@@ -4,6 +4,7 @@ return function(ctx)
 	local HttpService = ctx.HttpService
 	local SetProperties = ctx.SetProperties
 	local Grounding = ctx.Grounding
+	local Trove = ctx.Trove
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local BaseConfigurations = ctx.BaseConfigurations
@@ -54,6 +55,15 @@ return function(ctx)
 	local createBaseInfoGui = ctx.createBaseInfoGui
 	local removeLegacyBaseInfoGuis = ctx.removeLegacyBaseInfoGuis
 	local removeBaseLevelGuis = ctx.removeBaseLevelGuis
+local function clearBaseLevelTrove(Base, ExpectedTrove)
+	local BaseData = BasesData[Base]
+	if not BaseData or not BaseData.LevelTrove then return end
+	if ExpectedTrove and BaseData.LevelTrove ~= ExpectedTrove then return end
+
+	BaseData.LevelTrove:Destroy()
+	BaseData.LevelTrove = nil
+end
+
 local function getBaseConfiguration(Level)
 	return BaseConfigurations[Level] or BaseConfigurations[1] or {}
 end
@@ -173,7 +183,7 @@ local function configureBaseLevelGui(BaseLevelGui, State, Level, Money)
 	end
 end
 
-local function bindLevelGui(Player, Gui, Identifier, IsCurrent)
+local function bindLevelGui(Player, Gui, Identifier, IsCurrent, OwnerTrove)
 	if not (Player and Gui and Identifier) then return end
 
 	local function fire()
@@ -188,8 +198,13 @@ local function bindLevelGui(Player, Gui, Identifier, IsCurrent)
 
 	fire()
 
-	task.delay(BASE_LEVEL_BIND_DELAY, fire)
-	task.delay(1, fire)
+	local ShortRetry = task.delay(BASE_LEVEL_BIND_DELAY, fire)
+	local LongRetry = task.delay(1, fire)
+
+	if OwnerTrove then
+		OwnerTrove:Add(ShortRetry)
+		OwnerTrove:Add(LongRetry)
+	end
 end
 
 function Bases.Level(PlayerData, Base)
@@ -201,11 +216,7 @@ function Bases.Level(PlayerData, Base)
 	if not BaseConfigurations[Level + 1] then
 		if BasesData[Base] then
 			BasesData[Base].LevelUpgradePending = false
-
-			if BasesData[Base].Connection then
-				BasesData[Base].Connection:Disconnect()
-				BasesData[Base].Connection = nil
-			end
+			clearBaseLevelTrove(Base)
 		end
 
 		showBaseLevelPartForPlayer(Player, Base)
@@ -225,13 +236,18 @@ function Bases.Level(PlayerData, Base)
 			BasesData[Base].LevelUpgradePending = false
 
 			local Identifier = HttpService:GenerateGUID(false)
+			clearBaseLevelTrove(Base)
 
-			if BasesData[Base].Connection then
-				BasesData[Base].Connection:Disconnect()
-				BasesData[Base].Connection = nil
-			end
+			local LevelTrove = Trove.new()
+			BasesData[Base].LevelTrove = LevelTrove
 
-			BasesData[Base].Connection = LevelEvent.OnServerEvent:Connect(function(EventPlayer, EventIdentifier)
+			LevelTrove:Add(function()
+				if BasesData[Base] and BasesData[Base].LevelTrove == LevelTrove then
+					BasesData[Base].LevelTrove = nil
+				end
+			end)
+
+			LevelTrove:Connect(LevelEvent.OnServerEvent, function(EventPlayer, EventIdentifier)
 				if EventPlayer ~= Player then return end
 				if EventIdentifier ~= Identifier then return end
 				if not BasesData[Base] or BasesData[Base].LevelUpgradePending then return end
@@ -249,10 +265,7 @@ function Bases.Level(PlayerData, Base)
 
 				BasesData[Base].LevelUpgradePending = true
 
-				if BasesData[Base].Connection then
-					BasesData[Base].Connection:Disconnect()
-					BasesData[Base].Connection = nil
-				end
+				clearBaseLevelTrove(Base, LevelTrove)
 
 				LevelEvent:FireClient(Player, nil, Identifier, true)
 
@@ -263,7 +276,7 @@ function Bases.Level(PlayerData, Base)
 
 			bindLevelGui(Player, BaseLevelGui, Identifier, function()
 				return BasesData[Base] and BasesData[Base].Player == Player and RetrievePlayerDataFunction:Invoke(Player, "Level") == Level
-			end)
+			end, LevelTrove)
 		end
 	end
 
@@ -357,4 +370,5 @@ end
 	ctx.getBaseLevelGui = getBaseLevelGui
 	ctx.configureBaseLevelGui = configureBaseLevelGui
 	ctx.bindLevelGui = bindLevelGui
+	ctx.clearBaseLevelTrove = clearBaseLevelTrove
 end
