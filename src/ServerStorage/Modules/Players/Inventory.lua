@@ -200,7 +200,10 @@ local function equipInventoryTool(Player, ToolData)
 
 	ToolData.Tool.Parent = Player:WaitForChild("Backpack")
 	Humanoid:EquipTool(ToolData.Tool)
-	createHeldModel(Player, ToolData.Name, ToolData.Mutation, ToolData.Level)
+
+	if ctx.createHeldModel then
+		ctx.createHeldModel(Player, ToolData.Name, ToolData.Mutation, ToolData.Level)
+	end
 
 	return true
 end
@@ -261,8 +264,10 @@ local function findToolDataById(Player, Id)
 	end
 end
 
-local function removeToolData(Player, Index, ToolData)
-	removeHeldModel(Player)
+local function removeToolData(Player, Index, ToolData, SkipSync)
+	if ctx.removeHeldModel then
+		ctx.removeHeldModel(Player)
+	end
 
 	if ToolData and ToolData.Tool then
 		ToolData.Tool:Destroy()
@@ -273,7 +278,10 @@ local function removeToolData(Player, Index, ToolData)
 
 	table.remove(PlayerData.Tools, Index)
 	normalizeHotbarOrder(PlayerData)
-	syncInventory(Player)
+
+	if not SkipSync then
+		syncInventory(Player)
+	end
 end
 
 local function reconcileIndex(ExistingIndex)

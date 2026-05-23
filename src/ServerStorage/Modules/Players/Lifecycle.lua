@@ -111,7 +111,7 @@ local function isNearSellStation(Player)
 	if not Station then return false end
 
 	local Character = Player.Character
-	local PrimaryPart = Character and Character.PrimaryPart
+	local PrimaryPart = Character and (Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart"))
 	if not PrimaryPart then return false end
 
 	return (PrimaryPart.Position - Station.Position).Magnitude <= SELL_STATION_DISTANCE
@@ -153,6 +153,79 @@ local function scheduleCharacterSpawnMove(Character)
 			moveCharacterToPlayerSpawn(Character)
 		end
 	end)
+end
+
+local SUCCESS_COLOUR = Color3.fromRGB(95, 255, 140)
+local WARNING_COLOUR = Color3.fromRGB(255, 210, 90)
+
+local function announceSell(Player, Text, Colour)
+	AnnouncementEvent:FireClient(Player, Text, Colour or WARNING_COLOUR)
+end
+
+local function sellInventory(Player, Mode, Id)
+	local PlayerData = PlayersData[Player]
+	if not PlayerData then
+		announceSell(Player, "Inventory is still loading.")
+		return
+	end
+
+	if not isNearSellStation(Player) then
+		announceSell(Player, "Stand by the sell shop to sell anime.")
+		return
+	end
+
+	local Total = 0
+	local Sold = 0
+
+	if Mode == "Single" then
+		local Index, ToolData = findToolDataById(Player, Id)
+		if not Index or not ToolData then
+			syncInventory(Player)
+			announceSell(Player, "That anime is no longer in your inventory.")
+			return
+		end
+
+		local Value = getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
+		if Value <= 0 then
+			syncInventory(Player)
+			announceSell(Player, "That anime cannot be sold.")
+			return
+		end
+
+		Total += Value
+		Sold += 1
+		removeToolData(Player, Index, ToolData, true)
+	elseif Mode == "All" then
+		for Index = #PlayerData.Tools, 1, -1 do
+			local ToolData = PlayerData.Tools[Index]
+			if not ToolData or not AnimeConfigurations[ToolData.Name] then continue end
+
+			local Value = getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
+			if Value <= 0 then continue end
+
+			Total += Value
+			Sold += 1
+			removeToolData(Player, Index, ToolData, true)
+		end
+	else
+		syncInventory(Player)
+		return
+	end
+
+	if Sold <= 0 or Total <= 0 then
+		syncInventory(Player)
+		announceSell(Player, "No sellable anime in your inventory.")
+		return
+	end
+
+	PlayersModule.Replace(Player, "Money", (PlayersModule.Retrieve(Player, "Money") or 0) + Total)
+	syncInventory(Player)
+
+	if Sold == 1 then
+		announceSell(Player, string.format("Sold anime for $%s.", Format.Number(Total)), SUCCESS_COLOUR)
+	else
+		announceSell(Player, string.format("Sold %s anime for $%s.", Sold, Format.Number(Total)), SUCCESS_COLOUR)
+	end
 end
 function PlayersModule.Setup()
 	setupOwnerTextChatCommands()
@@ -297,36 +370,7 @@ function PlayersModule.Setup()
 	end)
 
 	SellInventoryEvent.OnServerEvent:Connect(function(Player, Mode, Id)
-		if not isNearSellStation(Player) then return end
-
-		local PlayerData = PlayersData[Player]
-		if not PlayerData then return end
-
-		local Total = 0
-
-		if Mode == "Single" then
-			local Index, ToolData = findToolDataById(Player, Id)
-			if not Index or not ToolData then return end
-
-			Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
-			removeToolData(Player, Index, ToolData)
-		elseif Mode == "All" then
-			for Index = #PlayerData.Tools, 1, -1 do
-				local ToolData = PlayerData.Tools[Index]
-				if not ToolData or not AnimeConfigurations[ToolData.Name] then continue end
-
-				Total += getToolSellValue(ToolData.Name, ToolData.Mutation, ToolData.Level or 1, PlayerData.Rebirths)
-				removeToolData(Player, Index, ToolData)
-			end
-		end
-
-		if Total <= 0 then
-			syncInventory(Player)
-			return
-		end
-
-		PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") + Total)
-		syncInventory(Player)
+		sellInventory(Player, Mode, Id)
 	end)
 
 	UpdateHotbarSlotEvent.OnServerEvent:Connect(function(Player, Slot, Id)

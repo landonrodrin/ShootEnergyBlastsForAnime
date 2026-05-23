@@ -80,11 +80,13 @@ return function(ctx)
 	local reconcileIndex = ctx.reconcileIndex
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
-function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, ToolIndex, ToolData, AutoEquip)
+function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, ToolIndex, ToolData, AutoEquip, SuppressSync)
 	if typeof(ToolIndex) == "boolean" and ToolData == nil and AutoEquip == nil then
 		AutoEquip = ToolIndex
 		ToolIndex = nil
 	end
+
+	if not AnimeConfiguration then return end
 
 	local Data = {}
 	Mutation = Mutation or "Default"
@@ -239,7 +241,7 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 			equipInventoryTool(Player, Data)
 			syncInventory(Player)
 		end)
-	else
+	elseif not SuppressSync then
 		task.defer(syncInventory, Player)
 	end
 

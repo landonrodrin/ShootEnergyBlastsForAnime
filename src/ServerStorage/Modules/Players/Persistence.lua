@@ -182,25 +182,72 @@ return function(ctx)
 		end)
 	end
 
-	local function recreateBackpackTools(Player, Tools)
-		for _, Tool in ipairs(Player.Backpack:GetChildren()) do
-			if Tool:IsA("Tool") then
-				Tool:Destroy()
+	local function isInventoryTool(Tool)
+		return Tool:IsA("Tool") and (Tool:GetAttribute("InventoryId") or AnimeConfigurations[Tool.Name])
+	end
+
+	local function destroyInventoryTools(Container)
+		if not Container then return end
+
+		for _, Child in ipairs(Container:GetChildren()) do
+			if isInventoryTool(Child) then
+				Child:Destroy()
 			end
 		end
+	end
 
-		for Index, ToolData in ipairs(Tools or {}) do
-			Promise.try(function()
-				local Anime = ToolData.Name
-				local AnimeConfiguration = AnimeConfigurations[Anime]
+	local function prepareInventoryTools(Player)
+		return Promise.try(function()
+			local PlayerData = PlayersData[Player]
+			if not PlayerData then return {} end
 
-				PlayersModule.Tool(Player, Anime, AnimeConfiguration, ToolData.Mutation, ToolData.Level, Index, ToolData)
-			end):catch(function(Error)
-				warn(string.format("Failed to recreate inventory tool for %s: %s", Player.Name, tostring(Error)))
-			end)
-		end
+			local Backpack = Player:WaitForChild("Backpack")
+			local Character = Player.Character
 
-		task.defer(syncInventory, Player)
+			if ctx.removeHeldModel then
+				ctx.removeHeldModel(Player)
+			end
+
+			destroyInventoryTools(Backpack)
+			destroyInventoryTools(Character)
+
+			PlayerData.Tools = PlayerData.Tools or {}
+
+			for Index = #PlayerData.Tools, 1, -1 do
+				local ToolData = PlayerData.Tools[Index]
+				local Anime = type(ToolData) == "table" and ToolData.Name or nil
+
+				if not Anime or not AnimeConfigurations[Anime] then
+					table.remove(PlayerData.Tools, Index)
+				else
+					ToolData.Id = ToolData.Id or makeInventoryId()
+					ToolData.Tool = nil
+					ToolData.HeldModel = nil
+					PlayerData.Tools[Index] = ToolData
+				end
+			end
+
+			normalizeHotbarOrder(PlayerData)
+
+			local RecreationPromises = {}
+			for Index, ToolData in ipairs(PlayerData.Tools) do
+				table.insert(RecreationPromises, Promise.try(function()
+					local Anime = ToolData.Name
+					local AnimeConfiguration = AnimeConfigurations[Anime]
+
+					PlayersModule.Tool(Player, Anime, AnimeConfiguration, ToolData.Mutation, ToolData.Level, Index, ToolData, nil, true)
+				end):catch(function(Error)
+					warn(string.format("Failed to recreate inventory tool for %s: %s", Player.Name, tostring(Error)))
+				end))
+			end
+
+			return Promise.all(RecreationPromises)
+		end):andThen(function()
+			if PlayersData[Player] then
+				normalizeHotbarOrder(PlayersData[Player])
+				syncInventory(Player)
+			end
+		end)
 	end
 
 	local function setupToolRecreation(Player)
@@ -208,19 +255,21 @@ return function(ctx)
 			local PlayerData = PlayersData[Player]
 			if not PlayerData then return end
 
-			recreateBackpackTools(Player, PlayerData.Tools)
-
 			Player.CharacterAdded:Connect(function()
 				task.wait()
 
 				local CurrentPlayerData = PlayersData[Player]
 				if not CurrentPlayerData then return end
 
-				recreateBackpackTools(Player, CurrentPlayerData.Tools)
+				prepareInventoryTools(Player):catch(function(Error)
+					warn(string.format("Failed to prepare respawn inventory for %s: %s", Player.Name, tostring(Error)))
+				end)
 			end)
 
 			Player.CharacterRemoving:Connect(function()
-				removeHeldModel(Player)
+				if ctx.removeHeldModel then
+					ctx.removeHeldModel(Player)
+				end
 				task.defer(syncInventory, Player)
 			end)
 		end):catch(function(Error)
@@ -294,6 +343,11 @@ return function(ctx)
 		self.Index = reconcileIndex(self.Index)
 		PlayersData[Player] = self
 
+		local Prepared, PrepareError = prepareInventoryTools(Player):await()
+		if not Prepared then
+			warn(string.format("Failed to prepare inventory tools for %s: %s", Player.Name, tostring(PrepareError)))
+		end
+
 		scheduleStartupSyncs(Player)
 		setupToolRecreation(Player)
 
@@ -315,13 +369,13 @@ return function(ctx)
 		local UserId = Player.UserId
 
 		for Index, ToolData in ipairs(self.Tools) do
-			if not ToolData.Tool then continue end
+			if type(ToolData) == "table" then
+				ToolData.Id = ToolData.Id or makeInventoryId()
+				ToolData.Tool = nil
+				ToolData.HeldModel = nil
 
-			ToolData.Id = ToolData.Id or makeInventoryId()
-			ToolData.Tool = nil
-			ToolData.HeldModel = nil
-
-			self.Tools[Index] = ToolData
+				self.Tools[Index] = ToolData
+			end
 		end
 
 		normalizeHotbarOrder(self)

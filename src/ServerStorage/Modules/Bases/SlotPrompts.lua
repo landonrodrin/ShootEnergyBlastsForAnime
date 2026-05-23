@@ -54,6 +54,7 @@ return function(ctx)
 	local createBaseInfoGui = ctx.createBaseInfoGui
 	local removeLegacyBaseInfoGuis = ctx.removeLegacyBaseInfoGuis
 	local removeBaseLevelGuis = ctx.removeBaseLevelGuis
+	local BASE_SELL_SUCCESS_COLOUR = Color3.fromRGB(95, 255, 140)
 function Bases.Setup()
 	for _, Base in ipairs(workspace.Bases:GetChildren()) do
 		for _, Slot in ipairs(getOrderedSlots(Base)) do
@@ -296,6 +297,7 @@ function Bases.Setup()
 					Bases.Remove(Base, Slot)
 
 					ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") + Sell)
+					AnnouncementEvent:FireClient(Player, string.format("Sold anime for $%s.", Format.Number(Sell)), BASE_SELL_SUCCESS_COLOUR)
 				end)
 			end)
 		end
