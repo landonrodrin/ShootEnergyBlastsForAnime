@@ -1,0 +1,456 @@
+return function(ctx)
+	local MarketplaceService = ctx.MarketplaceService
+	local ReplicatedStorage = ctx.ReplicatedStorage
+	local DataStoreService = ctx.DataStoreService
+	local PhysicsService = ctx.PhysicsService
+	local TextChatService = ctx.TextChatService
+	local ServerStorage = ctx.ServerStorage
+	local HttpService = ctx.HttpService
+	local Players = ctx.Players
+	local Bases = ctx.Bases
+	local SetProperties = ctx.SetProperties
+	local ZoneTracker = ctx.ZoneTracker
+	local Format = ctx.Format
+	local GameConfigurations = ctx.GameConfigurations
+	local ThingsConfigurations = ctx.ThingsConfigurations
+	local BaseConfigurations = ctx.BaseConfigurations
+	local UpgradesConfigurations = ctx.UpgradesConfigurations
+	local AreasConfigurations = ctx.AreasConfigurations
+	local RebirthsConfigurations = ctx.RebirthsConfigurations
+	local MutationsConfigurations = ctx.MutationsConfigurations
+	local CommandsConfigurations = ctx.CommandsConfigurations
+	local MoneyDataStore = ctx.MoneyDataStore
+	local SpeedDataStore = ctx.SpeedDataStore
+	local PlayerDataStore = ctx.PlayerDataStore
+	local RetrieveThingDataFunction = ctx.RetrieveThingDataFunction
+	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
+	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
+	local CreateToolEvent = ctx.CreateToolEvent
+	local MoneyEvent = ctx.MoneyEvent
+	local SpeedEvent = ctx.SpeedEvent
+	local CarryEvent = ctx.CarryEvent
+	local RebirthEvent = ctx.RebirthEvent
+	local AdminCommandEvent = ctx.AdminCommandEvent
+	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
+	local IncrementCarryEvent = ctx.IncrementCarryEvent
+	local AnnouncementEvent = ctx.AnnouncementEvent
+	local ToggleSpeedEvent = ctx.ToggleSpeedEvent
+	local IndexEvent = ctx.IndexEvent
+	local AnimeUnlockedEvent = ctx.AnimeUnlockedEvent
+	local InventorySyncEvent = ctx.InventorySyncEvent
+	local SellInventoryEvent = ctx.SellInventoryEvent
+	local EquipInventoryEvent = ctx.EquipInventoryEvent
+	local UpdateHotbarSlotEvent = ctx.UpdateHotbarSlotEvent
+	local PlayersData = ctx.PlayersData
+	local PlayersModule = ctx.PlayersModule
+	local HeldModels = ctx.HeldModels
+	local HeldInventoryCarry = ctx.HeldInventoryCarry
+	local AdminCommandDebounces = ctx.AdminCommandDebounces
+	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
+	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
+	local HELD_THING_GUI_MAX_DISTANCE = ctx.HELD_THING_GUI_MAX_DISTANCE
+	local PLAYER_SPAWN_BASE_NAME = ctx.PLAYER_SPAWN_BASE_NAME
+	local PLAYER_SPAWN_PART_NAME = ctx.PLAYER_SPAWN_PART_NAME
+	local PLAYER_SPAWN_VERTICAL_OFFSET = ctx.PLAYER_SPAWN_VERTICAL_OFFSET
+	local HELD_ANIME_WELD_NAME = ctx.HELD_ANIME_WELD_NAME
+	local HELD_ANIME_SIDE_OFFSET = ctx.HELD_ANIME_SIDE_OFFSET
+	local HELD_ANIME_FORWARD_OFFSET = ctx.HELD_ANIME_FORWARD_OFFSET
+	local HELD_ANIME_VERTICAL_OFFSET = ctx.HELD_ANIME_VERTICAL_OFFSET
+	local ADMIN_RICH_MONEY = ctx.ADMIN_RICH_MONEY
+	local ADMIN_FAST_SPEED = ctx.ADMIN_FAST_SPEED
+	local RESET_COMMAND_NAME = ctx.RESET_COMMAND_NAME
+	local RICH_COMMAND_NAME = ctx.RICH_COMMAND_NAME
+	local FAST_COMMAND_NAME = ctx.FAST_COMMAND_NAME
+	local BASE_PROGRESSION_VERSION = ctx.BASE_PROGRESSION_VERSION
+	local LEGACY_BASE_LEVEL_TO_CURRENT = ctx.LEGACY_BASE_LEVEL_TO_CURRENT
+	local makeInventoryId = ctx.makeInventoryId
+	local getRebirthMultiplier = ctx.getRebirthMultiplier
+	local getToolSellValue = ctx.getToolSellValue
+	local normalizeHotbarOrder = ctx.normalizeHotbarOrder
+	local setHotbarSlot = ctx.setHotbarSlot
+	local migrateBaseProgression = ctx.migrateBaseProgression
+	local getBaseSlotCount = ctx.getBaseSlotCount
+	local createHeldModel = ctx.createHeldModel
+	local removeHeldModel = ctx.removeHeldModel
+	local equipInventoryTool = ctx.equipInventoryTool
+	local getInventorySnapshot = ctx.getInventorySnapshot
+	local syncInventory = ctx.syncInventory
+	local findToolDataById = ctx.findToolDataById
+	local removeToolData = ctx.removeToolData
+	local reconcileIndex = ctx.reconcileIndex
+	local handlePlayerCommand = ctx.handlePlayerCommand
+	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
+local function findAnimeTemplate(Name, Mutation)
+	local Animes = ServerStorage:FindFirstChild("Animes")
+	if not Animes then return end
+
+	local ThingConfiguration = ThingsConfigurations[Name]
+	local Area = ThingConfiguration and ThingConfiguration.Area
+	if not Area then return end
+
+	local MutationFolder = Animes:FindFirstChild(Mutation or "Default")
+	local AreaFolder = MutationFolder and MutationFolder:FindFirstChild(Area)
+	local Template = AreaFolder and AreaFolder:FindFirstChild(Name)
+	if Template then return Template end
+
+	local DefaultFolder = Animes:FindFirstChild("Default")
+	local DefaultAreaFolder = DefaultFolder and DefaultFolder:FindFirstChild(Area)
+	return DefaultAreaFolder and DefaultAreaFolder:FindFirstChild(Name)
+end
+
+local function getHeldPreviewsFolder()
+	local Folder = workspace:FindFirstChild("HeldPreviews")
+	if Folder then return Folder end
+
+	Folder = Instance.new("Folder")
+	Folder.Name = "HeldPreviews"
+	Folder.Parent = workspace
+
+	return Folder
+end
+
+local function cleanVisualModel(Model)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if Descendant:IsA("Script") or Descendant:IsA("LocalScript") or Descendant:IsA("ModuleScript")
+			or Descendant:IsA("ProximityPrompt") or Descendant:IsA("BillboardGui") or Descendant:IsA("SurfaceGui")
+			or Descendant:IsA("Humanoid") or Descendant:IsA("AnimationController")
+			or Descendant:IsA("JointInstance") or Descendant:IsA("Constraint") or Descendant:IsA("BodyMover")
+			or Descendant:IsA("TouchTransmitter") then
+			Descendant:Destroy()
+		elseif Descendant:IsA("BasePart") then
+			Descendant.Anchored = false
+			Descendant.CanCollide = false
+			Descendant.CanTouch = false
+			Descendant.CanQuery = false
+			Descendant.Massless = true
+		end
+	end
+end
+
+local function cleanHeldPreviewModel(Model)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if Descendant:IsA("Script") or Descendant:IsA("LocalScript") or Descendant:IsA("ModuleScript")
+			or Descendant:IsA("ProximityPrompt") or Descendant:IsA("BillboardGui") or Descendant:IsA("SurfaceGui")
+			or Descendant:IsA("ClickDetector") or Descendant:IsA("BodyMover") or Descendant:IsA("TouchTransmitter") then
+			Descendant:Destroy()
+		elseif Descendant:IsA("Humanoid") then
+			Descendant.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+			Descendant.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+			Descendant.NameDisplayDistance = 0
+		elseif Descendant:IsA("BasePart") then
+			Descendant.Anchored = false
+			Descendant.CanCollide = false
+			Descendant.CanTouch = false
+			Descendant.CanQuery = false
+			Descendant.Massless = true
+		end
+	end
+end
+
+local function forceVisualOnly(Model)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if not Descendant:IsA("BasePart") then continue end
+
+		Descendant.Anchored = false
+		Descendant.CanCollide = false
+		Descendant.CanTouch = false
+		Descendant.CanQuery = false
+		Descendant.Massless = true
+		pcall(function()
+			Descendant.CollisionGroup = "HeldPreviews"
+		end)
+	end
+end
+
+local function getHeldAnimeCFrame(Root)
+	return Root.CFrame * CFrame.new(HELD_ANIME_SIDE_OFFSET, HELD_ANIME_VERTICAL_OFFSET, HELD_ANIME_FORWARD_OFFSET)
+end
+
+local function getModelPrimaryPart(Model)
+	if Model.PrimaryPart then return Model.PrimaryPart end
+
+	local PrimaryPart = Model:FindFirstChild("HumanoidRootPart") or Model:FindFirstChildWhichIsA("BasePart", true)
+	if PrimaryPart then
+		Model.PrimaryPart = PrimaryPart
+	end
+
+	return PrimaryPart
+end
+
+local function weldLooseVisualParts(Model, PrimaryPart)
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if not Descendant:IsA("BasePart") or Descendant == PrimaryPart then continue end
+		if Descendant:FindFirstAncestorOfClass("Accessory") then continue end
+		if Descendant:FindFirstChildWhichIsA("JointInstance") then continue end
+
+		local HasExistingJoint = false
+		for _, Joint in ipairs(Descendant:GetJoints()) do
+			if Joint.Part0 == PrimaryPart or Joint.Part1 == PrimaryPart then
+				HasExistingJoint = true
+				break
+			end
+		end
+
+		if HasExistingJoint then continue end
+
+		local Weld = Instance.new("WeldConstraint")
+		Weld.Part0 = PrimaryPart
+		Weld.Part1 = Descendant
+		Weld.Parent = PrimaryPart
+	end
+end
+
+local function getHeldMutationAuraParts(Model)
+	local PreferredParts = {
+		"Head",
+		"UpperTorso",
+		"Torso",
+		"LowerTorso",
+		"LeftUpperArm",
+		"Left Arm",
+		"RightUpperArm",
+		"Right Arm",
+		"LeftUpperLeg",
+		"Left Leg",
+		"RightUpperLeg",
+		"Right Leg"
+	}
+
+	local AuraParts = {}
+
+	for _, PartName in ipairs(PreferredParts) do
+		local Part = Model:FindFirstChild(PartName, true)
+		if Part and Part:IsA("BasePart") and Part.Transparency < 0.95 then
+			table.insert(AuraParts, Part)
+		end
+	end
+
+	if #AuraParts == 0 then
+		for _, Descendant in ipairs(Model:GetDescendants()) do
+			if not Descendant:IsA("BasePart") then continue end
+			if Descendant == Model.PrimaryPart then continue end
+			if Descendant.Transparency >= 0.95 then continue end
+
+			table.insert(AuraParts, Descendant)
+
+			if #AuraParts >= 6 then break end
+		end
+	end
+
+	if #AuraParts == 0 and Model.PrimaryPart then
+		table.insert(AuraParts, Model.PrimaryPart)
+	end
+
+	return AuraParts
+end
+
+local function applyHeldMutationVisual(Model, Mutation)
+	local MutationConfiguration = MutationsConfigurations[Mutation]
+	if not MutationConfiguration or Mutation == "Default" then return end
+
+	local AuraConfiguration = MutationConfiguration.Aura
+	if not AuraConfiguration then return end
+
+	local HighlightConfiguration = AuraConfiguration.Highlight
+	if HighlightConfiguration then
+		local Highlight = Instance.new("Highlight")
+		Highlight.Name = "HeldMutationHighlight"
+		Highlight.Adornee = Model
+		Highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+		Highlight.FillColor = HighlightConfiguration.FillColor or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		Highlight.FillTransparency = HighlightConfiguration.FillTransparency or 0.65
+		Highlight.OutlineColor = HighlightConfiguration.OutlineColor or Highlight.FillColor
+		Highlight.OutlineTransparency = HighlightConfiguration.OutlineTransparency or 0.15
+		Highlight.Parent = Model
+	end
+
+	local ParticleConfiguration = AuraConfiguration.Particle
+	if ParticleConfiguration then
+		for _, Part in ipairs(getHeldMutationAuraParts(Model)) do
+			local AuraAttachment = Instance.new("Attachment")
+			AuraAttachment.Name = "HeldMutationAuraAttachment"
+			AuraAttachment.Parent = Part
+
+			local Particle = Instance.new("ParticleEmitter")
+			Particle.Name = "HeldMutationAura"
+			Particle.Texture = ParticleConfiguration.Texture or "rbxasset://textures/particles/sparkles_main.dds"
+			Particle.Color = ParticleConfiguration.Color or ColorSequence.new(MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255))
+			Particle.LightEmission = ParticleConfiguration.LightEmission or 0.75
+			Particle.LightInfluence = ParticleConfiguration.LightInfluence or 0
+			Particle.Rate = ParticleConfiguration.Rate or 12
+			Particle.Lifetime = ParticleConfiguration.Lifetime or NumberRange.new(0.8, 1.3)
+			Particle.Speed = ParticleConfiguration.Speed or NumberRange.new(0.5, 1.2)
+			Particle.SpreadAngle = ParticleConfiguration.SpreadAngle or Vector2.new(360, 360)
+			Particle.Size = ParticleConfiguration.Size or NumberSequence.new(0.25)
+			Particle.Transparency = ParticleConfiguration.Transparency or NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0.35),
+				NumberSequenceKeypoint.new(1, 1)
+			})
+			Particle.Parent = AuraAttachment
+		end
+	end
+
+	local LightConfiguration = AuraConfiguration.Light
+	if LightConfiguration and Model.PrimaryPart then
+		local Light = Instance.new("PointLight")
+		Light.Name = "HeldMutationAuraLight"
+		Light.Color = LightConfiguration.Color or MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		Light.Brightness = LightConfiguration.Brightness or 0.6
+		Light.Range = LightConfiguration.Range or 8
+		Light.Parent = Model.PrimaryPart
+	end
+end
+
+local function createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level, RebirthMultiplier)
+	local PrimaryPart = Model.PrimaryPart
+	if not PrimaryPart then return end
+
+	local ThingsModule = ServerStorage.Modules:WaitForChild("Things")
+	local Resources = ThingsModule:WaitForChild("Resources")
+	local ThingGui = Resources:WaitForChild("ThingGui"):Clone()
+
+	local TimeLabel = ThingGui:FindFirstChild("Time")
+	if TimeLabel then
+		TimeLabel:Destroy()
+	end
+
+	local CarriedLabel = ThingGui:FindFirstChild("Carried")
+	if CarriedLabel then
+		CarriedLabel:Destroy()
+	end
+
+	ThingGui.Mutation.LayoutOrder = 0
+	ThingGui.Area.LayoutOrder = 1
+	ThingGui.Thing.LayoutOrder = 2
+	ThingGui.Money.LayoutOrder = 3
+
+	for _, LabelName in ipairs({"Mutation", "Thing", "Area", "Money"}) do
+		local Label = ThingGui:FindFirstChild(LabelName)
+		if Label and Label:IsA("TextLabel") then
+			Label.Size = UDim2.new(0.9, 0, Label.Size.Y.Scale, Label.Size.Y.Offset)
+		end
+	end
+
+	local Area = ThingConfiguration.Area
+	local AreaConfiguration = Area and AreasConfigurations[Area]
+	local MutationConfiguration = MutationsConfigurations[Mutation] or {}
+	local Multiplier = MutationConfiguration.Multiplier or 1
+	local LevelConfiguration = ThingConfiguration.Levels and ThingConfiguration.Levels[Level] or {}
+	RebirthMultiplier = RebirthMultiplier or 1
+
+	ThingGui.Thing.Text = string.format("%s (Lvl %s)", Name, Level)
+	ThingGui.Area.Text = Area or ""
+	ThingGui.Area.TextColor3 = AreaConfiguration and AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+	ThingGui.Money.Text = string.format("$%s/s", Format.Number((LevelConfiguration.Money or 0) * Multiplier * RebirthMultiplier))
+	ThingGui.Money.Visible = true
+
+	if Mutation and Mutation ~= "Default" then
+		ThingGui.Mutation.Text = Mutation
+		ThingGui.Mutation.TextColor3 = MutationConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		ThingGui.Mutation.Visible = true
+	else
+		ThingGui.Mutation.Visible = false
+	end
+
+	local ExistingAttachment = PrimaryPart:FindFirstChild("ThingAttachment")
+	if ExistingAttachment then
+		ExistingAttachment:Destroy()
+	end
+
+	local ThingAttachment = Instance.new("Attachment")
+	ThingAttachment.Name = "ThingAttachment"
+	ThingAttachment.CFrame = CFrame.new(Vector3.new(0, (ThingConfiguration.YOffset or 0) + ThingGui.Size.Y.Scale / 2 + 1, 0))
+	ThingAttachment.Parent = PrimaryPart
+
+	ThingGui.Parent = ThingAttachment
+	ThingGui.MaxDistance = HELD_THING_GUI_MAX_DISTANCE
+	ThingGui.Enabled = true
+end
+
+local function removeHeldAnimeWeld(Player)
+	local Character = Player.Character
+	local Root = Character and (Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart"))
+	if not Root then return end
+
+	for _, Child in ipairs(Root:GetChildren()) do
+		if Child:IsA("WeldConstraint") and Child.Name == HELD_ANIME_WELD_NAME then
+			Child:Destroy()
+		end
+	end
+end
+
+local function removeHeldModel(Player)
+	removeHeldAnimeWeld(Player)
+
+	local Existing = HeldModels[Player]
+	if Existing then
+		Existing:Destroy()
+		HeldModels[Player] = nil
+	end
+
+	if HeldInventoryCarry[Player] then
+		HeldInventoryCarry[Player] = nil
+
+		PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.OwnedHold, false)
+	end
+end
+
+local function createHeldModel(Player, Name, Mutation, Level)
+	removeHeldModel(Player)
+
+	local Character = Player.Character
+	if not Character then return end
+
+	local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+	local Root = Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart")
+	if not Humanoid or not Root then return end
+
+	local Template = findAnimeTemplate(Name, Mutation)
+	if not Template then return end
+
+	local ThingConfiguration = ThingsConfigurations[Name]
+	if not ThingConfiguration then return end
+	Level = Level or 1
+
+	local Model = Template:Clone()
+	Model.Name = string.format("Held%s", Name)
+	cleanHeldPreviewModel(Model)
+
+	local PrimaryPart = getModelPrimaryPart(Model)
+	if not PrimaryPart then
+		Model:Destroy()
+		return
+	end
+
+	weldLooseVisualParts(Model, PrimaryPart)
+	applyHeldMutationVisual(Model, Mutation)
+	local PlayerData = PlayersData[Player]
+	local RebirthMultiplier = getRebirthMultiplier(PlayerData and PlayerData.Rebirths or 0)
+	createHeldThingGui(Model, Name, ThingConfiguration, Mutation, Level, RebirthMultiplier)
+
+	Model:PivotTo(getHeldAnimeCFrame(Root))
+
+	local Weld = Instance.new("WeldConstraint")
+	Weld.Name = HELD_ANIME_WELD_NAME
+	Weld.Part0 = Root
+	Weld.Part1 = PrimaryPart
+	Weld.Parent = Root
+
+	Model.Parent = getHeldPreviewsFolder()
+	forceVisualOnly(Model)
+
+	task.defer(function()
+		if Model.Parent then
+			forceVisualOnly(Model)
+		end
+	end)
+
+	HeldModels[Player] = Model
+	HeldInventoryCarry[Player] = true
+
+	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.OwnedHold, true)
+end
+	ctx.createHeldModel = createHeldModel
+	ctx.removeHeldModel = removeHeldModel
+	ctx.removeHeldAnimeWeld = removeHeldAnimeWeld
+end
