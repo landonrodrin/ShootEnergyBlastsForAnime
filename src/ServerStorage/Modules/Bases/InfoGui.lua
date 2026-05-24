@@ -114,6 +114,7 @@ local function createBaseInfoGui(Player, Base)
 	local Resources = ctx.Resources
 	local BaseInfoGui = Resources:WaitForChild(BASE_INFO_GUI_NAME):Clone()
 	BaseInfoGui.Name = BASE_INFO_GUI_NAME
+	BaseInfoGui.AlwaysOnTop = false
 	BaseInfoGui.MaxDistance = BASE_GUI_MAX_DISTANCE
 	BaseInfoGui.Enabled = true
 
@@ -135,7 +136,10 @@ local function createBaseInfoGui(Player, Base)
 	BaseInfoGui.Parent = Anchor
 	updateBaseInfoMoneyPerSecond(Base, 0)
 
-	SetProperties.AllClients(BaseInfoGui, {MaxDistance = BASE_GUI_MAX_DISTANCE})
+	SetProperties.AllClients(BaseInfoGui, {
+		AlwaysOnTop = false,
+		MaxDistance = BASE_GUI_MAX_DISTANCE
+	})
 
 	return BaseInfoGui
 end

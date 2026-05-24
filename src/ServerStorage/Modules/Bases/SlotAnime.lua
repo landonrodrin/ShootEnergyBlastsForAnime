@@ -102,17 +102,23 @@ local function refreshPlayerEconomy(Player, Base)
 
 	local MoneyPerSecond = 0
 
-	local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
-	for _, AnimeEntry in ipairs(SavedAnime) do
-		local Name = AnimeEntry.Name
+	for _, SlotData in pairs(BasesData[Base].SlotsData or {}) do
+		local Anime = SlotData.Anime
+		if not Anime then continue end
+
+		local Name = Anime.Name
 		local AnimeConfiguration = AnimeConfigurations[Name]
-		local Mutation = AnimeEntry.Mutation
-		local MutationConfiguration = MutationsConfigurations[Mutation]
-		local Level = AnimeEntry.Level or 1
+		if not AnimeConfiguration then continue end
+
+		local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
+		local MutationConfiguration = MutationsConfigurations[Mutation] or {}
+		local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level") or 1
+		local LevelConfiguration = AnimeConfiguration.Levels[Level]
+		if not LevelConfiguration then continue end
 
 		local Multiplier = MutationConfiguration.Multiplier or 1
 
-		MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
+		MoneyPerSecond += LevelConfiguration.Money * Multiplier
 	end
 
 	local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
@@ -125,6 +131,8 @@ local function refreshPlayerEconomy(Player, Base)
 end
 
 local function scheduleEconomyRefresh(Player, Base, OwnerTrove)
+	refreshPlayerEconomy(Player, Base)
+
 	addOwnedDelay(OwnerTrove, 1, function()
 		refreshPlayerEconomy(Player, Base)
 	end)

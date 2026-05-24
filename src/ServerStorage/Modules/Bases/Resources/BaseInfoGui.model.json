@@ -1,7 +1,7 @@
 {
   "ClassName": "BillboardGui",
   "Properties": {
-    "AlwaysOnTop": true,
+    "AlwaysOnTop": false,
     "Enabled": true,
     "LightInfluence": 0,
     "MaxDistance": 200,

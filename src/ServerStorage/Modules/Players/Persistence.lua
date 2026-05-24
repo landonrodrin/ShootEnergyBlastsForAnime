@@ -76,6 +76,97 @@ return function(ctx)
 	local cleanupToolData = ctx.cleanupToolData
 	local reconcileIndex = ctx.reconcileIndex
 	local Promise = require(ReplicatedStorage.Shared:WaitForChild("Promise"))
+	local PLAYER_DATA_SCHEMA_VERSION = 2
+	local DATASTORE_MAX_ATTEMPTS = 4
+	local DATASTORE_BASE_BACKOFF = 0.5
+	local DATASTORE_MAX_BACKOFF = 4
+
+	local function getMaxBaseLevel()
+		local MaxLevel = 1
+		for Level in pairs(BaseConfigurations) do
+			if type(Level) == "number" then
+				MaxLevel = math.max(MaxLevel, Level)
+			end
+		end
+
+		return MaxLevel
+	end
+
+	local MAX_BASE_LEVEL = getMaxBaseLevel()
+
+	local function clampNumber(Value, Default, Minimum, Maximum)
+		Value = tonumber(Value)
+		if not Value or Value ~= Value then
+			return Default
+		end
+
+		if Minimum then
+			Value = math.max(Value, Minimum)
+		end
+
+		if Maximum then
+			Value = math.min(Value, Maximum)
+		end
+
+		return Value
+	end
+
+	local function clampInteger(Value, Default, Minimum, Maximum)
+		return math.floor(clampNumber(Value, Default, Minimum, Maximum))
+	end
+
+	local function normalizeMutation(Mutation)
+		if type(Mutation) == "string" and MutationsConfigurations[Mutation] then
+			return Mutation
+		end
+
+		return "Default"
+	end
+
+	local function normalizeLevel(Name, Level)
+		local AnimeConfiguration = AnimeConfigurations[Name]
+		local Levels = AnimeConfiguration and AnimeConfiguration.Levels
+		local MaxLevel = Levels and #Levels or 1
+
+		return clampInteger(Level, 1, 1, math.max(MaxLevel, 1))
+	end
+
+	local function normalizeSlot(Slot)
+		local SlotNumber = tonumber(Slot)
+		if not SlotNumber or SlotNumber < 1 or SlotNumber % 1 ~= 0 then return end
+
+		local MaxSlots = getBaseSlotCount(MAX_BASE_LEVEL)
+		if SlotNumber > MaxSlots then return end
+
+		return tostring(SlotNumber)
+	end
+
+	local function normalizeAnimeEntry(AnimeEntry)
+		if type(AnimeEntry) ~= "table" then return end
+		if type(AnimeEntry.Name) ~= "string" or not AnimeConfigurations[AnimeEntry.Name] then return end
+
+		local Slot = normalizeSlot(AnimeEntry.Slot)
+		if not Slot then return end
+
+		return {
+			Name = AnimeEntry.Name,
+			Mutation = normalizeMutation(AnimeEntry.Mutation),
+			Level = normalizeLevel(AnimeEntry.Name, AnimeEntry.Level),
+			Slot = Slot
+		}
+	end
+
+	local function normalizeToolEntry(ToolEntry)
+		if type(ToolEntry) ~= "table" then return end
+		if type(ToolEntry.Name) ~= "string" or not AnimeConfigurations[ToolEntry.Name] then return end
+
+		return {
+			Id = type(ToolEntry.Id) == "string" and ToolEntry.Id ~= "" and ToolEntry.Id or makeInventoryId(),
+			Name = ToolEntry.Name,
+			Mutation = normalizeMutation(ToolEntry.Mutation),
+			Level = normalizeLevel(ToolEntry.Name, ToolEntry.Level)
+		}
+	end
 
 	local function migrateBaseProgression(PlayerData, HasLoadedData)
 		local SavedVersion = PlayerData.BaseProgressionVersion
@@ -94,34 +185,144 @@ return function(ctx)
 		PlayerData.BaseProgressionVersion = BASE_PROGRESSION_VERSION
 	end
 
+	local function normalizePlayerData(PlayerData, HasLoadedData)
+		PlayerData.Money = clampNumber(PlayerData.Money, GameConfigurations.Defaults.Money, 0)
+		PlayerData.Speed = clampNumber(PlayerData.Speed, GameConfigurations.Defaults.Speed, 0, GameConfigurations.Maximums.Speed)
+		PlayerData.Carry = clampInteger(PlayerData.Carry, GameConfigurations.Defaults.Carry, 1, GameConfigurations.Maximums.Carry)
+		PlayerData.Level = clampInteger(PlayerData.Level, 1, 1, MAX_BASE_LEVEL)
+		PlayerData.Steals = clampInteger(PlayerData.Steals, 0, 0)
+		PlayerData.Rebirths = clampInteger(PlayerData.Rebirths, 0, 0)
+		PlayerData.MoneyPerSecond = 0
+
+		migrateBaseProgression(PlayerData, HasLoadedData)
+		PlayerData.Level = clampInteger(PlayerData.Level, 1, 1, MAX_BASE_LEVEL)
+
+		local Tools = {}
+		for _, ToolEntry in ipairs(type(PlayerData.Tools) == "table" and PlayerData.Tools or {}) do
+			local NormalizedTool = normalizeToolEntry(ToolEntry)
+			if NormalizedTool then
+				table.insert(Tools, NormalizedTool)
+			end
+		end
+		PlayerData.Tools = Tools
+
+		local Anime = {}
+		for _, AnimeEntry in ipairs(type(PlayerData.Anime) == "table" and PlayerData.Anime or {}) do
+			local NormalizedAnime = normalizeAnimeEntry(AnimeEntry)
+			if NormalizedAnime then
+				table.insert(Anime, NormalizedAnime)
+			end
+		end
+		PlayerData.Anime = Anime
+
+		PlayerData.HotbarOrder = typeof(PlayerData.HotbarOrder) == "table" and PlayerData.HotbarOrder or {}
+		normalizeHotbarOrder(PlayerData)
+		PlayerData.Index = reconcileIndex(PlayerData.Index)
+		PlayerData.SchemaVersion = PLAYER_DATA_SCHEMA_VERSION
+	end
+
+	local function datastoreBackoff(Attempt)
+		local Delay = math.min(DATASTORE_BASE_BACKOFF * 2 ^ (Attempt - 1), DATASTORE_MAX_BACKOFF)
+		return Delay + math.random() * 0.2
+	end
+
 	local function readDataStore(DataStore, UserId, Label)
 		return Promise.try(function()
-			return DataStore:GetAsync(UserId)
-		end):andThen(function(Value)
-			return {
-				Success = true,
-				Value = Value
-			}
-		end):catch(function(Error)
-			warn(string.format("Failed to load %s for user %s: %s", Label, tostring(UserId), tostring(Error)))
+			local LastError
+			for Attempt = 1, DATASTORE_MAX_ATTEMPTS do
+				local Success, ValueOrError = pcall(function()
+					return DataStore:GetAsync(UserId)
+				end)
+
+				if Success then
+					return {
+						Success = true,
+						Value = ValueOrError
+					}
+				end
+
+				LastError = ValueOrError
+				if Attempt < DATASTORE_MAX_ATTEMPTS then
+					task.wait(datastoreBackoff(Attempt))
+				end
+			end
+
+			warn(string.format("Failed to load %s for user %s after %s attempts: %s", Label, tostring(UserId), DATASTORE_MAX_ATTEMPTS, tostring(LastError)))
 
 			return {
 				Success = false,
-				Value = nil
+				Value = nil,
+				Error = LastError
 			}
 		end)
 	end
 
 	local function writeDataStore(DataStore, UserId, Value, Label)
 		return Promise.try(function()
-			DataStore:SetAsync(UserId, Value)
-		end):andThen(function()
-			return true
-		end):catch(function(Error)
-			warn(string.format("Failed to save %s for user %s: %s", Label, tostring(UserId), tostring(Error)))
+			local LastError
+			for Attempt = 1, DATASTORE_MAX_ATTEMPTS do
+				local Success, Error = pcall(function()
+					DataStore:SetAsync(UserId, Value)
+				end)
+
+				if Success then
+					return true
+				end
+
+				LastError = Error
+				if Attempt < DATASTORE_MAX_ATTEMPTS then
+					task.wait(datastoreBackoff(Attempt))
+				end
+			end
+
+			warn(string.format("Failed to save %s for user %s after %s attempts: %s", Label, tostring(UserId), DATASTORE_MAX_ATTEMPTS, tostring(LastError)))
 
 			return false
 		end)
+	end
+
+	local function serializeTools(PlayerData)
+		local Tools = {}
+		for _, ToolData in ipairs(PlayerData.Tools or {}) do
+			local NormalizedTool = normalizeToolEntry(ToolData)
+			if NormalizedTool then
+				table.insert(Tools, NormalizedTool)
+			end
+		end
+		return Tools
+	end
+
+	local function serializeAnime(PlayerData)
+		local Anime = {}
+		for _, AnimeData in ipairs(PlayerData.Anime or {}) do
+			local NormalizedAnime = normalizeAnimeEntry(AnimeData)
+			if NormalizedAnime then
+				table.insert(Anime, NormalizedAnime)
+			end
+		end
+		return Anime
+	end
+
+	local function serializePlayerData(PlayerData)
+		local Snapshot = {
+			SchemaVersion = PLAYER_DATA_SCHEMA_VERSION,
+			Carry = clampInteger(PlayerData.Carry, GameConfigurations.Defaults.Carry, 1, GameConfigurations.Maximums.Carry),
+			Tools = serializeTools(PlayerData),
+			Level = clampInteger(PlayerData.Level, 1, 1, MAX_BASE_LEVEL),
+			Anime = serializeAnime(PlayerData),
+			Steals = clampInteger(PlayerData.Steals, 0, 0),
+			Rebirths = clampInteger(PlayerData.Rebirths, 0, 0),
+			Index = reconcileIndex(PlayerData.Index),
+			HotbarOrder = {},
+			BaseProgressionVersion = PlayerData.BaseProgressionVersion or BASE_PROGRESSION_VERSION
+		}
+
+		Snapshot.HotbarOrder = normalizeHotbarOrder({
+			Tools = Snapshot.Tools,
+			HotbarOrder = PlayerData.HotbarOrder
+		})
+
+		return Snapshot
 	end
 
 	local function delayForPlayer(Player, Delay, Callback)
@@ -296,57 +497,31 @@ return function(ctx)
 		local MoneyResult = Results and Results[1] or {}
 		local SpeedResult = Results and Results[2] or {}
 		local PlayerDataResult = Results and Results[3] or {}
+		self.UnsafeSaveStores = {}
 
 		if MoneyResult.Success and MoneyResult.Value then
 			self.Money = MoneyResult.Value
 		else
 			self.Money = GameConfigurations.Defaults.Money
+			self.UnsafeSaveStores.Money = MoneyResult.Success == false
 		end
 
 		if SpeedResult.Success and SpeedResult.Value then
 			self.Speed = SpeedResult.Value
 		else
 			self.Speed = GameConfigurations.Defaults.Speed
+			self.UnsafeSaveStores.Speed = SpeedResult.Success == false
 		end
 
 		if PlayerDataResult.Success and PlayerDataResult.Value then
 			for Name, Value in pairs(PlayerDataResult.Value) do
 				self[Name] = Value
 			end
+		elseif PlayerDataResult.Success == false then
+			self.UnsafeSaveStores.PlayerData = true
 		end
 
-		self.MoneyPerSecond = 0
-
-		if not self.Carry then self.Carry = GameConfigurations.Defaults.Carry end
-		if not self.Tools then self.Tools = {} end
-		if not self.Level then self.Level = 1 end
-		if not self.Anime then self.Anime = {} end
-		if not self.Steals then self.Steals = 0 end
-		if not self.Rebirths then self.Rebirths = 0 end
-		if not self.HotbarOrder then self.HotbarOrder = {} end
-
-		migrateBaseProgression(self, PlayerDataResult.Success and PlayerDataResult.Value ~= nil)
-
-		for Index = #self.Tools, 1, -1 do
-			local ToolConfiguration = self.Tools[Index]
-			if AnimeConfigurations[ToolConfiguration.Name] then
-				ToolConfiguration.Id = ToolConfiguration.Id or makeInventoryId()
-				self.Tools[Index] = ToolConfiguration
-			else
-				table.remove(self.Tools, Index)
-			end
-		end
-
-		normalizeHotbarOrder(self)
-
-		for Index = #self.Anime, 1, -1 do
-			local AnimeConfiguration = self.Anime[Index]
-			if AnimeConfigurations[AnimeConfiguration.Name] then continue end
-
-			table.remove(self.Anime, Index)
-		end
-
-		self.Index = reconcileIndex(self.Index)
+		normalizePlayerData(self, PlayerDataResult.Success and PlayerDataResult.Value ~= nil)
 		PlayersData[Player] = self
 
 		local Prepared, PrepareError = prepareInventoryTools(Player):await()
@@ -371,40 +546,93 @@ return function(ctx)
 	end
 
 	function PlayersModule:Save()
+		return self:QueueSave("direct")
+	end
+
+	function PlayersModule:QueueSave(Reason)
+		if self.SaveRunning then
+			self.SaveQueued = true
+			self.SaveReasons = self.SaveReasons or {}
+			table.insert(self.SaveReasons, Reason or "queued")
+
+			while self.SaveRunning do
+				task.wait()
+			end
+
+			return self.LastSaveSuccess == true
+		end
+
+		self.SaveRunning = true
+		self.SaveQueued = true
+		self.LastSaveSuccess = false
+
+		local OverallSuccess = true
+		while self.SaveQueued do
+			self.SaveQueued = false
+			self.SaveReasons = {}
+
+			local Ok, SuccessOrError = pcall(function()
+				return self:PerformSave()
+			end)
+			local Success = Ok and SuccessOrError == true
+			if not Ok then
+				warn(string.format("Failed to save player data for user %s: %s", tostring(self.Player and self.Player.UserId), tostring(SuccessOrError)))
+			end
+
+			OverallSuccess = OverallSuccess and Success
+			self.LastSaveSuccess = Success
+		end
+
+		self.SaveRunning = false
+		return OverallSuccess
+	end
+
+	function PlayersModule:PerformSave()
 		local Player = self.Player
 		local UserId = Player.UserId
+		local UnsafeSaveStores = self.UnsafeSaveStores or {}
+		local PlayerSnapshot = serializePlayerData(self)
+		local Writes = {}
 
-		for Index, ToolData in ipairs(self.Tools) do
-			if type(ToolData) == "table" then
-				cleanupToolData(ToolData)
-				ToolData.Id = ToolData.Id or makeInventoryId()
-				ToolData.Tool = nil
-				ToolData.HeldModel = nil
-				ToolData.Trove = nil
+		if not UnsafeSaveStores.Money then
+			table.insert(Writes, writeDataStore(MoneyDataStore, UserId, clampNumber(self.Money, GameConfigurations.Defaults.Money, 0), "Money"))
+		end
 
-				self.Tools[Index] = ToolData
+		if not UnsafeSaveStores.Speed then
+			table.insert(Writes, writeDataStore(SpeedDataStore, UserId, clampNumber(self.Speed, GameConfigurations.Defaults.Speed, 0, GameConfigurations.Maximums.Speed), "Speed"))
+		end
+
+		if not UnsafeSaveStores.PlayerData then
+			table.insert(Writes, writeDataStore(PlayerDataStore, UserId, PlayerSnapshot, "PlayerData"))
+		end
+
+		if #Writes == 0 then
+			warn(string.format("Skipped saving all stores for user %s because every store was unsafe this session.", tostring(UserId)))
+			return false
+		end
+
+		local AwaitSuccess, Results = Promise.all(Writes):await()
+		if not AwaitSuccess then
+			warn(string.format("Failed to save player data for user %s: %s", tostring(UserId), tostring(Results)))
+			return false
+		end
+
+		local Success = true
+		for _, Result in ipairs(Results or {}) do
+			if Result ~= true then
+				Success = false
 			end
 		end
 
-		normalizeHotbarOrder(self)
+		return Success
+	end
 
-		local Data = {
-			Carry = self.Carry,
-			Tools = self.Tools,
-			Level = self.Level,
-			Anime = self.Anime,
-			Steals = self.Steals,
-			Rebirths = self.Rebirths,
-			Index = self.Index,
-			HotbarOrder = self.HotbarOrder,
-			BaseProgressionVersion = self.BaseProgressionVersion
-		}
+	function PlayersModule:DestroySession()
+		local Player = self.Player
 
-		Promise.all({
-			writeDataStore(MoneyDataStore, UserId, self.Money, "Money"),
-			writeDataStore(SpeedDataStore, UserId, self.Speed, "Speed"),
-			writeDataStore(PlayerDataStore, UserId, Data, "PlayerData")
-		}):await()
+		for _, ToolData in ipairs(self.Tools or {}) do
+			cleanupToolData(ToolData)
+		end
 
 		if PlayersData[Player] and PlayersData[Player].Base then
 			Bases.Destroy(PlayersData[Player].Base)
@@ -417,5 +645,8 @@ return function(ctx)
 
 		PlayersData[Player] = nil
 	end
+
 	ctx.migrateBaseProgression = migrateBaseProgression
+	ctx.normalizePlayerData = normalizePlayerData
+	ctx.serializePlayerData = serializePlayerData
 end

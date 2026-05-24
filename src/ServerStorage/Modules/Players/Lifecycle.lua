@@ -11,6 +11,8 @@ return function(ctx)
 	local SetProperties = ctx.SetProperties
 	local ZoneTracker = ctx.ZoneTracker
 	local Trove = ctx.Trove
+	local RequestGuard = ctx.RequestGuard
+	local RequestPolicy = ctx.RequestPolicy
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AnimeConfigurations = ctx.AnimeConfigurations
@@ -45,6 +47,7 @@ return function(ctx)
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
 	local HeldInventoryCarry = ctx.HeldInventoryCarry
+	local MoneyPerSecondLeaderstatUpdates = ctx.MoneyPerSecondLeaderstatUpdates
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
@@ -77,10 +80,24 @@ return function(ctx)
 	local reconcileIndex = ctx.reconcileIndex
 	local SetupTrove = Trove.new()
 	local NetworkListenersStarted = false
+	local RequestCooldowns = RequestPolicy.Cooldowns
+	local AllowedSpeedIncrements = {
+		[1] = true,
+		[5] = true,
+		[10] = true,
+	}
 local function registerCollisionGroup(Name)
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup(Name)
 	end)
+end
+
+local function isLoadedPlayer(Player)
+	return Player and PlayersData[Player] ~= nil
+end
+
+local function isPositiveInteger(Value)
+	return type(Value) == "number" and Value > 0 and Value % 1 == 0
 end
 
 local function setGroupsCollidable(GroupA, GroupB, Collidable)
@@ -289,18 +306,30 @@ function PlayersModule.Setup()
 		local PlayerData = PlayersData[Player]
 
 		if PlayerData then
-			PlayerData:Save()
+			PlayerData:QueueSave("PlayerRemoving")
+			PlayerData:DestroySession()
 		end
 
 		ZoneTracker.ClearPlayer(Player)
 		removeHeldModel(Player)
 		HeldInventoryCarry[Player] = nil
+		MoneyPerSecondLeaderstatUpdates[Player] = nil
 		AdminCommandDebounces[Player] = nil
 	end)
 
 	game:BindToClose(function()
+		local ClosingPlayersData = {}
 		for Player, PlayerData in pairs(PlayersData) do
-			PlayerData:Save()
+			table.insert(ClosingPlayersData, {
+				Player = Player,
+				PlayerData = PlayerData
+			})
+		end
+
+		for _, Entry in ipairs(ClosingPlayersData) do
+			local PlayerData = Entry.PlayerData
+			PlayerData:QueueSave("BindToClose")
+			PlayerData:DestroySession()
 		end
 	end)
 
@@ -313,8 +342,14 @@ function PlayersModule.Setup()
 		NetworkListenersStarted = true
 
 		Packets.incrementSpeed.listen(function(Speed, Player)
-			if not Player then return end
-			local Cost = math.round(UpgradesConfigurations["Speed1"].Money * UpgradesConfigurations["Speed1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Speed") + Speed - 1))
+			if not isLoadedPlayer(Player) then return end
+			if not isPositiveInteger(Speed) or not AllowedSpeedIncrements[Speed] then return end
+			if not RequestGuard.Allow(Player, "incrementSpeed", RequestCooldowns.IncrementSpeed) then return end
+
+			local CurrentSpeed = PlayersModule.Retrieve(Player, "Speed") or 0
+			if CurrentSpeed + Speed > GameConfigurations.Maximums.Speed then return end
+
+			local Cost = math.round(UpgradesConfigurations["Speed1"].Money * UpgradesConfigurations["Speed1"].IncrementMultiplier ^ (CurrentSpeed + Speed - 1))
 
 			if PlayersModule.Retrieve(Player, "Money") < Cost then
 				announceSell(Player, INSUFFICIENT_FUNDS_TEXT, INSUFFICIENT_FUNDS_COLOUR)
@@ -322,12 +357,18 @@ function PlayersModule.Setup()
 			end
 
 			PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") - Cost)
-			PlayersModule.Replace(Player, "Speed", PlayersModule.Retrieve(Player, "Speed") + Speed)
+			PlayersModule.Replace(Player, "Speed", CurrentSpeed + Speed)
 		end)
 
 		Packets.incrementCarry.listen(function(Carry, Player)
-			if not Player then return end
-			local Cost = math.round(UpgradesConfigurations["Carry1"].Money * UpgradesConfigurations["Carry1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Carry") + Carry - 1))
+			if not isLoadedPlayer(Player) then return end
+			if Carry ~= 1 then return end
+			if not RequestGuard.Allow(Player, "incrementCarry", RequestCooldowns.IncrementCarry) then return end
+
+			local CurrentCarry = PlayersModule.Retrieve(Player, "Carry") or 0
+			if CurrentCarry + Carry > GameConfigurations.Maximums.Carry then return end
+
+			local Cost = math.round(UpgradesConfigurations["Carry1"].Money * UpgradesConfigurations["Carry1"].IncrementMultiplier ^ (CurrentCarry + Carry - 1))
 
 			if PlayersModule.Retrieve(Player, "Money") < Cost then
 				announceSell(Player, INSUFFICIENT_FUNDS_TEXT, INSUFFICIENT_FUNDS_COLOUR)
@@ -335,7 +376,7 @@ function PlayersModule.Setup()
 			end
 
 			PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") - Cost)
-			PlayersModule.Replace(Player, "Carry", PlayersModule.Retrieve(Player, "Carry") + Carry)
+			PlayersModule.Replace(Player, "Carry", CurrentCarry + Carry)
 		end)
 
 		Packets.announcement.listen(function(Data, Player)
@@ -347,7 +388,10 @@ function PlayersModule.Setup()
 		end)
 
 		Packets.toggleSpeed.listen(function(Toggle, Player)
-			if not Player then return end
+			if not isLoadedPlayer(Player) then return end
+			if type(Toggle) ~= "boolean" then return end
+			if not RequestGuard.Allow(Player, "toggleSpeed", RequestCooldowns.ToggleSpeed) then return end
+
 			local Speed = PlayersModule.Retrieve(Player, "Speed") or 16
 			local UseNormalSpeed = Toggle == true
 
@@ -363,7 +407,9 @@ function PlayersModule.Setup()
 		end)
 
 		Packets.rebirthRequest.listen(function(_, Player)
-			if not Player then return end
+			if not isLoadedPlayer(Player) then return end
+			if not RequestGuard.Allow(Player, "rebirthRequest", RequestCooldowns.Rebirth) then return end
+
 			local Rebirths = PlayersModule.Retrieve(Player, "Rebirths") or 0
 			local Speed = PlayersModule.Retrieve(Player, "Speed") or 0
 			local NextRebirthConfiguration = RebirthsConfigurations[Rebirths + 1]
@@ -388,20 +434,27 @@ function PlayersModule.Setup()
 		end)
 
 		Packets.indexRequest.listen(function(Data, Player)
-			if not Player then return end
+			if not isLoadedPlayer(Player) then return end
+			if not Data or type(Data.Mutation) ~= "string" then return end
+			if Data.Mutation ~= "Default" and not MutationsConfigurations[Data.Mutation] then return end
+			if not RequestGuard.Allow(Player, "indexRequest", RequestCooldowns.Index) then return end
+
 			local Index = PlayersModule.Retrieve(Player, "Index")
 
 			Packets.indexSync.sendTo({
 				Index = Index,
-				Mutation = Data and Data.Mutation,
+				Mutation = Data.Mutation,
 			}, Player)
 		end)
 
 		Packets.equipInventory.listen(function(Data, Player)
-			if not Player or not Data then return end
+			if not isLoadedPlayer(Player) or not Data then return end
 			local Id = Data.Id
+			if type(Id) ~= "string" or Id == "" then return end
+
 			local _, ToolData = findToolDataById(Player, Id)
 			if not ToolData or not ToolData.Tool then return end
+			if not RequestGuard.Allow(Player, "equipInventory", RequestCooldowns.EquipInventory) then return end
 
 			local Character = Player.Character
 			local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
@@ -418,14 +471,25 @@ function PlayersModule.Setup()
 		end)
 
 		Packets.sellInventory.listen(function(Data, Player)
-			if not Player or not Data then return end
+			if not isLoadedPlayer(Player) or not Data then return end
+			if Data.Mode ~= "Single" and Data.Mode ~= "All" then return end
+			if Data.Mode == "Single" and (type(Data.Id) ~= "string" or Data.Id == "") then return end
+			if Data.Mode == "All" and Data.Id ~= nil then return end
+			if Data.Mode == "Single" and not findToolDataById(Player, Data.Id) then return end
+			if not RequestGuard.Allow(Player, "sellInventory", RequestCooldowns.SellInventory) then return end
+
 			sellInventory(Player, Data.Mode, Data.Id)
 		end)
 
 		Packets.updateHotbarSlot.listen(function(Data, Player)
-			if not Player or not Data then return end
+			if not isLoadedPlayer(Player) or not Data then return end
 			local Slot = Data.Slot
 			local Id = Data.Id
+			if not isPositiveInteger(Slot) or Slot > HOTBAR_MAX_SLOTS then return end
+			if Id ~= nil and (type(Id) ~= "string" or Id == "") then return end
+			if Id ~= nil and not findToolDataById(Player, Id) then return end
+			if not RequestGuard.Allow(Player, "updateHotbarSlot", RequestCooldowns.UpdateHotbarSlot) then return end
+
 			local PlayerData = PlayersData[Player]
 			if not PlayerData then return end
 

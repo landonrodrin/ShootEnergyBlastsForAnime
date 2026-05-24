@@ -44,6 +44,7 @@ return function(ctx)
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
 	local HeldInventoryCarry = ctx.HeldInventoryCarry
+	local MoneyPerSecondLeaderstatUpdates = ctx.MoneyPerSecondLeaderstatUpdates
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
@@ -74,10 +75,29 @@ return function(ctx)
 	local findToolDataById = ctx.findToolDataById
 	local removeToolData = ctx.removeToolData
 	local reconcileIndex = ctx.reconcileIndex
+local MONEY_PER_SECOND_LEADERSTAT_INTERVAL = 60
+
 local function isHoldAnimation(AnimationId)
 	return AnimationId == GameConfigurations.AnimationsIds.Carry
 		or AnimationId == GameConfigurations.AnimationsIds.OwnedHold
 end
+
+local function updateMoneyPerSecondLeaderstat(Player, PlayerData)
+	local Now = os.clock()
+	local LastUpdate = MoneyPerSecondLeaderstatUpdates[Player]
+
+	if LastUpdate and Now - LastUpdate < MONEY_PER_SECOND_LEADERSTAT_INTERVAL then
+		return
+	end
+
+	MoneyPerSecondLeaderstatUpdates[Player] = Now
+
+	local Leaderstats = Player:WaitForChild("leaderstats")
+	local MoneyPerSecond = Leaderstats:WaitForChild("$/s")
+
+	MoneyPerSecond.Value = string.format("%s/s", Format.Number(PlayerData.MoneyPerSecond))
+end
+
 function PlayersModule.Retrieve(Player, Name)
 	if not PlayersData[Player] then return end
 
@@ -111,10 +131,7 @@ function PlayersModule.Replace(Player, Name, Value)
 
 		Packets.money.sendTo(Value, Player)
 	elseif Name == "MoneyPerSecond" then
-		local Leaderstats = Player:WaitForChild("leaderstats")
-		local MoneyPerSecond = Leaderstats:WaitForChild("$/s")
-
-		MoneyPerSecond.Value = string.format("%s/s", Format.Number(PlayerData.MoneyPerSecond))
+		updateMoneyPerSecondLeaderstat(Player, PlayerData)
 
 		if PlayerData.Base then
 			Bases.UpdateIncomeDisplay(PlayerData.Base, PlayerData.MoneyPerSecond)

@@ -7,6 +7,8 @@ local Players = game:GetService("Players")
 local SharedModules = ServerStorage.Modules:WaitForChild("Shared")
 local SetProperties = require(SharedModules:WaitForChild("SetProperties"))
 local Grounding = require(SharedModules:WaitForChild("Grounding"))
+local RequestGuard = require(SharedModules:WaitForChild("RequestGuard"))
+local RequestPolicy = require(SharedModules:WaitForChild("RequestPolicy"))
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
@@ -31,6 +33,8 @@ local ctx = {
 	HttpService = HttpService,
 	SetProperties = SetProperties,
 	Grounding = Grounding,
+	RequestGuard = RequestGuard,
+	RequestPolicy = RequestPolicy,
 	Trove = Trove,
 	Packets = Packets,
 	Format = Format,
@@ -83,10 +87,13 @@ end
 
 Packets.levelRequest.listen(function(Data, Player)
 	local Identifier = Data and Data.Identifier
+	if type(Identifier) ~= "string" then return end
+
 	local Callback = Identifier and ctx.LevelRequestHandlers[Identifier]
-	if Callback then
-		Callback(Player)
-	end
+	if not Callback then return end
+	if not RequestGuard.Allow(Player, "levelRequest", RequestPolicy.Cooldowns.Level) then return end
+
+	Callback(Player)
 end)
 
 ctx.registerLevelRequest = registerLevelRequest

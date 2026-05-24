@@ -8,6 +8,8 @@ local SharedModules = ServerStorage.Modules:WaitForChild("Shared")
 local SetProperties = require(SharedModules:WaitForChild("SetProperties"))
 local Grounding = require(SharedModules:WaitForChild("Grounding"))
 local FinishBarrier = require(SharedModules:WaitForChild("FinishBarrier"))
+local RequestGuard = require(SharedModules:WaitForChild("RequestGuard"))
+local RequestPolicy = require(SharedModules:WaitForChild("RequestPolicy"))
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local PathUtils = require(shared:WaitForChild("PathUtils"))
@@ -29,6 +31,8 @@ local ctx = {
 	SetProperties = SetProperties,
 	Grounding = Grounding,
 	FinishBarrier = FinishBarrier,
+	RequestGuard = RequestGuard,
+	RequestPolicy = RequestPolicy,
 	PathUtils = PathUtils,
 	Trove = Trove,
 	Format = Format,

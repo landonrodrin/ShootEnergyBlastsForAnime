@@ -492,6 +492,17 @@ local function fireResult(player, result)
 	}, player)
 end
 
+local function isFiniteNumber(value)
+	return type(value) == "number" and value == value and value > -math.huge and value < math.huge
+end
+
+local function isFiniteVector3(value)
+	return typeof(value) == "Vector3"
+		and isFiniteNumber(value.X)
+		and isFiniteNumber(value.Y)
+		and isFiniteNumber(value.Z)
+end
+
 local function canShoot(player, origin)
 	local now = os.clock()
 	local previous = lastShotAt[player]
@@ -580,7 +591,7 @@ end
 
 local function onShoot(player, Data)
 	local targetPoint = Data and Data.TargetPoint
-	if typeof(targetPoint) ~= "Vector3" then
+	if not isFiniteVector3(targetPoint) then
 		fireResult(player, { hit = false, reason = "bad_target" })
 		return
 	end

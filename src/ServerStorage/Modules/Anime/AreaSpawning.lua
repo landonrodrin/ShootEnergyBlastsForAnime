@@ -8,6 +8,8 @@ return function(ctx)
 	local Grounding = ctx.Grounding
 	local FinishBarrier = ctx.FinishBarrier
 	local PathUtils = ctx.PathUtils
+	local RequestGuard = ctx.RequestGuard
+	local RequestPolicy = ctx.RequestPolicy
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
 	local AreasConfigurations = ctx.AreasConfigurations
@@ -254,6 +256,10 @@ function AnimeModule.Setup()
 
 		Packets.dropRequest.listen(function(_, Player)
 			if not Player then return end
+			local Carrying = PlayersModule.Retrieve(Player, "Carrying")
+			if not Carrying or #Carrying == 0 then return end
+			if not RequestGuard.Allow(Player, "dropRequest", RequestPolicy.Cooldowns.Drop) then return end
+
 			AnimeModule.Drop(Player)
 		end)
 	end
