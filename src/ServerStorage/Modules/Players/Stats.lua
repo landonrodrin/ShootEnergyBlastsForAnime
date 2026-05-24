@@ -228,12 +228,6 @@ function PlayersModule.Animate(Player, AnimationId, Bool)
 		if isHoldAnimation(AnimationId) then
 			AnimationTrack.Looped = true
 			AnimationTrack.Priority = Enum.AnimationPriority.Action4
-
-			task.delay(1, function()
-				if AnimationTrack.Length == 0 then
-					warn(string.format("Hold animation %s loaded with length 0 for %s; verify the asset works with this rig.", tostring(AnimationId), Player.Name))
-				end
-			end)
 		end
 
 		Tracks[AnimationId] = AnimationTrack

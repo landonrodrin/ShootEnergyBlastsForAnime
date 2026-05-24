@@ -172,21 +172,31 @@ local function getModelPrimaryPart(Model)
 	return PrimaryPart
 end
 
+local function getJointedParts(Model)
+	local JointedParts = {}
+
+	for _, Descendant in ipairs(Model:GetDescendants()) do
+		if not Descendant:IsA("JointInstance") then continue end
+
+		if Descendant.Part0 then
+			JointedParts[Descendant.Part0] = true
+		end
+
+		if Descendant.Part1 then
+			JointedParts[Descendant.Part1] = true
+		end
+	end
+
+	return JointedParts
+end
+
 local function weldLooseVisualParts(Model, PrimaryPart)
+	local JointedParts = getJointedParts(Model)
+
 	for _, Descendant in ipairs(Model:GetDescendants()) do
 		if not Descendant:IsA("BasePart") or Descendant == PrimaryPart then continue end
 		if Descendant:FindFirstAncestorOfClass("Accessory") then continue end
-		if Descendant:FindFirstChildWhichIsA("JointInstance") then continue end
-
-		local HasExistingJoint = false
-		for _, Joint in ipairs(Descendant:GetJoints()) do
-			if Joint.Part0 == PrimaryPart or Joint.Part1 == PrimaryPart then
-				HasExistingJoint = true
-				break
-			end
-		end
-
-		if HasExistingJoint then continue end
+		if JointedParts[Descendant] then continue end
 
 		local Weld = Instance.new("WeldConstraint")
 		Weld.Part0 = PrimaryPart
@@ -362,6 +372,58 @@ local function createHeldAnimeGui(Model, Name, AnimeConfiguration, Mutation, Lev
 	AnimeGui.Enabled = true
 end
 
+local function getHeldPreviewAnimator(Model)
+	local AnimatorOwner = Model:FindFirstChildOfClass("Humanoid")
+
+	if not AnimatorOwner then
+		AnimatorOwner = Model:FindFirstChildOfClass("AnimationController")
+
+		if not AnimatorOwner then
+			AnimatorOwner = Instance.new("AnimationController")
+			AnimatorOwner.Name = "HeldPreviewAnimationController"
+			AnimatorOwner.Parent = Model
+		end
+	end
+
+	local Animator = AnimatorOwner:FindFirstChildOfClass("Animator")
+	if not Animator then
+		Animator = Instance.new("Animator")
+		Animator.Parent = AnimatorOwner
+	end
+
+	return Animator
+end
+
+local function playHeldIdleAnimation(Model, AnimeConfiguration, HeldTrove)
+	local AnimationsIds = AnimeConfiguration and AnimeConfiguration.AnimationsIds
+	local IdleAnimationId = AnimationsIds and AnimationsIds.Idle
+	if not IdleAnimationId or IdleAnimationId == "" then return end
+
+	local Animator = getHeldPreviewAnimator(Model)
+	local Animation = Instance.new("Animation")
+	Animation.AnimationId = IdleAnimationId
+
+	local Success, AnimationTrack = pcall(function()
+		return Animator:LoadAnimation(Animation)
+	end)
+
+	Animation:Destroy()
+
+	if not Success then
+		warn(string.format("Failed to load held preview idle animation %s for %s: %s", tostring(IdleAnimationId), Model.Name, tostring(AnimationTrack)))
+		return
+	end
+
+	AnimationTrack.Looped = true
+	AnimationTrack.Priority = Enum.AnimationPriority.Idle
+	AnimationTrack:Play()
+
+	HeldTrove:Add(function()
+		AnimationTrack:Stop(0.1)
+		AnimationTrack:Destroy()
+	end)
+end
+
 local function removeHeldAnimeWeld(Player)
 	local Character = Player.Character
 	local Root = Character and (Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart"))
@@ -443,12 +505,14 @@ local function createHeldModel(Player, Name, Mutation, Level)
 	Model.Parent = getHeldPreviewsFolder()
 	HeldTrove:Add(Model)
 	forceVisualOnly(Model)
+	playHeldIdleAnimation(Model, AnimeConfiguration, HeldTrove)
 
-	task.defer(function()
+	local VisualCleanupThread = task.defer(function()
 		if Model.Parent then
 			forceVisualOnly(Model)
 		end
 	end)
+	HeldTrove:Add(VisualCleanupThread)
 
 	HeldModels[Player] = Model
 	HeldTroves[Player] = HeldTrove
