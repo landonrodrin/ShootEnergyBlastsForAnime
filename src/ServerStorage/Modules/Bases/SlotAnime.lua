@@ -158,6 +158,15 @@ function Bases.Create(PlayerData)
 	Data.Base = Base
 	Data.SlotsData = {}
 
+	if Base then
+		Base:SetAttribute("OwnerUserId", Player.UserId)
+		Base:SetAttribute("Level", PlayerData.Level or 1)
+
+		for _, Slot in ipairs(getOrderedSlots(Base)) do
+			Slot:SetAttribute("Occupied", false)
+		end
+	end
+
 	addOwnedDelay(Data.Trove, 1, function()
 		Bases.Level(PlayerData, Base)
 	end)
@@ -266,6 +275,7 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		Money = Money,
 		Trove = SlotTrove
 	}
+	Slot:SetAttribute("Occupied", true)
 
 	Anime.Parent = workspace
 
@@ -481,6 +491,7 @@ end
 function Bases.Remove(Base, Slot, Save)
 	if not BasesData[Base] then return end
 	if not BasesData[Base].SlotsData[Slot.Name] then return end
+	Slot:SetAttribute("Occupied", false)
 
 	local SlotData = BasesData[Base].SlotsData[Slot.Name]
 
@@ -579,7 +590,11 @@ function Bases.Destroy(Base)
 
 	for _, Slot in ipairs(getOrderedSlots(Base)) do
 		Bases.Remove(Base, Slot, true)
+		Slot:SetAttribute("Occupied", false)
 	end
+
+	Base:SetAttribute("OwnerUserId", nil)
+	Base:SetAttribute("Level", nil)
 
 	BasesData[Base] = nil
 end

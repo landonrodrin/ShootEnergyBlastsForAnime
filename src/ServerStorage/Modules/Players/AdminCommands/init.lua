@@ -1,9 +1,10 @@
 return function(ctx)
 	local ReplicatedStorage = ctx.ReplicatedStorage
+	local ServerStorage = ctx.ServerStorage
 	local Bases = ctx.Bases
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
-	local CommandsConfigurations = ctx.CommandsConfigurations
+	local CommandsConfigurations = require(ServerStorage.Configurations.Modules:WaitForChild("CommandsConfigurations"))
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule

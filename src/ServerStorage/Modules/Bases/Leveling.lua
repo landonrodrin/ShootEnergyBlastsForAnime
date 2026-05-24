@@ -215,6 +215,10 @@ end
 function Bases.Level(PlayerData, Base)
 	local Player = PlayerData.Player
 	local Level = PlayerData.Level
+	if Base then
+		Base:SetAttribute("Level", Level)
+	end
+
 	local BaseLevelGui = getBaseLevelGui(Base)
 	if not BaseLevelGui then return end
 

@@ -18,7 +18,6 @@ return function(ctx)
 	local AreasConfigurations = ctx.AreasConfigurations
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
-	local CommandsConfigurations = ctx.CommandsConfigurations
 	local MoneyDataStore = ctx.MoneyDataStore
 	local SpeedDataStore = ctx.SpeedDataStore
 	local PlayerDataStore = ctx.PlayerDataStore
@@ -131,89 +130,11 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 	ToolTrove:Connect(Tool.Equipped, function()
 		createHeldModel(Player, Name, Mutation, Data.Level)
 		syncInventory(Player)
-
-		local Base = PlayersData[Player] and PlayersData[Player].Base
-		if not Base then return end
-
-		local SlotsData = Bases.Retrieve(Base, "SlotsData")
-		if not SlotsData then return end
-
-		for _, Slot in ipairs(Bases.GetSlots(Base)) do
-			task.spawn(function()
-				local Attachment = Bases.GetSlotAttachment(Slot)
-				if not Attachment then return end
-
-				SetProperties.Client(Player, Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
-
-				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
-
-				if SlotsData[Slot.Name] and SlotsData[Slot.Name].Anime then
-					SetProperties.Client(Player, Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = true})
-				else
-					SetProperties.Client(Player, Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = true})
-				end
-			end)
-		end
-
-		for _, OtherPlayer in ipairs(Players:GetPlayers()) do
-			task.spawn(function()
-				if Player == OtherPlayer then return end
-
-				local Character = OtherPlayer.Character or OtherPlayer.CharacterAdded:Wait()
-
-				local ProximityPrompt = Character.PrimaryPart:FindFirstChild("ProximityPrompt")
-				if not ProximityPrompt then return end
-
-				SetProperties.Client(Player, ProximityPrompt, {Enabled = true})
-			end)
-		end
 	end)
 
 	ToolTrove:Connect(Tool.Unequipped, function()
 		removeHeldModel(Player)
 		syncInventory(Player)
-
-		local Base = PlayersData[Player].Base
-		if not Base then return end
-
-		local SlotsData = Bases.Retrieve(Base, "SlotsData")
-		if not SlotsData then return end
-
-		for _, Slot in ipairs(Bases.GetSlots(Base)) do
-			task.spawn(function()
-				local Attachment = Bases.GetSlotAttachment(Slot)
-				if not Attachment then return end
-
-				SetProperties.Client(Player, Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("PlaceProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("SwapProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("StealProximityPrompt"), {Enabled = false})
-				SetProperties.Client(Player, Attachment:WaitForChild("SellProximityPrompt"), {Enabled = false})
-
-				if not (SlotsData[Slot.Name] and SlotsData[Slot.Name].Anime) then return end
-				if getBaseSlotCount(PlayersData[Player].Level) < tonumber(Slot.Name) then return end
-
-				SetProperties.Client(Player, Attachment:WaitForChild("GrabProximityPrompt"), {Enabled = true})
-				SetProperties.Client(Player, Attachment:WaitForChild("SellProximityPrompt"), {Enabled = true})
-			end)
-		end
-
-		for _, OtherPlayer in ipairs(Players:GetPlayers()) do
-			task.spawn(function()
-				if Player == OtherPlayer then return end
-
-				local Character = OtherPlayer.Character or OtherPlayer.CharacterAdded:Wait()
-
-				local ProximityPrompt = Character.PrimaryPart:FindFirstChild("ProximityPrompt")
-				if not ProximityPrompt then return end
-
-				SetProperties.Client(Player, ProximityPrompt, {Enabled = false})
-			end)
-		end
 	end)
 
 	Tool.Name = Name

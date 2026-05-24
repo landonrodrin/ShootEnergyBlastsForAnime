@@ -18,7 +18,6 @@ return function(ctx)
 	local AreasConfigurations = ctx.AreasConfigurations
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
-	local CommandsConfigurations = ctx.CommandsConfigurations
 	local MoneyDataStore = ctx.MoneyDataStore
 	local SpeedDataStore = ctx.SpeedDataStore
 	local PlayerDataStore = ctx.PlayerDataStore

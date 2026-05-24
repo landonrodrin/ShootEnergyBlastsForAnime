@@ -22,7 +22,6 @@ local UpgradesConfigurations = require(ReplicatedStorage.Configurations.Modules:
 local AreasConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AreasConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("RebirthsConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
-local CommandsConfigurations = require(ServerStorage.Configurations.Modules:WaitForChild("CommandsConfigurations"))
 
 local ctx = {
 	MarketplaceService = MarketplaceService,
@@ -45,7 +44,6 @@ local ctx = {
 	AreasConfigurations = AreasConfigurations,
 	RebirthsConfigurations = RebirthsConfigurations,
 	MutationsConfigurations = MutationsConfigurations,
-	CommandsConfigurations = CommandsConfigurations,
 	MoneyDataStore = DataStoreService:GetOrderedDataStore("Money"),
 	SpeedDataStore = DataStoreService:GetOrderedDataStore("Speed"),
 	PlayerDataStore = DataStoreService:GetDataStore("Player"),
