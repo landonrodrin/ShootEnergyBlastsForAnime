@@ -41,6 +41,7 @@ return function(ctx)
 	local SellInventoryEvent = ctx.SellInventoryEvent
 	local EquipInventoryEvent = ctx.EquipInventoryEvent
 	local UpdateHotbarSlotEvent = ctx.UpdateHotbarSlotEvent
+	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
@@ -143,35 +144,41 @@ return function(ctx)
 
 	local function scheduleStartupSyncs(Player)
 		delayForPlayer(Player, 1, function(PlayerData)
-			MoneyEvent:FireClient(Player, PlayerData.Money)
+			Packets.money.sendTo(PlayerData.Money, Player)
 		end)
 
 		delayForPlayer(Player, 5, function(PlayerData)
-			MoneyEvent:FireClient(Player, PlayerData.Money)
+			Packets.money.sendTo(PlayerData.Money, Player)
 		end)
 
 		delayForPlayer(Player, 1, function(PlayerData)
-			SpeedEvent:FireClient(Player, PlayerData.Speed)
+			Packets.speed.sendTo(PlayerData.Speed, Player)
 		end)
 
 		delayForPlayer(Player, 5, function(PlayerData)
-			SpeedEvent:FireClient(Player, PlayerData.Speed)
+			Packets.speed.sendTo(PlayerData.Speed, Player)
 		end)
 
 		delayForPlayer(Player, 1, function(PlayerData)
-			RebirthEvent:FireClient(Player, PlayerData.Rebirths, PlayerData.Speed)
+			Packets.rebirth.sendTo({
+				Rebirths = PlayerData.Rebirths,
+				Speed = PlayerData.Speed,
+			}, Player)
 		end)
 
 		delayForPlayer(Player, 5, function(PlayerData)
-			RebirthEvent:FireClient(Player, PlayerData.Rebirths, PlayerData.Speed)
+			Packets.rebirth.sendTo({
+				Rebirths = PlayerData.Rebirths,
+				Speed = PlayerData.Speed,
+			}, Player)
 		end)
 
 		delayForPlayer(Player, 1, function(PlayerData)
-			CarryEvent:FireClient(Player, PlayerData.Carry)
+			Packets.carry.sendTo(PlayerData.Carry, Player)
 		end)
 
 		delayForPlayer(Player, 5, function(PlayerData)
-			CarryEvent:FireClient(Player, PlayerData.Carry)
+			Packets.carry.sendTo(PlayerData.Carry, Player)
 		end)
 
 		delayForPlayer(Player, 1, function()

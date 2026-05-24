@@ -42,6 +42,7 @@ return function(ctx)
 	local SellInventoryEvent = ctx.SellInventoryEvent
 	local EquipInventoryEvent = ctx.EquipInventoryEvent
 	local UpdateHotbarSlotEvent = ctx.UpdateHotbarSlotEvent
+	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
@@ -190,7 +191,10 @@ local function resetPlayerProgress(Player)
 	end
 
 	print(string.format("Owner reset executed for %s (%d)", Player.Name, Player.UserId))
-	AnnouncementEvent:FireClient(Player, "Testing progress reset.", Color3.fromRGB(0, 255, 0))
+	Packets.announcement.sendTo({
+		Text = "Testing progress reset.",
+		Colour = Packets.EncodeColour(Color3.fromRGB(0, 255, 0)),
+	}, Player)
 end
 
 local function grantRichMoney(Player)
@@ -201,7 +205,10 @@ local function grantRichMoney(Player)
 	PlayersModule.Replace(Player, "Money", ADMIN_RICH_MONEY)
 
 	print(string.format("Owner rich command executed for %s (%d)", Player.Name, Player.UserId))
-	AnnouncementEvent:FireClient(Player, string.format("Money set to $%s.", Format.Number(ADMIN_RICH_MONEY)), Color3.fromRGB(0, 255, 0))
+	Packets.announcement.sendTo({
+		Text = string.format("Money set to $%s.", Format.Number(ADMIN_RICH_MONEY)),
+		Colour = Packets.EncodeColour(Color3.fromRGB(0, 255, 0)),
+	}, Player)
 end
 
 local function grantFastSpeed(Player)
@@ -218,7 +225,10 @@ local function grantFastSpeed(Player)
 	end
 
 	print(string.format("Owner fast command executed for %s (%d)", Player.Name, Player.UserId))
-	AnnouncementEvent:FireClient(Player, string.format("Speed set to %s.", ADMIN_FAST_SPEED), Color3.fromRGB(0, 255, 0))
+	Packets.announcement.sendTo({
+		Text = string.format("Speed set to %s.", ADMIN_FAST_SPEED),
+		Colour = Packets.EncodeColour(Color3.fromRGB(0, 255, 0)),
+	}, Player)
 end
 
 local function handlePlayerCommand(Player, Message)

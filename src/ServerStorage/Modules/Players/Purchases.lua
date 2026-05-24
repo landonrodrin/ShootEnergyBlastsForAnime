@@ -13,6 +13,7 @@ return function(ctx)
 	local CreateToolEvent = ctx.CreateToolEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
 	local RebirthEvent = ctx.RebirthEvent
+	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 
@@ -59,11 +60,15 @@ return function(ctx)
 
 					local Text = string.format("%s stole your <font color=\"%s\">%s</font> Anime!", Player.Name, Colour, Name)
 
-					AnnouncementEvent:FireClient(StolenPlayer, Text)
+					Packets.announcement.sendTo({
+						Text = Text,
+					}, StolenPlayer)
 
 					local Text = string.format("You stole %s's <font color=\"%s\">%s</font> Anime!", StolenPlayer.Name, Colour, Name)
 
-					AnnouncementEvent:FireClient(Player, Text)
+					Packets.announcement.sendTo({
+						Text = Text,
+					}, Player)
 				else
 					ReplacePlayerDataEvent:Fire(Player, "Steals", RetrievePlayerDataFunction:Invoke(Player, "Steals") + 1)
 				end
@@ -75,7 +80,10 @@ return function(ctx)
 
 				ReplacePlayerDataEvent:Fire(Player, "Rebirths", Rebirths + 1)
 
-				RebirthEvent:FireClient(Player, Rebirths + 1, Speed)
+				Packets.rebirth.sendTo({
+					Rebirths = Rebirths + 1,
+					Speed = Speed,
+				}, Player)
 			end
 
 			for Upgrade, UpgradeConfiguration in pairs(UpgradesConfigurations) do

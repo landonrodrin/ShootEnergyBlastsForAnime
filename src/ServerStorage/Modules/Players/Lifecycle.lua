@@ -42,6 +42,7 @@ return function(ctx)
 	local SellInventoryEvent = ctx.SellInventoryEvent
 	local EquipInventoryEvent = ctx.EquipInventoryEvent
 	local UpdateHotbarSlotEvent = ctx.UpdateHotbarSlotEvent
+	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
@@ -82,6 +83,7 @@ return function(ctx)
 	local handlePlayerCommand = ctx.handlePlayerCommand
 	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
 	local SetupTrove = Trove.new()
+	local NetworkListenersStarted = false
 local function registerCollisionGroup(Name)
 	pcall(function()
 		PhysicsService:RegisterCollisionGroup(Name)
@@ -171,9 +173,14 @@ end
 
 local SUCCESS_COLOUR = Color3.fromRGB(95, 255, 140)
 local WARNING_COLOUR = Color3.fromRGB(255, 210, 90)
+local INSUFFICIENT_FUNDS_TEXT = "Insufficient Funds"
+local INSUFFICIENT_FUNDS_COLOUR = Color3.fromRGB(255, 0, 0)
 
 local function announceSell(Player, Text, Colour)
-	AnnouncementEvent:FireClient(Player, Text, Colour or WARNING_COLOUR)
+	Packets.announcement.sendTo({
+		Text = Text,
+		Colour = Packets.EncodeColour(Colour or WARNING_COLOUR),
+	}, Player)
 end
 
 local function sellInventory(Player, Mode, Id)
@@ -314,92 +321,139 @@ function PlayersModule.Setup()
 
 	SetupTrove:Connect(ReplacePlayerDataEvent.Event, PlayersModule.Replace)
 	SetupTrove:Connect(CreateToolEvent.Event, PlayersModule.Tool)
-	SetupTrove:Connect(AdminCommandEvent.OnServerEvent, function(Player, Message)
-		handlePlayerCommand(Player, Message or "")
-	end)
 
-	SetupTrove:Connect(IncrementSpeedEvent.OnServerEvent, function(Player, Speed)
-		local Money = math.round(UpgradesConfigurations["Speed1"].Money * UpgradesConfigurations["Speed1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Speed") + Speed - 1))
+	if not NetworkListenersStarted then
+		NetworkListenersStarted = true
 
-		if PlayersModule.Retrieve(Player, "Money") < Money then return end
+		Packets.adminCommand.listen(function(Data, Player)
+			if not Player then return end
+			handlePlayerCommand(Player, (Data and Data.Message) or "")
+		end)
 
-		PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") - Money)
-		PlayersModule.Replace(Player, "Speed", PlayersModule.Retrieve(Player, "Speed") + Speed)
-	end)
+		Packets.incrementSpeed.listen(function(Speed, Player)
+			if not Player then return end
+			local Cost = math.round(UpgradesConfigurations["Speed1"].Money * UpgradesConfigurations["Speed1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Speed") + Speed - 1))
 
-	SetupTrove:Connect(IncrementCarryEvent.OnServerEvent, function(Player, Carry)
-		local Money = math.round(UpgradesConfigurations["Carry1"].Money * UpgradesConfigurations["Carry1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Carry") + Carry - 1))
+			if PlayersModule.Retrieve(Player, "Money") < Cost then
+				announceSell(Player, INSUFFICIENT_FUNDS_TEXT, INSUFFICIENT_FUNDS_COLOUR)
+				return
+			end
 
-		if PlayersModule.Retrieve(Player, "Money") < Money then return end
+			PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") - Cost)
+			PlayersModule.Replace(Player, "Speed", PlayersModule.Retrieve(Player, "Speed") + Speed)
+		end)
 
-		PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") - Money)
-		PlayersModule.Replace(Player, "Carry", PlayersModule.Retrieve(Player, "Carry") + Carry)
-	end)
+		Packets.incrementCarry.listen(function(Carry, Player)
+			if not Player then return end
+			local Cost = math.round(UpgradesConfigurations["Carry1"].Money * UpgradesConfigurations["Carry1"].IncrementMultiplier ^ (PlayersModule.Retrieve(Player, "Carry") + Carry - 1))
+
+			if PlayersModule.Retrieve(Player, "Money") < Cost then
+				announceSell(Player, INSUFFICIENT_FUNDS_TEXT, INSUFFICIENT_FUNDS_COLOUR)
+				return
+			end
+
+			PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") - Cost)
+			PlayersModule.Replace(Player, "Carry", PlayersModule.Retrieve(Player, "Carry") + Carry)
+		end)
+
+		Packets.announcement.listen(function(Data, Player)
+			if not Player then return end
+			Packets.announcement.sendTo({
+				Text = (Data and Data.Text) or "",
+				Colour = Data and Data.Colour,
+			}, Player)
+		end)
+
+		Packets.toggleSpeed.listen(function(Toggle, Player)
+			if not Player then return end
+			local Speed = PlayersModule.Retrieve(Player, "Speed") or 16
+			local UseNormalSpeed = Toggle == true
+
+			Player:SetAttribute("UseNormalSpeed", UseNormalSpeed)
+
+			local Character = Player.Character or Player.CharacterAdded:Wait()
+
+			local Humanoid = Character:WaitForChild("Humanoid")
+
+			Humanoid.WalkSpeed = UseNormalSpeed and 16 or Speed
+
+			Packets.toggleSpeed.sendTo(UseNormalSpeed, Player)
+		end)
+
+		Packets.rebirthRequest.listen(function(_, Player)
+			if not Player then return end
+			local Rebirths = PlayersModule.Retrieve(Player, "Rebirths") or 0
+			local Speed = PlayersModule.Retrieve(Player, "Speed") or 0
+			local NextRebirthConfiguration = RebirthsConfigurations[Rebirths + 1]
+
+			if not NextRebirthConfiguration then
+				announceSell(Player, "Max rebirth reached.")
+				return
+			end
+
+			if Speed < NextRebirthConfiguration.Speed then
+				announceSell(Player, string.format("Reach %s speed to rebirth.", Format.Number(NextRebirthConfiguration.Speed)))
+				return
+			end
+
+			ReplacePlayerDataEvent:Fire(Player, "Rebirths", Rebirths + 1)
+			ReplacePlayerDataEvent:Fire(Player, "Speed", GameConfigurations.Defaults.Speed)
+
+			Packets.rebirth.sendTo({
+				Rebirths = Rebirths + 1,
+				Speed = GameConfigurations.Defaults.Speed,
+			}, Player)
+		end)
+
+		Packets.indexRequest.listen(function(Data, Player)
+			if not Player then return end
+			local Index = PlayersModule.Retrieve(Player, "Index")
+
+			Packets.indexSync.sendTo({
+				Index = Index,
+				Mutation = Data and Data.Mutation,
+			}, Player)
+		end)
+
+		Packets.equipInventory.listen(function(Data, Player)
+			if not Player or not Data then return end
+			local Id = Data.Id
+			local _, ToolData = findToolDataById(Player, Id)
+			if not ToolData or not ToolData.Tool then return end
+
+			local Character = Player.Character
+			local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+			if not Humanoid then return end
+
+			if ToolData.Tool.Parent == Character then
+				Humanoid:UnequipTools()
+				removeHeldModel(Player)
+			else
+				equipInventoryTool(Player, ToolData)
+			end
+
+			task.defer(syncInventory, Player)
+		end)
+
+		Packets.sellInventory.listen(function(Data, Player)
+			if not Player or not Data then return end
+			sellInventory(Player, Data.Mode, Data.Id)
+		end)
+
+		Packets.updateHotbarSlot.listen(function(Data, Player)
+			if not Player or not Data then return end
+			local Slot = Data.Slot
+			local Id = Data.Id
+			local PlayerData = PlayersData[Player]
+			if not PlayerData then return end
+
+			if setHotbarSlot(PlayerData, Slot, Id) then
+				syncInventory(Player)
+			end
+		end)
+	end
 
 	ctx.setupPurchaseProcessing()
-
-	SetupTrove:Connect(AnnouncementEvent.OnServerEvent, function(Player, Text, Colour)
-		AnnouncementEvent:FireClient(Player, Text, Colour)
-	end)
-
-	SetupTrove:Connect(ToggleSpeedEvent.OnServerEvent, function(Player, Toggle)
-		local Speed = PlayersModule.Retrieve(Player, "Speed") or 16
-
-		local Character = Player.Character or Player.CharacterAdded:Wait()
-
-		local Humanoid = Character:WaitForChild("Humanoid")
-
-		Humanoid.WalkSpeed = Toggle and 16 or Speed
-	end)
-
-	SetupTrove:Connect(RebirthEvent.OnServerEvent, function(Player)
-		local Rebirths = PlayersModule.Retrieve(Player, "Rebirths")
-		local Speed = PlayersModule.Retrieve(Player, "Speed")
-
-		if not RebirthsConfigurations[Rebirths + 1] or Speed < RebirthsConfigurations[Rebirths + 1].Speed then return end
-
-		ReplacePlayerDataEvent:Fire(Player, "Rebirths", Rebirths + 1)
-		ReplacePlayerDataEvent:Fire(Player, "Speed", GameConfigurations.Defaults.Speed)
-
-		RebirthEvent:FireClient(Player, Rebirths + 1, GameConfigurations.Defaults.Speed)
-	end)
-
-	SetupTrove:Connect(IndexEvent.OnServerEvent, function(Player, Mutation)
-		local Index = PlayersModule.Retrieve(Player, "Index")
-
-		IndexEvent:FireClient(Player, Index, Mutation)
-	end)
-
-	SetupTrove:Connect(EquipInventoryEvent.OnServerEvent, function(Player, Id)
-		local _, ToolData = findToolDataById(Player, Id)
-		if not ToolData or not ToolData.Tool then return end
-
-		local Character = Player.Character
-		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-		if not Humanoid then return end
-
-		if ToolData.Tool.Parent == Character then
-			Humanoid:UnequipTools()
-			removeHeldModel(Player)
-		else
-			equipInventoryTool(Player, ToolData)
-		end
-
-		task.defer(syncInventory, Player)
-	end)
-
-	SetupTrove:Connect(SellInventoryEvent.OnServerEvent, function(Player, Mode, Id)
-		sellInventory(Player, Mode, Id)
-	end)
-
-	SetupTrove:Connect(UpdateHotbarSlotEvent.OnServerEvent, function(Player, Slot, Id)
-		local PlayerData = PlayersData[Player]
-		if not PlayerData then return end
-
-		if setHotbarSlot(PlayerData, Slot, Id) then
-			syncInventory(Player)
-		end
-	end)
 end
 function PlayersModule.Create(Player)
 	local PlayerData = setmetatable({}, {__index = PlayersModule})

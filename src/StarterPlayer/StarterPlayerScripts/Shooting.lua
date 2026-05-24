@@ -6,6 +6,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Trove = require(Shared:WaitForChild("Trove"))
 local WallConfig = require(Shared:WaitForChild("WallConfig"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
 local Shooting = {}
 
@@ -19,7 +20,6 @@ local BEAM_TEMPLATE_PATH = { "Effects", "KamehamehaBeamTemplate" }
 local started = false
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
-local shootRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ShootWall")
 
 local mouseHeld = false
 local charging = false
@@ -36,6 +36,10 @@ local shootingTrack = nil
 local chargeToken = 0
 local fireToken = 0
 local scriptTrove = Trove.new()
+
+scriptTrove:Connect(script.Destroying, function()
+	scriptTrove:Destroy()
+end)
 
 local function createHud()
 	local playerGui = player:WaitForChild("PlayerGui")
@@ -412,7 +416,9 @@ local function sendShot()
 	end
 
 	setStatus("Firing...", Color3.fromRGB(150, 220, 255))
-	shootRemote:FireServer(targetPoint)
+	Packets.shootRequest.send({
+		TargetPoint = targetPoint,
+	})
 end
 
 local function startFiring()
@@ -483,17 +489,17 @@ local function onShootResult(result)
 		return
 	end
 
-	if result.hit then
-		local suffix = result.destroyed and " destroyed" or ""
+	if result.Hit then
+		local suffix = result.Destroyed and " destroyed" or ""
 		setStatus(
-			string.format("Hit %s: %d/%d%s", result.wallName or "wall", result.hp or 0, result.maxHP or 0, suffix),
-			result.destroyed and Color3.fromRGB(255, 180, 80) or Color3.fromRGB(120, 255, 120)
+			string.format("Hit %s: %d/%d%s", result.WallName or "wall", result.Hp or 0, result.MaxHP or 0, suffix),
+			result.Destroyed and Color3.fromRGB(255, 180, 80) or Color3.fromRGB(120, 255, 120)
 		)
-	elseif result.reason == "walls_reset" then
+	elseif result.Reason == "walls_reset" then
 		setStatus("Walls rebuilt", Color3.fromRGB(120, 255, 120))
-	elseif result.reason == "miss" or result.reason == "not_wall" then
+	elseif result.Reason == "miss" or result.Reason == "not_wall" then
 		setStatus("Miss", Color3.fromRGB(255, 210, 90))
-	elseif result.reason == "not_ready" then
+	elseif result.Reason == "not_ready" then
 		setStatus("Shot blocked: character not ready", Color3.fromRGB(255, 120, 120))
 	else
 		setStatus("Shot sent", Color3.fromRGB(150, 220, 255))
@@ -528,7 +534,7 @@ function Shooting.Start()
 		cleanupAllShooting()
 	end)
 
-	scriptTrove:Connect(shootRemote.OnClientEvent, onShootResult)
+	Packets.Listen(Packets.shootResult, onShootResult, scriptTrove)
 	scriptTrove:Add(cleanupAllShooting)
 	print("Wall shooting client ready")
 end

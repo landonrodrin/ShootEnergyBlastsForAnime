@@ -1,8 +1,19 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local SetPropertiesEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("SetProperties")
+local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
-SetPropertiesEvent.OnClientEvent:Connect(function(Identifier, Object, Properties)
+local ScriptTrove = Trove.new()
+
+ScriptTrove:Connect(script.Destroying, function()
+	ScriptTrove:Destroy()
+end)
+
+Packets.Listen(Packets.setPropertiesApply, function(Data)
+	local Identifier = Data and Data.Identifier
+	local Object = Data and Data.Object
+	local Properties = Data and Data.Properties
+
 	if not Identifier then return end
 
 	if Object and Object:IsDescendantOf(game) and type(Properties) == "table" then
@@ -13,5 +24,7 @@ SetPropertiesEvent.OnClientEvent:Connect(function(Identifier, Object, Properties
 		end
 	end
 
-	SetPropertiesEvent:FireServer(Identifier)
-end)
+	Packets.setPropertiesConfirm.send({
+		Identifier = Identifier,
+	})
+end, ScriptTrove)

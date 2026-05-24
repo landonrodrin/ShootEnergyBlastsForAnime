@@ -20,6 +20,7 @@ return function(ctx)
 	local CreateToolEvent = ctx.CreateToolEvent
 	local LevelEvent = ctx.LevelEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
+	local Packets = ctx.Packets
 	local BASE_GUI_MAX_DISTANCE = ctx.BASE_GUI_MAX_DISTANCE
 	local BASE_LEVEL_BIND_DELAY = ctx.BASE_LEVEL_BIND_DELAY
 	local BASE_SLOT_PROMPT_HOLD_DURATION = ctx.BASE_SLOT_PROMPT_HOLD_DURATION
@@ -357,7 +358,10 @@ function Bases.Setup()
 					Bases.Remove(Base, Slot)
 
 					ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") + Sell)
-					AnnouncementEvent:FireClient(Player, string.format("Sold anime for $%s.", Format.Number(Sell)), BASE_SELL_SUCCESS_COLOUR)
+					Packets.announcement.sendTo({
+						Text = string.format("Sold anime for $%s.", Format.Number(Sell)),
+						Colour = Packets.EncodeColour(BASE_SELL_SUCCESS_COLOUR),
+					}, Player)
 				end)
 			end
 		end

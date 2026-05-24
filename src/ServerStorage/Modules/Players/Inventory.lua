@@ -41,6 +41,7 @@ return function(ctx)
 	local SellInventoryEvent = ctx.SellInventoryEvent
 	local EquipInventoryEvent = ctx.EquipInventoryEvent
 	local UpdateHotbarSlotEvent = ctx.UpdateHotbarSlotEvent
+	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
@@ -267,7 +268,7 @@ end
 local function syncInventory(Player)
 	if not PlayersData[Player] then return end
 
-	InventorySyncEvent:FireClient(Player, getInventorySnapshot(Player))
+	Packets.inventorySync.sendTo(Packets.EncodeInventorySnapshot(getInventorySnapshot(Player)), Player)
 end
 
 local function findToolDataById(Player, Id)

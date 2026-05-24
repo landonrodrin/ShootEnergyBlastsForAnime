@@ -41,6 +41,7 @@ return function(ctx)
 	local SellInventoryEvent = ctx.SellInventoryEvent
 	local EquipInventoryEvent = ctx.EquipInventoryEvent
 	local UpdateHotbarSlotEvent = ctx.UpdateHotbarSlotEvent
+	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
@@ -118,12 +119,17 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 	if IndexData and not IndexData[Mutation][Name] then
 		IndexData[Mutation][Name] = true
 
-		IndexEvent:FireClient(Player, IndexData)
+		Packets.indexSync.sendTo({
+			Index = IndexData,
+		}, Player)
 		if not ToolData then
 			task.defer(function()
 				if not Player.Parent then return end
 
-				AnimeUnlockedEvent:FireClient(Player, Name, Mutation)
+				Packets.animeUnlocked.sendTo({
+					Name = Name,
+					Mutation = Mutation,
+				}, Player)
 			end)
 		end
 	end

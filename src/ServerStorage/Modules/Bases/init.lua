@@ -8,6 +8,7 @@ local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"
 local Grounding = require(ServerStorage.Modules:WaitForChild("Grounding"))
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local BaseConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("BaseConfigurations"))
@@ -23,9 +24,6 @@ local AnimateAnimeEvent = ServerStorage.Network.BindableEvents:WaitForChild("Ani
 local ReplacePlayerDataEvent = ServerStorage.Network.BindableEvents:WaitForChild("ReplacePlayerData")
 local CreateToolEvent = ServerStorage.Network.BindableEvents:WaitForChild("CreateTool")
 
-local LevelEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Level")
-local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Announcement")
-
 local ctx = {
 	MarketplaceService = MarketplaceService,
 	Players = Players,
@@ -33,6 +31,7 @@ local ctx = {
 	SetProperties = SetProperties,
 	Grounding = Grounding,
 	Trove = Trove,
+	Packets = Packets,
 	Format = Format,
 	GameConfigurations = GameConfigurations,
 	BaseConfigurations = BaseConfigurations,
@@ -46,8 +45,6 @@ local ctx = {
 	AnimateAnimeEvent = AnimateAnimeEvent,
 	ReplacePlayerDataEvent = ReplacePlayerDataEvent,
 	CreateToolEvent = CreateToolEvent,
-	LevelEvent = LevelEvent,
-	AnnouncementEvent = AnnouncementEvent,
 	Resources = script:WaitForChild("Resources"),
 	BASE_GUI_MAX_DISTANCE = 200,
 	BASE_LEVEL_BIND_DELAY = 0.15,
@@ -65,8 +62,33 @@ local ctx = {
 	INSUFFICIENT_FUNDS_TEXT = "Insufficient Funds",
 	INSUFFICIENT_FUNDS_COLOUR = Color3.fromRGB(255, 0, 0),
 	BasesData = {},
-	Bases = {}
+	Bases = {},
+	LevelRequestHandlers = {}
 }
+
+local function registerLevelRequest(Identifier, OwnerTrove, Callback)
+	if not Identifier or not Callback then return end
+
+	ctx.LevelRequestHandlers[Identifier] = Callback
+
+	if OwnerTrove then
+		OwnerTrove:Add(function()
+			if ctx.LevelRequestHandlers[Identifier] == Callback then
+				ctx.LevelRequestHandlers[Identifier] = nil
+			end
+		end)
+	end
+end
+
+Packets.levelRequest.listen(function(Data, Player)
+	local Identifier = Data and Data.Identifier
+	local Callback = Identifier and ctx.LevelRequestHandlers[Identifier]
+	if Callback then
+		Callback(Player)
+	end
+end)
+
+ctx.registerLevelRequest = registerLevelRequest
 
 require(script:WaitForChild("Slots"))(ctx)
 require(script:WaitForChild("Economy"))(ctx)

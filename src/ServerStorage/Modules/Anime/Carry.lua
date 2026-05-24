@@ -17,6 +17,7 @@ return function(ctx)
 	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local DropEvent = ctx.DropEvent
+	local Packets = ctx.Packets
 	local AnimeModule = ctx.Anime
 	local AnimeRegistry = ctx.AnimeData
 	local FACING_TARGET_PATH = ctx.FACING_TARGET_PATH
@@ -197,7 +198,9 @@ function AnimeModule.Drop(Player, ResetTimers)
 
 	if not Carrying then return end
 
-	DropEvent:FireClient(Player, false)
+	Packets.dropState.sendTo({
+		CanDrop = false,
+	}, Player)
 
 	for _, Anime in ipairs(Carrying) do
 		local AnimeConfiguration = AnimeConfigurations[Anime.Name]

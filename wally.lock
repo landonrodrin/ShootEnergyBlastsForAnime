@@ -13,9 +13,14 @@ version = "4.0.0"
 dependencies = []
 
 [[package]]
+name = "ffrostflame/bytenet"
+version = "0.4.6"
+dependencies = []
+
+[[package]]
 name = "landonrodrin/shoot-walls"
 version = "0.1.0"
-dependencies = [["promise", "evaera/promise@4.0.0"], ["satchel", "ryanlua/satchel@1.4.1"], ["trove", "sleitnick/trove@1.8.0"]]
+dependencies = [["bytenet", "ffrostflame/bytenet@0.4.6"], ["promise", "evaera/promise@4.0.0"], ["satchel", "ryanlua/satchel@1.4.1"], ["trove", "sleitnick/trove@1.8.0"]]
 
 [[package]]
 name = "ryanlua/satchel"

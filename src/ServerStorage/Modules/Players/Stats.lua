@@ -41,6 +41,7 @@ return function(ctx)
 	local SellInventoryEvent = ctx.SellInventoryEvent
 	local EquipInventoryEvent = ctx.EquipInventoryEvent
 	local UpdateHotbarSlotEvent = ctx.UpdateHotbarSlotEvent
+	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
 	local HeldModels = ctx.HeldModels
@@ -115,7 +116,7 @@ function PlayersModule.Replace(Player, Name, Value)
 
 		Money.Value = Format.Number(Value)
 
-		MoneyEvent:FireClient(Player, Value)
+		Packets.money.sendTo(Value, Player)
 	elseif Name == "MoneyPerSecond" then
 		local Leaderstats = Player:WaitForChild("leaderstats")
 		local MoneyPerSecond = Leaderstats:WaitForChild("$/s")
@@ -126,14 +127,28 @@ function PlayersModule.Replace(Player, Name, Value)
 			Bases.UpdateIncomeDisplay(PlayerData.Base, PlayerData.MoneyPerSecond)
 		end
 	elseif Name == "Speed" then
-		SpeedEvent:FireClient(Player, Value)
-		RebirthEvent:FireClient(Player, PlayerData.Rebirths, Value)
+		Packets.speed.sendTo(Value, Player)
+		Packets.rebirth.sendTo({
+			Rebirths = PlayerData.Rebirths,
+			Speed = Value,
+		}, Player)
 
-		ToggleSpeedEvent:FireClient(Player)
+		Player:SetAttribute("UseNormalSpeed", false)
+
+		local Character = Player.Character
+		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+		if Humanoid then
+			Humanoid.WalkSpeed = Value
+		end
+
+		Packets.toggleSpeed.sendTo(nil, Player)
 	elseif Name == "Carry" then
-		CarryEvent:FireClient(Player, Value)
+		Packets.carry.sendTo(Value, Player)
 	elseif Name == "Rebirths" then
-		RebirthEvent:FireClient(Player, Value, PlayerData.Speed)
+		Packets.rebirth.sendTo({
+			Rebirths = Value,
+			Speed = PlayerData.Speed,
+		}, Player)
 
 		local MoneyPerSecond = 0
 
@@ -165,7 +180,9 @@ function PlayersModule.Replace(Player, Name, Value)
 			Bases.Level(PlayerData, Base)
 		end
 	elseif Name == "Index" then
-		IndexEvent:FireClient(Player, Value)
+		Packets.indexSync.sendTo({
+			Index = Value,
+		}, Player)
 	elseif Name == "Tools" then
 		removeHeldModel(Player)
 		normalizeHotbarOrder(PlayerData)

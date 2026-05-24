@@ -18,6 +18,7 @@ return function(ctx)
 	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local DropEvent = ctx.DropEvent
+	local Packets = ctx.Packets
 	local AnimeModule = ctx.Anime
 	local AnimeRegistry = ctx.AnimeData
 	local FACING_TARGET_PATH = ctx.FACING_TARGET_PATH
@@ -169,7 +170,9 @@ function AnimeModule:Spawn()
 
 		refreshCarriedAnimePositions(Player, Carrying)
 
-		DropEvent:FireClient(Player, true)
+		Packets.dropState.sendTo({
+			CanDrop = true,
+		}, Player)
 	end)
 
 	local AnimeAttachment = Anime.PrimaryPart:WaitForChild("AnimeAttachment")

@@ -4,8 +4,8 @@ local Players = game:GetService("Players")
 
 local Promise = require(ReplicatedStorage.Shared:WaitForChild("Promise"))
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
-local SetPropertiesEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("SetProperties")
 local RETRY_INTERVAL = 0.5
 
 local ConfirmedIdentifiers = {}
@@ -16,8 +16,9 @@ local PlayerTroves = {}
 local ObjectTroves = setmetatable({}, {__mode = "k"})
 local ModuleTrove = Trove.new()
 
-ModuleTrove:Connect(SetPropertiesEvent.OnServerEvent, function(Player, Identifier)
-	if not Identifier then return end
+Packets.setPropertiesConfirm.listen(function(Data, Player)
+	local Identifier = Data and Data.Identifier
+	if not Player or not Identifier then return end
 	
 	ConfirmedIdentifiers[Identifier] = true
 end)
@@ -134,7 +135,11 @@ local function SetPropertiesUntilConfirmed(Player, Object, Properties)
 				return
 			end
 
-			SetPropertiesEvent:FireClient(Player, Identifier, Object, Properties)
+			Packets.setPropertiesApply.sendTo({
+				Identifier = Identifier,
+				Object = Object,
+				Properties = Properties,
+			}, Player)
 
 			RetryPromise = Promise.delay(RETRY_INTERVAL):andThen(retry)
 			RequestTrove:AddPromise(RetryPromise)

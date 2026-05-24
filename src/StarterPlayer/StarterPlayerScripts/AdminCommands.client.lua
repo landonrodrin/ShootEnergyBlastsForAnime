@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
 local ScriptTrove = Trove.new()
 
@@ -23,8 +24,6 @@ local ADMIN_COMMANDS = {
 	}
 }
 
-local AdminCommandEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("AdminCommand")
-
 local function trim(Value)
 	return (Value or ""):match("^%s*(.-)%s*$")
 end
@@ -34,7 +33,9 @@ local function requestAdminCommand(UnfilteredText)
 
 	for _, Command in ipairs(ADMIN_COMMANDS) do
 		if Text == Command.PrimaryAlias or Text == Command.SecondaryAlias then
-			AdminCommandEvent:FireServer(Text)
+			Packets.adminCommand.send({
+				Message = Text,
+			})
 			return
 		end
 	end

@@ -26,10 +26,6 @@
         "$className": "Folder",
         "$path": "Packages"
       },
-      "Remotes": {
-        "$className": "Folder",
-        "$path": "src/ReplicatedStorage/Remotes"
-      },
       "Vendor": {
         "$className": "Folder",
         "$path": "src/ReplicatedStorage/Vendor"
@@ -86,6 +82,9 @@
     "StarterGui": {
       "$className": "StarterGui",
       "$ignoreUnknownInstances": true,
+      "UiClientUtil": {
+        "$path": "src/StarterGui/UiClientUtil.lua"
+      },
       "AnnouncementGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
@@ -114,6 +113,41 @@
         "Sells": {
           "$path": "src/StarterGui/Sells.client.lua",
           "$ignoreUnknownInstances": true
+        }
+      },
+      "DataGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Data": {
+          "$path": "src/StarterGui/Data.client.lua"
+        }
+      },
+      "DropGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Drop": {
+          "$path": "src/StarterGui/Drop.client.lua"
+        }
+      },
+      "RebirthGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Rebirth": {
+          "$path": "src/StarterGui/Rebirth.client.lua"
+        }
+      },
+      "SpeedGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Speed": {
+          "$path": "src/StarterGui/Speed.client.lua"
+        }
+      },
+      "UpgradesGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Upgrades": {
+          "$path": "src/StarterGui/Upgrades.client.lua"
         }
       }
     },

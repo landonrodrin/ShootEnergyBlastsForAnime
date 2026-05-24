@@ -2,13 +2,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
-
-local InventorySyncEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("InventorySync")
-local SellInventoryEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("SellInventory")
 
 local Player = Players.LocalPlayer
 local SellsGui = script.Parent
@@ -25,6 +23,9 @@ local TouchCount = 0
 local ScriptTrove = Trove.new()
 local RowsTrove = Trove.new()
 ScriptTrove:Add(RowsTrove)
+ScriptTrove:Connect(script.Destroying, function()
+	ScriptTrove:Destroy()
+end)
 
 local Header = SellsFrame:FindFirstChild("Header")
 local CloseButton = Header and Header:FindFirstChild("Close")
@@ -120,7 +121,10 @@ local function createRow(Item, LayoutOrder)
 	if MoneyButton and MoneyButton:IsA("GuiButton") then
 		MoneyButton.Text = string.format("$%s", Format.Number(Item.Sell or 0))
 		RowTrove:Connect(MoneyButton.Activated, function()
-			SellInventoryEvent:FireServer("Single", Item.Id)
+			Packets.sellInventory.send({
+				Mode = "Single",
+				Id = Item.Id,
+			})
 		end)
 	end
 
@@ -149,10 +153,10 @@ local function redraw()
 	end
 end
 
-ScriptTrove:Connect(InventorySyncEvent.OnClientEvent, function(Snapshot)
-	Inventory = Snapshot or Inventory
+Packets.Listen(Packets.inventorySync, function(Snapshot)
+	Inventory = Packets.DecodeInventorySnapshot(Snapshot or Inventory)
 	redraw()
-end)
+end, ScriptTrove)
 
 if CloseButton then
 	ScriptTrove:Connect(CloseButton.Activated, function()
@@ -175,7 +179,9 @@ end)
 
 ScriptTrove:Connect(ConfirmButton.Activated, function()
 	ConfirmFrame.Visible = false
-	SellInventoryEvent:FireServer("All")
+	Packets.sellInventory.send({
+		Mode = "All",
+	})
 end)
 
 ScriptTrove:Connect(CancelButton.Activated, function()

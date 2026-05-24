@@ -2,10 +2,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
-
-local AnimeUnlockedEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("AnimeUnlocked")
 
 local DISPLAY_TIME = 2.7
 local ENTRY_OFFSET = UDim2.new(0, 0, 0, -130)
@@ -15,6 +14,10 @@ local EXIT_TWEEN = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirectio
 local Queue = {}
 local Showing = false
 local ScriptTrove = Trove.new()
+
+ScriptTrove:Connect(script.Destroying, function()
+	ScriptTrove:Destroy()
+end)
 
 local function getMutationColour(Mutation)
 	local Configuration = MutationsConfigurations[Mutation]
@@ -135,4 +138,6 @@ local function showUnlock(Name, Mutation)
 	showNext()
 end
 
-ScriptTrove:Connect(AnimeUnlockedEvent.OnClientEvent, showUnlock)
+Packets.Listen(Packets.animeUnlocked, function(Data)
+	showUnlock(Data.Name, Data.Mutation)
+end, ScriptTrove)

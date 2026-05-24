@@ -20,6 +20,8 @@ return function(ctx)
 	local CreateToolEvent = ctx.CreateToolEvent
 	local LevelEvent = ctx.LevelEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
+	local Packets = ctx.Packets
+	local registerLevelRequest = ctx.registerLevelRequest
 	local BASE_GUI_MAX_DISTANCE = ctx.BASE_GUI_MAX_DISTANCE
 	local BASE_LEVEL_BIND_DELAY = ctx.BASE_LEVEL_BIND_DELAY
 	local BASE_SLOT_PROMPT_HOLD_DURATION = ctx.BASE_SLOT_PROMPT_HOLD_DURATION
@@ -191,7 +193,10 @@ local function bindLevelGui(Player, Gui, Identifier, IsCurrent, OwnerTrove)
 		if not Gui.Parent then return false end
 		if IsCurrent and not IsCurrent() then return false end
 
-		LevelEvent:FireClient(Player, Gui, Identifier)
+		Packets.levelBind.sendTo({
+			Gui = Gui,
+			Identifier = Identifier,
+		}, Player)
 
 		return true
 	end
@@ -223,7 +228,9 @@ function Bases.Level(PlayerData, Base)
 
 		configureBaseLevelGui(BaseLevelGui, "Max")
 		SetProperties.Client(Player, BaseLevelGui, {Enabled = true})
-		LevelEvent:FireClient(Player, BaseLevelGui)
+		Packets.levelBind.sendTo({
+			Gui = BaseLevelGui,
+		}, Player)
 	elseif BaseConfigurations[Level + 1] then
 		showBaseLevelPartForPlayer(Player, Base)
 
@@ -247,9 +254,8 @@ function Bases.Level(PlayerData, Base)
 				end
 			end)
 
-			LevelTrove:Connect(LevelEvent.OnServerEvent, function(EventPlayer, EventIdentifier)
+			registerLevelRequest(Identifier, LevelTrove, function(EventPlayer)
 				if EventPlayer ~= Player then return end
-				if EventIdentifier ~= Identifier then return end
 				if not BasesData[Base] or BasesData[Base].LevelUpgradePending then return end
 
 				local Level = RetrievePlayerDataFunction:Invoke(Player, "Level") + 1
@@ -259,7 +265,10 @@ function Bases.Level(PlayerData, Base)
 				local Money = BaseConfigurations[Level].Money
 
 				if RetrievePlayerDataFunction:Invoke(Player, "Money") < Money then
-					AnnouncementEvent:FireClient(Player, INSUFFICIENT_FUNDS_TEXT, INSUFFICIENT_FUNDS_COLOUR)
+					Packets.announcement.sendTo({
+						Text = INSUFFICIENT_FUNDS_TEXT,
+						Colour = Packets.EncodeColour(INSUFFICIENT_FUNDS_COLOUR),
+					}, Player)
 					return
 				end
 
@@ -267,7 +276,9 @@ function Bases.Level(PlayerData, Base)
 
 				clearBaseLevelTrove(Base, LevelTrove)
 
-				LevelEvent:FireClient(Player, nil, Identifier, true)
+				Packets.levelPurchased.sendTo({
+					Identifier = Identifier,
+				}, Player)
 
 				ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") - Money)
 

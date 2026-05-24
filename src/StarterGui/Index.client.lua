@@ -1,13 +1,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
 local AnimeConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AnimeConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("AreasConfigurations"))
-
-local IndexEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Index")
 
 local IndexGui = script.Parent
 
@@ -16,6 +15,9 @@ local IndexButton = IndexGui:WaitForChild("IndexButton")
 local ScriptTrove = Trove.new()
 local RedrawTrove = Trove.new()
 ScriptTrove:Add(RedrawTrove)
+ScriptTrove:Connect(script.Destroying, function()
+	ScriptTrove:Destroy()
+end)
 
 ScriptTrove:Connect(IndexFrame.Header.Close.Activated, function()
 	Animations.ToggleFrame(IndexFrame)
@@ -30,7 +32,9 @@ ScriptTrove:Connect(IndexButton.Button.Activated, function()
 		if MutationFrame.Mutation.BorderUIStroke.Color == Color3.fromRGB(0, 255, 0) then return end
 	end
 
-	IndexEvent:FireServer("Default")
+	Packets.indexRequest.send({
+		Mutation = "Default",
+	})
 end)
 
 local function applyFallbackIcon(IconObject, Icon, IsUnlocked)
@@ -119,7 +123,9 @@ local function Anime(Index, Mutation, Override)
 	IndexFrame.Header.Index.Text = string.format("Index | <font color=\"%s\">%s</font>", Colour, Mutation)
 end
 
-ScriptTrove:Connect(IndexEvent.OnClientEvent, function(Index, Mutation)
+Packets.Listen(Packets.indexSync, function(Data)
+	local Index = Data.Index
+	local Mutation = Data.Mutation
 	local Override = false
 
 	if not Mutation then
@@ -137,7 +143,7 @@ ScriptTrove:Connect(IndexEvent.OnClientEvent, function(Index, Mutation)
 	if not Mutation then Mutation = "Default" end
 
 	Anime(Index, Mutation, Override)
-end)
+end, ScriptTrove)
 
 for Mutation, MutationConfiguration in pairs(MutationsConfigurations) do
 	local MutationFrame = script:WaitForChild("Mutation")
@@ -154,7 +160,9 @@ for Mutation, MutationConfiguration in pairs(MutationsConfigurations) do
 	ScriptTrove:Connect(MutationFrame.Mutation.Activated, function()
 		if MutationFrame.Mutation.BorderUIStroke.Color == Color3.fromRGB(0, 255, 0) then return end
 
-		IndexEvent:FireServer(Mutation)
+		Packets.indexRequest.send({
+			Mutation = Mutation,
+		})
 	end)
 
 	MutationFrame.Name = Mutation

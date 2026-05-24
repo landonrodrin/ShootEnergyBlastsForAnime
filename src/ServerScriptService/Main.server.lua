@@ -44,6 +44,7 @@ local function preflightPackages()
 
 	waitForRequiredChild(Packages, "promise", "ReplicatedStorage.Packages.promise")
 	waitForPackageShimOrIndex(Packages, "trove", "sleitnick_trove@", "trove", "ReplicatedStorage.Packages.trove or ReplicatedStorage.Packages._Index.sleitnick_trove@*.trove")
+	waitForPackageShimOrIndex(Packages, "bytenet", "ffrostflame_bytenet@", "bytenet", "ReplicatedStorage.Packages.bytenet or ReplicatedStorage.Packages._Index.ffrostflame_bytenet@*.bytenet")
 end
 
 preflightPackages()

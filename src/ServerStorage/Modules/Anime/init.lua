@@ -11,6 +11,7 @@ local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local PathUtils = require(shared:WaitForChild("PathUtils"))
 local Trove = require(shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
@@ -37,7 +38,7 @@ local ctx = {
 	RetrieveAnimeDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveAnimeData"),
 	CreateAnimeFunction = ServerStorage.Network.BindableFunctions:WaitForChild("CreateAnime"),
 	AnimateAnimeEvent = ServerStorage.Network.BindableEvents:WaitForChild("AnimateAnime"),
-	DropEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Drop"),
+	Packets = Packets,
 	Resources = script:WaitForChild("Resources"),
 	Anime = {},
 	AnimeData = {},

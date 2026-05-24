@@ -2,8 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
-
-local AnnouncementEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Announcement")
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
 local MESSAGE_LIFETIME = 2.25
 local MAX_MESSAGES = 4
@@ -15,6 +14,10 @@ local ActiveMessages = {}
 local MessageTroves = {}
 local ScriptTrove = Trove.new()
 local createMessageTrove
+
+ScriptTrove:Connect(script.Destroying, function()
+	ScriptTrove:Destroy()
+end)
 
 local Gui = script:FindFirstAncestor("AnnouncementGui")
 if not Gui then
@@ -165,4 +168,6 @@ local function showAnnouncement(Text, Colour)
 	end))
 end
 
-ScriptTrove:Connect(AnnouncementEvent.OnClientEvent, showAnnouncement)
+Packets.Listen(Packets.announcement, function(Data)
+	showAnnouncement(Data.Text, Packets.DecodeColour(Data.Colour))
+end, ScriptTrove)

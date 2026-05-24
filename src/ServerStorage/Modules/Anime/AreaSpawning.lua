@@ -17,6 +17,7 @@ return function(ctx)
 	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local AnimateAnimeEvent = ctx.AnimateAnimeEvent
 	local DropEvent = ctx.DropEvent
+	local Packets = ctx.Packets
 	local AnimeModule = ctx.Anime
 	local AnimeRegistry = ctx.AnimeData
 	local SetupTrove = ctx.SetupTrove
@@ -47,6 +48,7 @@ return function(ctx)
 	local refreshCarriedAnimePositions = ctx.refreshCarriedAnimePositions
 	local getGridSpawnPosition = ctx.getGridSpawnPosition
 	local getSpawnCFrame = ctx.getSpawnCFrame
+	local NetworkListenersStarted = false
 local function getSpawnZone(Area, AreaConfiguration)
 	if AreaConfiguration and AreaConfiguration.SpawnZonePath then
 		local SpawnZone = PathUtils.FindByPath(workspace, AreaConfiguration.SpawnZonePath)
@@ -247,9 +249,14 @@ function AnimeModule.Setup()
 		end)
 	end
 
-	SetupTrove:Connect(DropEvent.OnServerEvent, function(Player)
-		AnimeModule.Drop(Player)
-	end)
+	if not NetworkListenersStarted then
+		NetworkListenersStarted = true
+
+		Packets.dropRequest.listen(function(_, Player)
+			if not Player then return end
+			AnimeModule.Drop(Player)
+		end)
+	end
 
 	SetupTrove:Connect(Players.PlayerRemoving, function(Player)
 		AnimeModule.Drop(Player)

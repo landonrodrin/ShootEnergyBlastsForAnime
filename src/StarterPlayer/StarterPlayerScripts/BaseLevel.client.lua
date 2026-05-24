@@ -1,10 +1,15 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
-local LevelEvent = ReplicatedStorage.Network.RemoteEvents:WaitForChild("Level")
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
+local ScriptTrove = Trove.new()
 local trovesByIdentifier = {}
 local identifiersByGui = setmetatable({}, {__mode = "k"})
+
+ScriptTrove:Connect(script.Destroying, function()
+	ScriptTrove:Destroy()
+end)
 
 local function disconnectIdentifier(Identifier)
 	local IdentifierTrove = trovesByIdentifier[Identifier]
@@ -14,6 +19,12 @@ local function disconnectIdentifier(Identifier)
 	IdentifierTrove:Destroy()
 end
 
+ScriptTrove:Add(function()
+	for Identifier in pairs(trovesByIdentifier) do
+		disconnectIdentifier(Identifier)
+	end
+end)
+
 local function disconnectGui(Gui)
 	local Identifier = identifiersByGui[Gui]
 	if not Identifier then return end
@@ -22,13 +33,9 @@ local function disconnectGui(Gui)
 	identifiersByGui[Gui] = nil
 end
 
-LevelEvent.OnClientEvent:Connect(function(Gui, Identifier, Purchased)
-	if Purchased then
-		if Identifier then
-			disconnectIdentifier(Identifier)
-		end
-		return
-	end
+Packets.Listen(Packets.levelBind, function(Data)
+	local Gui = Data.Gui
+	local Identifier = Data.Identifier
 
 	if Gui then
 		disconnectGui(Gui)
@@ -57,6 +64,15 @@ LevelEvent.OnClientEvent:Connect(function(Gui, Identifier, Purchased)
 	end)
 
 	IdentifierTrove:Connect(Button.Activated, function()
-		LevelEvent:FireServer(Identifier)
+		Packets.levelRequest.send({
+			Identifier = Identifier,
+		})
 	end)
-end)
+end, ScriptTrove)
+
+Packets.Listen(Packets.levelPurchased, function(Data)
+	local Identifier = Data and Data.Identifier
+	if Identifier then
+		disconnectIdentifier(Identifier)
+	end
+end, ScriptTrove)

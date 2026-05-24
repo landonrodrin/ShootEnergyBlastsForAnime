@@ -20,6 +20,8 @@ return function(ctx)
 	local CreateToolEvent = ctx.CreateToolEvent
 	local LevelEvent = ctx.LevelEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
+	local Packets = ctx.Packets
+	local registerLevelRequest = ctx.registerLevelRequest
 	local BASE_GUI_MAX_DISTANCE = ctx.BASE_GUI_MAX_DISTANCE
 	local BASE_LEVEL_BIND_DELAY = ctx.BASE_LEVEL_BIND_DELAY
 	local BASE_SLOT_PROMPT_HOLD_DURATION = ctx.BASE_SLOT_PROMPT_HOLD_DURATION
@@ -213,7 +215,10 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 		if not Slot then
 			local Text = string.format("Unable to find an available slot in Base%s!", Base.Name)
 
-			AnnouncementEvent:FireClient(Player, Text, Color3.fromRGB(255, 0, 0))
+			Packets.announcement.sendTo({
+				Text = Text,
+				Colour = Packets.EncodeColour(Color3.fromRGB(255, 0, 0)),
+			}, Player)
 
 			return
 		end
@@ -316,9 +321,8 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	if NextLevelConfiguration then
 		local Identifier = HttpService:GenerateGUID(false)
 
-		SlotTrove:Connect(LevelEvent.OnServerEvent, function(EventPlayer, EventIdentifier)
+		registerLevelRequest(Identifier, SlotTrove, function(EventPlayer)
 			if EventPlayer ~= Player then return end
-			if EventIdentifier ~= Identifier then return end
 
 			local CurrentSlotData = BasesData[Base] and BasesData[Base].SlotsData[Slot.Name]
 			if not CurrentSlotData or CurrentSlotData.Anime ~= Anime then return end
@@ -331,7 +335,9 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 
 			if RetrievePlayerDataFunction:Invoke(Player, "Money") < UpgradeMoney then return end
 
-			LevelEvent:FireClient(Player, nil, Identifier, true)
+			Packets.levelPurchased.sendTo({
+				Identifier = Identifier,
+			}, Player)
 
 			ReplacePlayerDataEvent:Fire(Player, "Money", RetrievePlayerDataFunction:Invoke(Player, "Money") - UpgradeMoney)
 
@@ -351,7 +357,10 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 				return CurrentSlotData and CurrentSlotData.Anime == Anime
 			end, SlotTrove)
 		else
-			LevelEvent:FireClient(Player, LevelGui, Identifier)
+			Packets.levelBind.sendTo({
+				Gui = LevelGui,
+				Identifier = Identifier,
+			}, Player)
 		end
 	end
 

@@ -6,11 +6,8 @@ local PhysicsService = game:GetService("PhysicsService")
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
 local Trove = require(shared:WaitForChild("Trove"))
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"))
-
-local remotes = ReplicatedStorage:WaitForChild("Remotes")
-local shootRemote = remotes:WaitForChild("ShootWall")
-local wallDebrisRemote = remotes:WaitForChild("WallDebris")
 
 local WallGameplay = {}
 
@@ -438,16 +435,16 @@ local function getDebrisCount(state)
 end
 
 local function playDebris(state, hitPosition)
-	wallDebrisRemote:FireAllClients({
-		id = state.id,
-		displayName = state.displayName,
-		wallCFrame = state.originalCFrame,
-		wallSize = state.originalSize,
-		wall = state.wall,
-		hitPosition = hitPosition,
-		color = state.originalColor,
-		material = state.originalMaterial,
-		count = getDebrisCount(state),
+	Packets.wallDebris.sendToAll({
+		Id = state.id,
+		DisplayName = state.displayName,
+		WallCFrame = state.originalCFrame,
+		WallSize = state.originalSize,
+		Wall = state.wall,
+		HitPosition = hitPosition,
+		Color = Packets.EncodeColour(state.originalColor),
+		Material = Packets.EncodeMaterial(state.originalMaterial),
+		Count = getDebrisCount(state),
 	})
 end
 
@@ -484,7 +481,14 @@ local function resetAllWalls()
 end
 
 local function fireResult(player, result)
-	shootRemote:FireClient(player, result)
+	Packets.shootResult.sendTo({
+		Hit = result.hit == true,
+		Reason = result.reason,
+		WallName = result.wallName,
+		Hp = result.hp,
+		MaxHP = result.maxHP,
+		Destroyed = result.destroyed,
+	}, player)
 end
 
 local function canShoot(player, origin)
@@ -573,7 +577,8 @@ local function findWideShotWall(origin, directionUnit, character)
 	return nil, exactResult and "not_wall" or "miss"
 end
 
-local function onShoot(player, targetPoint)
+local function onShoot(player, Data)
+	local targetPoint = Data and Data.TargetPoint
 	if typeof(targetPoint) ~= "Vector3" then
 		fireResult(player, { hit = false, reason = "bad_target" })
 		return
@@ -623,7 +628,10 @@ function WallGameplay.Start()
 	started = true
 
 	setupCollisionGroups()
-	setupTrove:Connect(shootRemote.OnServerEvent, onShoot)
+	Packets.shootRequest.listen(function(Data, player)
+		if not player then return end
+		onShoot(player, Data)
+	end)
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		setupPlayerCollision(player)

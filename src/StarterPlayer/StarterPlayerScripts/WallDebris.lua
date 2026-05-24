@@ -4,12 +4,14 @@ local TweenService = game:GetService("TweenService")
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
 local Trove = require(shared:WaitForChild("Trove"))
-
-local remotes = ReplicatedStorage:WaitForChild("Remotes")
-local wallDebrisRemote = remotes:WaitForChild("WallDebris")
+local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 
 local WallDebris = {}
 local ScriptTrove = Trove.new()
+
+ScriptTrove:Connect(script.Destroying, function()
+	ScriptTrove:Destroy()
+end)
 
 local LOCAL_DEBRIS_COLLISION_GROUP = "LocalWallDebris"
 
@@ -210,9 +212,9 @@ local function preparePhysicsPart(part, spawnCFrame)
 end
 
 local function spawnPiece(payload)
-	local wallCFrame = payload.wallCFrame
-	local wallSize = payload.wallSize
-	local hitPosition = payload.hitPosition or wallCFrame.Position
+	local wallCFrame = payload.WallCFrame
+	local wallSize = payload.WallSize
+	local hitPosition = payload.HitPosition or wallCFrame.Position
 	local wallCenter = wallCFrame.Position
 	local hitLocal = wallCFrame:PointToObjectSpace(hitPosition)
 	local spread = debrisConfig.SpawnSpread or 0.75
@@ -233,13 +235,13 @@ local function spawnPiece(payload)
 	recycleOldestIfNeeded()
 
 	local part = getPart()
-	part.Name = tostring(payload.displayName or "Wall") .. " Local Debris"
+	part.Name = tostring(payload.DisplayName or "Wall") .. " Local Debris"
 	part.Size = randomVectorBetween(
 		debrisConfig.MinSize or Vector3.new(2.8, 1.8, 2.8),
 		debrisConfig.MaxSize or Vector3.new(5.2, 3.4, 5.2)
 	)
-	part.Color = payload.color or Color3.fromRGB(180, 180, 180)
-	part.Material = payload.material or Enum.Material.Plastic
+	part.Color = Packets.DecodeColour(payload.Color) or Color3.fromRGB(180, 180, 180)
+	part.Material = Packets.DecodeMaterial(payload.Material)
 	spawnPosition += getWallFaceNormal(wallCFrame, hitLocal) * (part.Size.Z * 0.5 + (debrisConfig.SpawnForwardOffset or 1.5))
 
 	nextToken += 1
@@ -280,15 +282,15 @@ local function onWallDebris(payload)
 		return
 	end
 
-	if typeof(payload.wallCFrame) ~= "CFrame" or typeof(payload.wallSize) ~= "Vector3" then
+	if typeof(payload.WallCFrame) ~= "CFrame" or typeof(payload.WallSize) ~= "Vector3" then
 		return
 	end
 
-	if payload.wall and payload.wall:IsA("BasePart") then
-		payload.wall.CanCollide = false
+	if payload.Wall and payload.Wall:IsA("BasePart") then
+		payload.Wall.CanCollide = false
 	end
 
-	local count = math.clamp(payload.count or debrisConfig.NormalCount or 35, 0, debrisConfig.MaxActive or 200)
+	local count = math.clamp(payload.Count or debrisConfig.NormalCount or 35, 0, debrisConfig.MaxActive or 200)
 	for _ = 1, count do
 		spawnPiece(payload)
 	end
@@ -301,7 +303,7 @@ function WallDebris.Start()
 	started = true
 
 	ensureFolder()
-	ScriptTrove:Connect(wallDebrisRemote.OnClientEvent, onWallDebris)
+	Packets.Listen(Packets.wallDebris, onWallDebris, ScriptTrove)
 	print("Wall debris client ready")
 end
 
