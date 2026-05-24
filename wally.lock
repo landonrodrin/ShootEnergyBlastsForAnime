@@ -25,7 +25,12 @@ dependencies = []
 [[package]]
 name = "landonrodrin/shoot-walls"
 version = "0.1.0"
-dependencies = [["bytenet", "ffrostflame/bytenet@0.4.6"], ["cmdr", "evaera/cmdr@1.12.0"], ["promise", "evaera/promise@4.0.0"], ["satchel", "ryanlua/satchel@1.4.1"], ["trove", "sleitnick/trove@1.8.0"]]
+dependencies = [["bytenet", "ffrostflame/bytenet@0.4.6"], ["cmdr", "evaera/cmdr@1.12.0"], ["promise", "evaera/promise@4.0.0"], ["satchel", "ryanlua/satchel@1.4.1"], ["trove", "sleitnick/trove@1.8.0"], ["zoneplus", "mattschrubb/zoneplus@3.2.0"]]
+
+[[package]]
+name = "mattschrubb/zoneplus"
+version = "3.2.0"
+dependencies = []
 
 [[package]]
 name = "ryanlua/satchel"

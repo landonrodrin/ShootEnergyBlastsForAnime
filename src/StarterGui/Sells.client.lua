@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
@@ -19,7 +20,6 @@ local Inventory = {
 	EquippedId = nil
 }
 
-local TouchCount = 0
 local ScriptTrove = Trove.new()
 local RowsTrove = Trove.new()
 ScriptTrove:Add(RowsTrove)
@@ -160,7 +160,6 @@ end, ScriptTrove)
 
 if CloseButton then
 	ScriptTrove:Connect(CloseButton.Activated, function()
-		TouchCount = 0
 		setFrameOpen(false)
 	end)
 end
@@ -188,28 +187,17 @@ ScriptTrove:Connect(CancelButton.Activated, function()
 	ConfirmFrame.Visible = false
 end)
 
-ScriptTrove:Connect(Toggle.Touched, function(Hit)
-	local Character = Player.Character
-	if not Character or not Character:IsAncestorOf(Hit) then return end
-
-	TouchCount += 1
-	if TouchCount > 1 then return end
-
+local SellZone = ZonePlus.new(Toggle)
+ScriptTrove:Add(SellZone, "destroy")
+ScriptTrove:Connect(SellZone.localPlayerEntered, function()
 	setFrameOpen(true)
 end)
 
-ScriptTrove:Connect(Toggle.TouchEnded, function(Hit)
-	local Character = Player.Character
-	if not Character or not Character:IsAncestorOf(Hit) then return end
-
-	TouchCount = math.max(TouchCount - 1, 0)
-	if TouchCount > 0 then return end
-
+ScriptTrove:Connect(SellZone.localPlayerExited, function()
 	setFrameOpen(false)
 end)
 
 ScriptTrove:Connect(Player.CharacterRemoving, function()
-	TouchCount = 0
 	setFrameOpen(false)
 end)
 

@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
@@ -17,7 +18,6 @@ local ShopGui = UpgradesGui.Parent:WaitForChild("ShopGui")
 local _ShopFrame = ShopGui:WaitForChild("ShopFrame")
 local DataGui = UpgradesGui.Parent:WaitForChild("DataGui")
 local DataFrame = DataGui:WaitForChild("DataFrame")
-local Toggle = 0
 local ScriptTrove = Trove.new()
 local WarnedProductInfo = {}
 
@@ -33,7 +33,7 @@ ScriptTrove:Connect(DataFrame.Upgrades.Activated, function()
 	Animations.ToggleFrame(UpgradesFrame)
 end)
 
-Upgrades:WaitForChild("Toggle")
+local Toggle = Upgrades:WaitForChild("Toggle")
 
 local function getRobuxPriceText(ProductId)
 	if not ProductId then
@@ -62,27 +62,16 @@ local function getRobuxPriceText(ProductId)
 	return string.format("\u{E002} %s", Format.Number(ProductInfo.PriceInRobux or 0))
 end
 
-ScriptTrove:Connect(Upgrades.Toggle.Touched, function(Hit)
-	local Character = Player.Character
-	if not Character then return end
-	if not Character:IsAncestorOf(Hit) then return end
+local UpgradesZone = ZonePlus.new(Toggle)
+ScriptTrove:Add(UpgradesZone, "destroy")
 
-	Toggle += 1
-	if Toggle > 1 then return end
+ScriptTrove:Connect(UpgradesZone.localPlayerEntered, function()
 	if UpgradesFrame.Visible then return end
 
 	Animations.ToggleFrame(UpgradesFrame)
 end)
 
-ScriptTrove:Connect(Upgrades.Toggle.TouchEnded, function(Hit)
-	local Character = Player.Character
-	if not Character then return end
-	if not Character:IsAncestorOf(Hit) then return end
-
-	Toggle -= 1
-	if Toggle > 0 then return end
-
-	Toggle = 0
+ScriptTrove:Connect(UpgradesZone.localPlayerExited, function()
 	if not UpgradesFrame.Visible then return end
 
 	Animations.ToggleFrame(UpgradesFrame)

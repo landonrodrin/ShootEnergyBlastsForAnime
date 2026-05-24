@@ -5,11 +5,20 @@ local Players = game:GetService("Players")
 
 local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
 
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 
 local Vip = {}
 local SetupTrove = Trove.new()
+
+local function connectPurchaseZone(Part, Type)
+	local Zone = ZonePlus.new(Part)
+	SetupTrove:Add(Zone, "destroy")
+	SetupTrove:Connect(Zone.playerEntered, function(Player)
+		Vip.Purchase(Player, Type)
+	end)
+end
 
 local function setupPlayerPasses(Player)
 	local Success, Result = pcall(function()
@@ -44,12 +53,7 @@ function Vip.Setup()
 			VipGui.Enabled = true
 			SetupTrove:Add(VipGui)
 		elseif Descendant.Name == "Zone" then
-			SetupTrove:Connect(Descendant.Touched, function(Hit)
-				local Player = Players:GetPlayerFromCharacter(Hit.Parent)
-				if not Player then return end
-				
-				Vip.Purchase(Player, "Vip")
-			end)
+			connectPurchaseZone(Descendant, "Vip")
 		end
 	end
 	
@@ -65,12 +69,7 @@ function Vip.Setup()
 			VipPlusGui.Enabled = true
 			SetupTrove:Add(VipPlusGui)
 		elseif Descendant.Name == "Zone" then
-			SetupTrove:Connect(Descendant.Touched, function(Hit)
-				local Player = Players:GetPlayerFromCharacter(Hit.Parent)
-				if not Player then return end
-
-				Vip.Purchase(Player, "VipPlus")
-			end)
+			connectPurchaseZone(Descendant, "VipPlus")
 		end
 	end
 

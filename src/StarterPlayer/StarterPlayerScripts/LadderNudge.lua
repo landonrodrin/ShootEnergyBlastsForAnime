@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
 
 local LadderNudge = {}
 
@@ -20,7 +21,6 @@ local character = nil
 local humanoid = nil
 local rootPart = nil
 local activeZones = {}
-local touchingParts = {}
 local zoneTroves = {}
 local scriptTrove = Trove.new()
 
@@ -70,10 +70,6 @@ local function getNudgeDirection(zone)
 	end
 end
 
-local function isCharacterPart(part)
-	return character and part and part:IsDescendantOf(character)
-end
-
 local function disconnectZone(zone)
 	local zoneTrove = zoneTroves[zone]
 	if zoneTrove then
@@ -92,31 +88,18 @@ local function connectZone(zone)
 
 	zoneTrove:Add(function()
 		activeZones[zone] = nil
-		touchingParts[zone] = nil
 		zoneTroves[zone] = nil
 	end)
 
-	zoneTrove:Connect(zone.Touched, function(hit)
-		if not isCharacterPart(hit) then
-			return
-		end
+	local Zone = ZonePlus.new(zone)
+	zoneTrove:Add(Zone, "destroy")
 
-		touchingParts[zone] = touchingParts[zone] or {}
-		touchingParts[zone][hit] = true
+	zoneTrove:Connect(Zone.localPlayerEntered, function()
 		activeZones[zone] = true
 	end)
 
-	zoneTrove:Connect(zone.TouchEnded, function(hit)
-		if not isCharacterPart(hit) then
-			return
-		end
-
-		if touchingParts[zone] then
-			touchingParts[zone][hit] = nil
-			activeZones[zone] = next(touchingParts[zone]) ~= nil or nil
-		else
-			activeZones[zone] = nil
-		end
+	zoneTrove:Connect(Zone.localPlayerExited, function()
+		activeZones[zone] = nil
 	end)
 
 	zoneTrove:Connect(zone.AncestryChanged, function(_, parent)
@@ -133,7 +116,6 @@ local function setCharacter(nextCharacter)
 	humanoid = nil
 	rootPart = nil
 	activeZones = {}
-	touchingParts = {}
 
 	if not character then
 		return
@@ -153,7 +135,6 @@ local function applyNudge(deltaTime)
 	for zone in pairs(activeZones) do
 		if not zone.Parent then
 			activeZones[zone] = nil
-			touchingParts[zone] = nil
 			continue
 		end
 
