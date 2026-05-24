@@ -130,6 +130,10 @@ function AnimeModule:Spawn()
 			Carrying = {}
 		end
 
+		if PlayersModule.ClearHeldInventoryPreview then
+			PlayersModule.ClearHeldInventoryPreview(Player)
+		end
+
 		table.insert(Carrying, Anime)
 
 		PlayersModule.Replace(Player, "Carrying", Carrying)

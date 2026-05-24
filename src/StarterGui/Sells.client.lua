@@ -3,11 +3,14 @@ local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
-local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local AnimeViewports = require(ReplicatedStorage.Modules:WaitForChild("AnimeViewports"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local MutationsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("MutationsConfigurations"))
+
+local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
+local InventoryController = require(Controllers:WaitForChild("InventoryController"))
+InventoryController.Start()
 
 local Player = Players.LocalPlayer
 local SellsGui = script.Parent
@@ -121,10 +124,7 @@ local function createRow(Item, LayoutOrder)
 	if MoneyButton and MoneyButton:IsA("GuiButton") then
 		MoneyButton.Text = string.format("$%s", Format.Number(Item.Sell or 0))
 		RowTrove:Connect(MoneyButton.Activated, function()
-			Packets.sellInventory.send({
-				Mode = "Single",
-				Id = Item.Id,
-			})
+			InventoryController.SellSingle(Item.Id)
 		end)
 	end
 
@@ -139,7 +139,7 @@ local function redraw()
 	end
 
 	task.defer(function()
-		List.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 8)
+		List.CanvasSize = UDim2.fromOffset(0, Layout.AbsoluteContentSize.Y + 8)
 	end)
 
 	local Total = totalSell()
@@ -153,10 +153,12 @@ local function redraw()
 	end
 end
 
-Packets.Listen(Packets.inventorySync, function(Snapshot)
-	Inventory = Packets.DecodeInventorySnapshot(Snapshot or Inventory)
+ScriptTrove:Connect(InventoryController.Changed, function(Name)
+	if Name ~= "Inventory" then return end
+
+	Inventory = InventoryController.GetSnapshot()
 	redraw()
-end, ScriptTrove)
+end)
 
 if CloseButton then
 	ScriptTrove:Connect(CloseButton.Activated, function()
@@ -178,9 +180,7 @@ end)
 
 ScriptTrove:Connect(ConfirmButton.Activated, function()
 	ConfirmFrame.Visible = false
-	Packets.sellInventory.send({
-		Mode = "All",
-	})
+	InventoryController.SellAll()
 end)
 
 ScriptTrove:Connect(CancelButton.Activated, function()
@@ -206,4 +206,5 @@ ScriptTrove:Connect(Player.CharacterRemoving, function()
 end)
 
 Animations.Frame(SellsFrame)
+Inventory = InventoryController.GetSnapshot()
 redraw()

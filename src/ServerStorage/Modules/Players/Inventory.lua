@@ -206,15 +206,16 @@ local function cleanupToolData(ToolData)
 	if type(ToolData) ~= "table" then return end
 
 	local Tool = ToolData.Tool
-	if ToolData.Trove then
-		ToolData.Trove:Destroy()
-		ToolData.Trove = nil
+	local ToolTrove = ToolData.Trove
+	if type(ToolTrove) == "table" and type(ToolTrove.Destroy) == "function" then
+		ToolTrove:Destroy()
 	end
 
-	if Tool then
+	if typeof(Tool) == "Instance" then
 		Tool:Destroy()
 	end
 
+	ToolData.Trove = nil
 	ToolData.Tool = nil
 	ToolData.HeldModel = nil
 end

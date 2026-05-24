@@ -5,7 +5,7 @@ Rojo project for the Roblox Studio place.
 ## Folder Layout
 
 - `src/ReplicatedStorage/Shared`: shared modules used by client and server.
-- `src/ReplicatedStorage/Packages`: third-party packages.
+- `Packages`: Wally third-party packages synced into `ReplicatedStorage.Packages`.
 - `src/ReplicatedStorage/Remotes`: remote events/functions.
 - `src/ServerScriptService`: server entry point and services.
 - `src/StarterPlayer/StarterPlayerScripts`: client entry point and controllers.

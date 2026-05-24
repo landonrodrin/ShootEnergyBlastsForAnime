@@ -4,6 +4,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local BaseConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("BaseConfigurations"))
 
+local BaseController = {}
+
 local LOCAL_PLAYER = Players.LocalPlayer
 
 local BASES_FOLDER_NAME = "Bases"
@@ -20,10 +22,14 @@ local PROMPT_NAMES = {
 }
 
 local ScriptTrove = Trove.new()
-local CharacterTrove = nil
-local RefreshQueued = false
+local ChangedEvent = Instance.new("BindableEvent")
 local ConnectedPrompts = setmetatable({}, {__mode = "k"})
-local refreshPrompts
+local RefreshQueued = false
+local Started = false
+local PlayerController
+local OwnedBase = nil
+
+BaseController.Changed = ChangedEvent.Event
 
 local function sortByNumericName(Instances)
 	table.sort(Instances, function(A, B)
@@ -91,27 +97,6 @@ local function setPromptEnabled(Prompt, Enabled)
 	end
 end
 
-local function getEquippedAnimeTool()
-	local Character = LOCAL_PLAYER.Character
-	local Tool = Character and Character:FindFirstChildOfClass("Tool")
-
-	if Tool and Tool:GetAttribute("InventoryId") then
-		return Tool
-	end
-
-	return nil
-end
-
-local function scheduleRefresh()
-	if RefreshQueued then return end
-	RefreshQueued = true
-
-	task.defer(function()
-		RefreshQueued = false
-		refreshPrompts()
-	end)
-end
-
 local function getUnlockedSlotCount(Base)
 	local Level = Base:GetAttribute("Level") or 1
 	local Configuration = BaseConfigurations[Level] or BaseConfigurations[1] or {}
@@ -161,28 +146,24 @@ local function applyNonOwnedSlotPrompts(Slot)
 	setPromptEnabled(getPrompt(Attachment, PROMPT_NAMES.Sell), false)
 end
 
-local function applyGivePrompts(HasEquippedAnime)
-	for _, Player in ipairs(Players:GetPlayers()) do
-		if Player == LOCAL_PLAYER then continue end
-
-		local Character = Player.Character
-		local PrimaryPart = Character and Character.PrimaryPart
-		local Prompt = PrimaryPart and PrimaryPart:FindFirstChild("ProximityPrompt")
-		if Prompt and Prompt:IsA("ProximityPrompt") then
-			setPromptEnabled(Prompt, HasEquippedAnime)
-		end
-	end
+local function getBasesFolder()
+	return workspace:FindFirstChild(BASES_FOLDER_NAME)
 end
 
-refreshPrompts = function()
-	local BasesFolder = workspace:FindFirstChild(BASES_FOLDER_NAME)
+local function refreshPrompts()
+	local BasesFolder = getBasesFolder()
 	if not BasesFolder then return end
 
-	local HasEquippedAnime = getEquippedAnimeTool() ~= nil
+	local HasEquippedAnime = PlayerController and PlayerController.HasEquippedAnime() == true
+	local NextOwnedBase = nil
 
 	for _, Base in ipairs(BasesFolder:GetChildren()) do
 		local IsOwned = Base:GetAttribute("OwnerUserId") == LOCAL_PLAYER.UserId
 		local UnlockedSlots = IsOwned and getUnlockedSlotCount(Base) or 0
+
+		if IsOwned then
+			NextOwnedBase = Base
+		end
 
 		for _, Slot in ipairs(getOrderedSlots(Base)) do
 			if IsOwned then
@@ -193,17 +174,33 @@ refreshPrompts = function()
 		end
 	end
 
-	applyGivePrompts(HasEquippedAnime)
+	if OwnedBase ~= NextOwnedBase then
+		OwnedBase = NextOwnedBase
+		ChangedEvent:Fire("OwnedBase", OwnedBase)
+	end
+end
+
+local function scheduleRefresh()
+	if RefreshQueued then return end
+	RefreshQueued = true
+
+	task.defer(function()
+		RefreshQueued = false
+		refreshPrompts()
+	end)
 end
 
 local function connectPrompt(Prompt, OwnerTrove)
 	if not Prompt:IsA("ProximityPrompt") or ConnectedPrompts[Prompt] then return end
 
 	ConnectedPrompts[Prompt] = true
-	OwnerTrove:Connect(Prompt:GetPropertyChangedSignal("Enabled"), scheduleRefresh)
 	OwnerTrove:Connect(Prompt.Destroying, function()
 		ConnectedPrompts[Prompt] = nil
 	end)
+end
+
+local function connectSlot(Slot, OwnerTrove)
+	OwnerTrove:Connect(Slot:GetAttributeChangedSignal("Occupied"), scheduleRefresh)
 end
 
 local function connectBase(Base)
@@ -215,7 +212,7 @@ local function connectBase(Base)
 		if Descendant:IsA("ProximityPrompt") then
 			connectPrompt(Descendant, BaseTrove)
 		elseif Descendant:GetAttribute("Occupied") ~= nil then
-			BaseTrove:Connect(Descendant:GetAttributeChangedSignal("Occupied"), scheduleRefresh)
+			connectSlot(Descendant, BaseTrove)
 		end
 
 		scheduleRefresh()
@@ -226,7 +223,7 @@ local function connectBase(Base)
 	end)
 
 	for _, Slot in ipairs(getOrderedSlots(Base)) do
-		BaseTrove:Connect(Slot:GetAttributeChangedSignal("Occupied"), scheduleRefresh)
+		connectSlot(Slot, BaseTrove)
 	end
 
 	for _, Descendant in ipairs(Base:GetDescendants()) do
@@ -238,86 +235,54 @@ local function connectBase(Base)
 	scheduleRefresh()
 end
 
-local function connectPlayer(Player)
-	local PlayerTrove = ScriptTrove:Extend()
+function BaseController.Init(Controllers)
+	PlayerController = Controllers.PlayerController
+end
 
-	PlayerTrove:Connect(Player.CharacterAdded, function(Character)
-		PlayerTrove:Connect(Character.ChildAdded, scheduleRefresh)
-		PlayerTrove:Connect(Character.ChildRemoved, scheduleRefresh)
-		task.defer(scheduleRefresh)
-	end)
+function BaseController.Start()
+	if Started then return end
+	Started = true
 
-	if Player.Character then
-		PlayerTrove:Connect(Player.Character.ChildAdded, scheduleRefresh)
-		PlayerTrove:Connect(Player.Character.ChildRemoved, scheduleRefresh)
+	ScriptTrove:Add(ChangedEvent)
+
+	if PlayerController and PlayerController.EquippedAnimeChanged then
+		ScriptTrove:Connect(PlayerController.EquippedAnimeChanged, scheduleRefresh)
 	end
 
-	PlayerTrove:Connect(Player.Destroying, function()
-		PlayerTrove:Destroy()
+	local BasesFolder = workspace:WaitForChild(BASES_FOLDER_NAME)
+	ScriptTrove:Connect(BasesFolder.ChildAdded, function(Base)
+		connectBase(Base)
 		scheduleRefresh()
 	end)
-end
+	ScriptTrove:Connect(BasesFolder.ChildRemoved, scheduleRefresh)
 
-local function setLocalCharacter(Character)
-	if CharacterTrove then
-		CharacterTrove:Destroy()
-		CharacterTrove = nil
+	for _, Base in ipairs(BasesFolder:GetChildren()) do
+		connectBase(Base)
 	end
 
-	if not Character then
-		scheduleRefresh()
-		return
-	end
-
-	CharacterTrove = ScriptTrove:Extend()
-	CharacterTrove:Connect(Character.ChildAdded, scheduleRefresh)
-	CharacterTrove:Connect(Character.ChildRemoved, scheduleRefresh)
-	CharacterTrove:Connect(Character.Destroying, function()
-		if CharacterTrove then
-			CharacterTrove:Destroy()
-			CharacterTrove = nil
-		end
-
-		scheduleRefresh()
+	ScriptTrove:Connect(script.Destroying, function()
+		ScriptTrove:Destroy()
 	end)
+end
 
+function BaseController.GetOwnedBase()
+	return OwnedBase
+end
+
+function BaseController.GetOwnedSlots()
+	if not OwnedBase then return {} end
+
+	return getOrderedSlots(OwnedBase)
+end
+
+function BaseController.GetUnlockedSlotCount()
+	if not OwnedBase then return 0 end
+
+	return getUnlockedSlotCount(OwnedBase)
+end
+
+function BaseController.RefreshPrompts()
 	scheduleRefresh()
 end
 
-local BasesFolder = workspace:WaitForChild(BASES_FOLDER_NAME)
-ScriptTrove:Connect(BasesFolder.ChildAdded, function(Base)
-	connectBase(Base)
-	scheduleRefresh()
-end)
-ScriptTrove:Connect(BasesFolder.ChildRemoved, scheduleRefresh)
-
-for _, Base in ipairs(BasesFolder:GetChildren()) do
-	connectBase(Base)
-end
-
-ScriptTrove:Connect(Players.PlayerAdded, function(Player)
-	connectPlayer(Player)
-	scheduleRefresh()
-end)
-ScriptTrove:Connect(Players.PlayerRemoving, scheduleRefresh)
-
-for _, Player in ipairs(Players:GetPlayers()) do
-	if Player ~= LOCAL_PLAYER then
-		connectPlayer(Player)
-	end
-end
-
-ScriptTrove:Connect(LOCAL_PLAYER.CharacterAdded, setLocalCharacter)
-ScriptTrove:Connect(LOCAL_PLAYER.CharacterRemoving, function()
-	setLocalCharacter(nil)
-end)
-
-if LOCAL_PLAYER.Character then
-	setLocalCharacter(LOCAL_PLAYER.Character)
-else
-	scheduleRefresh()
-end
-
-ScriptTrove:Connect(script.Destroying, function()
-	ScriptTrove:Destroy()
-end)
+return BaseController

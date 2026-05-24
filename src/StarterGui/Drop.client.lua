@@ -2,7 +2,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
-local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
+
+local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
+local InventoryController = require(Controllers:WaitForChild("InventoryController"))
+InventoryController.Start()
 
 local Player = Players.LocalPlayer
 local DropGui = script.Parent
@@ -17,10 +20,14 @@ ScriptTrove:Connect(Player.CharacterRemoving, function()
 	DropFrame.Visible = false
 end)
 
-Packets.Listen(Packets.dropState, function(Data)
-	DropFrame.Visible = Data and Data.CanDrop == true
-end, ScriptTrove)
+ScriptTrove:Connect(InventoryController.Changed, function(Name, Value)
+	if Name ~= "CanDrop" then return end
+
+	DropFrame.Visible = Value == true
+end)
 
 ScriptTrove:Connect(DropFrame.Drop.Activated, function()
-	Packets.dropRequest.send(nil)
+	InventoryController.Drop()
 end)
+
+DropFrame.Visible = InventoryController.CanDrop()

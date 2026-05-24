@@ -4,11 +4,16 @@ local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
-local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local UpgradesConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("UpgradesConfigurations"))
+
+local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
+local RequestController = require(Controllers:WaitForChild("RequestController"))
+local StatsController = require(Controllers:WaitForChild("StatsController"))
+RequestController.Start()
+StatsController.Start()
 
 local Player = Players.LocalPlayer
 local Upgrades = workspace:WaitForChild("Upgrades")
@@ -81,7 +86,7 @@ if UpgradesZone:findLocalPlayer() and not UpgradesFrame.Visible then
 	Animations.ToggleFrame(UpgradesFrame)
 end
 
-Packets.Listen(Packets.speed, function(Speed)
+local function RefreshSpeed(Speed)
 	Speed = tonumber(Speed) or 0
 
 	UpgradesFrame.Speed1.Speed.Text = Speed
@@ -135,9 +140,9 @@ Packets.Listen(Packets.speed, function(Speed)
 		UpgradesFrame.Speed10.Robux.Visible = false
 		UpgradesFrame.Speed10.Speed10.Text = "MAX"
 	end
-end, ScriptTrove)
+end
 
-Packets.Listen(Packets.carry, function(Carry)
+local function RefreshCarry(Carry)
 	Carry = tonumber(Carry) or 0
 
 	UpgradesFrame.Carry1.Carry.Text = Carry
@@ -156,26 +161,34 @@ Packets.Listen(Packets.carry, function(Carry)
 		UpgradesFrame.Carry1.Robux.Visible = false
 		UpgradesFrame.Carry1.Carry1.Text = "MAX"
 	end
-end, ScriptTrove)
+end
+
+ScriptTrove:Connect(StatsController.Changed, function(Name, Value)
+	if Name == "Speed" then
+		RefreshSpeed(Value)
+	elseif Name == "Carry" then
+		RefreshCarry(Value)
+	end
+end)
 
 ScriptTrove:Connect(UpgradesFrame.Speed1.Money.Activated, function()
 	if tonumber(UpgradesFrame.Speed1.Speed1.Text) > GameConfigurations.Maximums.Speed then return end
-	Packets.incrementSpeed.send(1)
+	RequestController.IncrementSpeed(1)
 end)
 
 ScriptTrove:Connect(UpgradesFrame.Speed5.Money.Activated, function()
 	if tonumber(UpgradesFrame.Speed5.Speed5.Text) > GameConfigurations.Maximums.Speed then return end
-	Packets.incrementSpeed.send(5)
+	RequestController.IncrementSpeed(5)
 end)
 
 ScriptTrove:Connect(UpgradesFrame.Speed10.Money.Activated, function()
 	if tonumber(UpgradesFrame.Speed10.Speed10.Text) > GameConfigurations.Maximums.Speed then return end
-	Packets.incrementSpeed.send(10)
+	RequestController.IncrementSpeed(10)
 end)
 
 ScriptTrove:Connect(UpgradesFrame.Carry1.Money.Activated, function()
 	if tonumber(UpgradesFrame.Carry1.Carry1.Text) > GameConfigurations.Maximums.Carry then return end
-	Packets.incrementCarry.send(1)
+	RequestController.IncrementCarry(1)
 end)
 
 ScriptTrove:Connect(UpgradesFrame.Speed1.Robux.Activated, function()
@@ -216,3 +229,5 @@ end)
 
 Animations.Frame(UpgradesFrame)
 Animations.Button(DataFrame.Upgrades, DataFrame.Upgrades)
+RefreshSpeed(StatsController.Get("Speed"))
+RefreshCarry(StatsController.Get("Carry"))

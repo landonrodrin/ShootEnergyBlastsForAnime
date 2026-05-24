@@ -246,10 +246,16 @@ if RunService:IsServer() then
 		ReadyPlayers[Player] = nil
 		QueuedByPlayer[Player] = nil
 	end)
-else
-	task.defer(function()
-		Packets.clientReady.send(nil)
-	end)
+end
+
+local ClientReadySent = false
+
+function Packets.MarkClientReady()
+	if RunService:IsServer() then return end
+	if ClientReadySent then return end
+
+	ClientReadySent = true
+	Packets.clientReady.send(nil)
 end
 
 function Packets.Listen(Packet, Callback, OwnerTrove)

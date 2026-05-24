@@ -7,6 +7,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Trove = require(Shared:WaitForChild("Trove"))
 local WallConfig = require(Shared:WaitForChild("WallConfig"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
+local RequestController = require(script.Parent.Controllers:WaitForChild("RequestController"))
 
 local Shooting = {}
 
@@ -416,9 +417,7 @@ local function sendShot()
 	end
 
 	setStatus("Firing...", Color3.fromRGB(150, 220, 255))
-	Packets.shootRequest.send({
-		TargetPoint = targetPoint,
-	})
+	RequestController.Shoot(targetPoint)
 end
 
 local function startFiring()

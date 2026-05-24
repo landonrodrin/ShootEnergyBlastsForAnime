@@ -457,6 +457,25 @@ local function removeHeldModel(Player)
 	end
 end
 
+local function isInventoryAnimeTool(Tool)
+	return Tool and Tool:IsA("Tool") and (Tool:GetAttribute("InventoryId") or AnimeConfigurations[Tool.Name])
+end
+
+local function clearHeldInventoryPreview(Player)
+	local Character = Player.Character
+	local EquippedTool = Character and Character:FindFirstChildOfClass("Tool")
+
+	if isInventoryAnimeTool(EquippedTool) then
+		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+		if Humanoid then
+			Humanoid:UnequipTools()
+		end
+	end
+
+	removeHeldModel(Player)
+	task.defer(syncInventory, Player)
+end
+
 local function createHeldModel(Player, Name, Mutation, Level)
 	removeHeldModel(Player)
 
@@ -522,4 +541,6 @@ end
 	ctx.createHeldModel = createHeldModel
 	ctx.removeHeldModel = removeHeldModel
 	ctx.removeHeldAnimeWeld = removeHeldAnimeWeld
+	ctx.clearHeldInventoryPreview = clearHeldInventoryPreview
+	PlayersModule.ClearHeldInventoryPreview = clearHeldInventoryPreview
 end

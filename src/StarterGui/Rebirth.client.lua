@@ -3,18 +3,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
-local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("RebirthsConfigurations"))
+
+local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
+local RequestController = require(Controllers:WaitForChild("RequestController"))
+local StatsController = require(Controllers:WaitForChild("StatsController"))
+RequestController.Start()
+StatsController.Start()
 
 local Player = Players.LocalPlayer
 local RebirthGui = script.Parent
 local RebirthFrame = RebirthGui:WaitForChild("RebirthFrame")
 local RebirthButton = RebirthGui:WaitForChild("RebirthButton")
 local ScriptTrove = Trove.new()
-local CurrentRebirths = 0
-local CurrentSpeed = 0
+local CurrentRebirths = StatsController.Get("Rebirths") or 0
+local CurrentSpeed = StatsController.Get("Speed") or 0
 
 ScriptTrove:Connect(script.Destroying, function()
 	ScriptTrove:Destroy()
@@ -39,7 +44,7 @@ local function Refresh()
 		RebirthFrame.NextRebirths.Text = string.format("Rebirth %s", CurrentRebirths + 1)
 		RebirthFrame.NextMultiplier.Text = string.format("%sx Money", NextConfiguration.Multiplier)
 		RebirthFrame.Speed.Speed.Speed.Text = string.format("Speed %s / %s", CurrentSpeed, NextConfiguration.Speed)
-		RebirthFrame.Speed.Speed.Percentage.Size = UDim2.new(math.clamp(CurrentSpeed / NextConfiguration.Speed, 0, 1), 0, 1, 0)
+		RebirthFrame.Speed.Speed.Percentage.Size = UDim2.fromScale(math.clamp(CurrentSpeed / NextConfiguration.Speed, 0, 1), 1)
 		RebirthFrame.Rebirth.Visible = true
 		RebirthFrame.SkipRebirth.Visible = true
 		RebirthFrame.RebirthBackground.Visible = true
@@ -48,7 +53,7 @@ local function Refresh()
 		RebirthFrame.NextRebirths.Text = "MAX"
 		RebirthFrame.NextMultiplier.Text = "MAX"
 		RebirthFrame.Speed.Speed.Speed.Text = "MAX"
-		RebirthFrame.Speed.Speed.Percentage.Size = UDim2.new(1, 0, 1, 0)
+		RebirthFrame.Speed.Speed.Percentage.Size = UDim2.fromScale(1, 1)
 		RebirthFrame.Rebirth.Visible = false
 		RebirthFrame.SkipRebirth.Visible = false
 		RebirthFrame.RebirthBackground.Visible = false
@@ -56,21 +61,20 @@ local function Refresh()
 	end
 end
 
-Packets.Listen(Packets.rebirth, function(Data)
-	CurrentRebirths = Data and Data.Rebirths or 0
-	CurrentSpeed = Data and Data.Speed or CurrentSpeed
+ScriptTrove:Connect(StatsController.Changed, function(Name)
+	if Name == "Rebirths" then
+		CurrentRebirths = StatsController.Get("Rebirths") or 0
+	elseif Name == "Speed" then
+		CurrentSpeed = StatsController.Get("Speed") or CurrentSpeed
+	else
+		return
+	end
 
 	Refresh()
-end, ScriptTrove)
-
-Packets.Listen(Packets.speed, function(Speed)
-	CurrentSpeed = tonumber(Speed) or CurrentSpeed
-
-	Refresh()
-end, ScriptTrove)
+end)
 
 ScriptTrove:Connect(RebirthFrame.Rebirth.Activated, function()
-	Packets.rebirthRequest.send(nil)
+	RequestController.Rebirth()
 end)
 
 ScriptTrove:Connect(RebirthFrame.SkipRebirth.Activated, function()
