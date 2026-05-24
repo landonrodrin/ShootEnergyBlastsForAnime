@@ -4,9 +4,10 @@ local ServerStorage = game:GetService("ServerStorage")
 local Players = game:GetService("Players")
 
 local PlayersModule = require(ServerStorage.Modules:WaitForChild("Players"))
-local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
-local Grounding = require(ServerStorage.Modules:WaitForChild("Grounding"))
-local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"))
+local SharedModules = ServerStorage.Modules:WaitForChild("Shared")
+local SetProperties = require(SharedModules:WaitForChild("SetProperties"))
+local Grounding = require(SharedModules:WaitForChild("Grounding"))
+local FinishBarrier = require(SharedModules:WaitForChild("FinishBarrier"))
 
 local shared = ReplicatedStorage:WaitForChild("Shared")
 local PathUtils = require(shared:WaitForChild("PathUtils"))

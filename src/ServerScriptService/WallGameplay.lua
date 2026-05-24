@@ -7,7 +7,8 @@ local shared = ReplicatedStorage:WaitForChild("Shared")
 local WallConfig = require(shared:WaitForChild("WallConfig"))
 local Trove = require(shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
-local FinishBarrier = require(ServerStorage.Modules:WaitForChild("FinishBarrier"))
+local SharedModules = ServerStorage.Modules:WaitForChild("Shared")
+local FinishBarrier = require(SharedModules:WaitForChild("FinishBarrier"))
 
 local WallGameplay = {}
 

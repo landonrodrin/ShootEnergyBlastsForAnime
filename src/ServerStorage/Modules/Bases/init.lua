@@ -4,8 +4,9 @@ local ServerStorage = game:GetService("ServerStorage")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
-local SetProperties = require(ServerStorage.Modules:WaitForChild("SetProperties"))
-local Grounding = require(ServerStorage.Modules:WaitForChild("Grounding"))
+local SharedModules = ServerStorage.Modules:WaitForChild("Shared")
+local SetProperties = require(SharedModules:WaitForChild("SetProperties"))
+local Grounding = require(SharedModules:WaitForChild("Grounding"))
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
