@@ -77,11 +77,6 @@ local Packets = ByteNet.defineNamespace(NAMESPACE_NAME, function()
 				Colour = ByteNet.optional(color),
 			}),
 		}),
-		adminCommand = ByteNet.definePacket({
-			value = ByteNet.struct({
-				Message = ByteNet.string,
-			}),
-		}),
 		inventorySync = ByteNet.definePacket({value = inventorySnapshot}),
 		sellInventory = ByteNet.definePacket({
 			value = ByteNet.struct({

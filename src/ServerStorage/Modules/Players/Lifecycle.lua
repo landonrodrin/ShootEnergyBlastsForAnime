@@ -31,7 +31,6 @@ return function(ctx)
 	local SpeedEvent = ctx.SpeedEvent
 	local CarryEvent = ctx.CarryEvent
 	local RebirthEvent = ctx.RebirthEvent
-	local AdminCommandEvent = ctx.AdminCommandEvent
 	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
 	local IncrementCarryEvent = ctx.IncrementCarryEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
@@ -60,9 +59,6 @@ return function(ctx)
 	local HELD_ANIME_VERTICAL_OFFSET = ctx.HELD_ANIME_VERTICAL_OFFSET
 	local ADMIN_RICH_MONEY = ctx.ADMIN_RICH_MONEY
 	local ADMIN_FAST_SPEED = ctx.ADMIN_FAST_SPEED
-	local RESET_COMMAND_NAME = ctx.RESET_COMMAND_NAME
-	local RICH_COMMAND_NAME = ctx.RICH_COMMAND_NAME
-	local FAST_COMMAND_NAME = ctx.FAST_COMMAND_NAME
 	local BASE_PROGRESSION_VERSION = ctx.BASE_PROGRESSION_VERSION
 	local LEGACY_BASE_LEVEL_TO_CURRENT = ctx.LEGACY_BASE_LEVEL_TO_CURRENT
 	local makeInventoryId = ctx.makeInventoryId
@@ -80,8 +76,6 @@ return function(ctx)
 	local findToolDataById = ctx.findToolDataById
 	local removeToolData = ctx.removeToolData
 	local reconcileIndex = ctx.reconcileIndex
-	local handlePlayerCommand = ctx.handlePlayerCommand
-	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
 	local SetupTrove = Trove.new()
 	local NetworkListenersStarted = false
 local function registerCollisionGroup(Name)
@@ -250,7 +244,6 @@ local function sellInventory(Player, Mode, Id)
 end
 function PlayersModule.Setup()
 	SetupTrove:Clean()
-	setupOwnerTextChatCommands()
 
 	registerCollisionGroup("Players")
 	registerCollisionGroup("Anime")
@@ -284,12 +277,7 @@ function PlayersModule.Setup()
 			return
 		end
 
-		local PlayerData = PlayerDataOrError
-		if PlayerData and PlayerData.Trove then
-			PlayerData.Trove:Connect(Player.Chatted, function(Message)
-				handlePlayerCommand(Player, Message)
-			end)
-		end
+		return PlayerDataOrError
 	end
 
 	SetupTrove:Connect(Players.PlayerAdded, setupPlayer)
@@ -324,11 +312,6 @@ function PlayersModule.Setup()
 
 	if not NetworkListenersStarted then
 		NetworkListenersStarted = true
-
-		Packets.adminCommand.listen(function(Data, Player)
-			if not Player then return end
-			handlePlayerCommand(Player, (Data and Data.Message) or "")
-		end)
 
 		Packets.incrementSpeed.listen(function(Speed, Player)
 			if not Player then return end

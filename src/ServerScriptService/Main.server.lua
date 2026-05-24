@@ -42,9 +42,10 @@ end
 local function preflightPackages()
 	local Packages = waitForRequiredChild(ReplicatedStorage, "Packages", "ReplicatedStorage.Packages")
 
-	waitForRequiredChild(Packages, "promise", "ReplicatedStorage.Packages.promise")
+	waitForPackageShimOrIndex(Packages, "promise", "evaera_promise@", "promise", "ReplicatedStorage.Packages.promise or ReplicatedStorage.Packages._Index.evaera_promise@*.promise")
 	waitForPackageShimOrIndex(Packages, "trove", "sleitnick_trove@", "trove", "ReplicatedStorage.Packages.trove or ReplicatedStorage.Packages._Index.sleitnick_trove@*.trove")
 	waitForPackageShimOrIndex(Packages, "bytenet", "ffrostflame_bytenet@", "bytenet", "ReplicatedStorage.Packages.bytenet or ReplicatedStorage.Packages._Index.ffrostflame_bytenet@*.bytenet")
+	waitForPackageShimOrIndex(Packages, "cmdr", "evaera_cmdr@", "cmdr", "ReplicatedStorage.Packages.cmdr or ReplicatedStorage.Packages._Index.evaera_cmdr@*.cmdr")
 end
 
 preflightPackages()

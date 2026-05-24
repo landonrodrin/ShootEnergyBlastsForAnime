@@ -30,7 +30,6 @@ return function(ctx)
 	local SpeedEvent = ctx.SpeedEvent
 	local CarryEvent = ctx.CarryEvent
 	local RebirthEvent = ctx.RebirthEvent
-	local AdminCommandEvent = ctx.AdminCommandEvent
 	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
 	local IncrementCarryEvent = ctx.IncrementCarryEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
@@ -59,9 +58,6 @@ return function(ctx)
 	local HELD_ANIME_VERTICAL_OFFSET = ctx.HELD_ANIME_VERTICAL_OFFSET
 	local ADMIN_RICH_MONEY = ctx.ADMIN_RICH_MONEY
 	local ADMIN_FAST_SPEED = ctx.ADMIN_FAST_SPEED
-	local RESET_COMMAND_NAME = ctx.RESET_COMMAND_NAME
-	local RICH_COMMAND_NAME = ctx.RICH_COMMAND_NAME
-	local FAST_COMMAND_NAME = ctx.FAST_COMMAND_NAME
 	local BASE_PROGRESSION_VERSION = ctx.BASE_PROGRESSION_VERSION
 	local LEGACY_BASE_LEVEL_TO_CURRENT = ctx.LEGACY_BASE_LEVEL_TO_CURRENT
 	local makeInventoryId = ctx.makeInventoryId
@@ -80,8 +76,6 @@ return function(ctx)
 	local removeToolData = ctx.removeToolData
 	local cleanupToolData = ctx.cleanupToolData
 	local reconcileIndex = ctx.reconcileIndex
-	local handlePlayerCommand = ctx.handlePlayerCommand
-	local setupOwnerTextChatCommands = ctx.setupOwnerTextChatCommands
 function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, ToolIndex, ToolData, AutoEquip, SuppressSync)
 	if typeof(ToolIndex) == "boolean" and ToolData == nil and AutoEquip == nil then
 		AutoEquip = ToolIndex
