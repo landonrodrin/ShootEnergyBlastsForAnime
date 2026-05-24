@@ -187,15 +187,19 @@ ScriptTrove:Connect(CancelButton.Activated, function()
 	ConfirmFrame.Visible = false
 end)
 
-local SellZone = ZonePlus.new(Toggle)
+local SellZone = ZonePlus.CreatePresenceZone(Toggle)
 ScriptTrove:Add(SellZone, "destroy")
-ScriptTrove:Connect(SellZone.localPlayerEntered, function()
+ZonePlus.ConnectSignal(ScriptTrove, SellZone.localPlayerEntered, function()
 	setFrameOpen(true)
 end)
 
-ScriptTrove:Connect(SellZone.localPlayerExited, function()
+ZonePlus.ConnectSignal(ScriptTrove, SellZone.localPlayerExited, function()
 	setFrameOpen(false)
 end)
+
+if SellZone:findLocalPlayer() then
+	setFrameOpen(true)
+end
 
 ScriptTrove:Connect(Player.CharacterRemoving, function()
 	setFrameOpen(false)

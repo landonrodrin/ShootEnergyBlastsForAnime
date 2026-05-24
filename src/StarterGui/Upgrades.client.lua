@@ -62,20 +62,24 @@ local function getRobuxPriceText(ProductId)
 	return string.format("\u{E002} %s", Format.Number(ProductInfo.PriceInRobux or 0))
 end
 
-local UpgradesZone = ZonePlus.new(Toggle)
+local UpgradesZone = ZonePlus.CreatePresenceZone(Toggle)
 ScriptTrove:Add(UpgradesZone, "destroy")
 
-ScriptTrove:Connect(UpgradesZone.localPlayerEntered, function()
+ZonePlus.ConnectSignal(ScriptTrove, UpgradesZone.localPlayerEntered, function()
 	if UpgradesFrame.Visible then return end
 
 	Animations.ToggleFrame(UpgradesFrame)
 end)
 
-ScriptTrove:Connect(UpgradesZone.localPlayerExited, function()
+ZonePlus.ConnectSignal(ScriptTrove, UpgradesZone.localPlayerExited, function()
 	if not UpgradesFrame.Visible then return end
 
 	Animations.ToggleFrame(UpgradesFrame)
 end)
+
+if UpgradesZone:findLocalPlayer() and not UpgradesFrame.Visible then
+	Animations.ToggleFrame(UpgradesFrame)
+end
 
 Packets.Listen(Packets.speed, function(Speed)
 	Speed = tonumber(Speed) or 0

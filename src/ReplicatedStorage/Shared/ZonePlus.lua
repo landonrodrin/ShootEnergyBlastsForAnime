@@ -46,4 +46,27 @@ end
 local ZonePlusModule = findZonePlusModule()
 assert(ZonePlusModule, "Missing ReplicatedStorage.Packages.zoneplus or ReplicatedStorage.Packages._Index.*_zoneplus@*.zoneplus; run Wally install and restart the Rojo sync.")
 
-return require(ZonePlusModule)
+local ZonePlus = require(ZonePlusModule)
+
+function ZonePlus.ConnectSignal(OwnerTrove, Signal, Callback)
+	assert(OwnerTrove and typeof(OwnerTrove.Add) == "function", "ZonePlus.ConnectSignal requires an owner trove")
+	assert(typeof(Signal) == "table" and typeof(Signal.Connect) == "function", "ZonePlus.ConnectSignal requires a ZonePlus signal")
+	assert(typeof(Callback) == "function", "ZonePlus.ConnectSignal requires a callback")
+
+	local Connection = Signal:Connect(Callback)
+	OwnerTrove:Add(function()
+		if Connection and typeof(Connection.Disconnect) == "function" then
+			Connection:Disconnect()
+		end
+	end)
+
+	return Connection
+end
+
+function ZonePlus.CreatePresenceZone(Container)
+	local Zone = ZonePlus.new(Container)
+	Zone:setDetection("WholeBody")
+	return Zone
+end
+
+return ZonePlus

@@ -39,20 +39,27 @@ function ZoneTracker.RegisterZone(Name, Part)
 	Zones[Name] = Part
 
 	local ZoneTrove = Trove.new()
-	local Zone = ZonePlus.new(Part)
+	local Zone = ZonePlus.CreatePresenceZone(Part)
 	ZoneTrove:Add(Zone, "destroy")
 
-	ZoneTrove:Connect(Zone.playerEntered, function(Player)
+	ZonePlus.ConnectSignal(ZoneTrove, Zone.playerEntered, function(Player)
 		local Counts = getPlayerZoneCounts(Player)
 		Counts[Name] = 1
 	end)
 
-	ZoneTrove:Connect(Zone.playerExited, function(Player)
+	ZonePlus.ConnectSignal(ZoneTrove, Zone.playerExited, function(Player)
 		local Counts = PlayerZoneCounts[Player]
 		if Counts then
 			Counts[Name] = nil
 		end
 	end)
+
+	for _, Player in ipairs(Players:GetPlayers()) do
+		if Zone:findPlayer(Player) then
+			local Counts = getPlayerZoneCounts(Player)
+			Counts[Name] = 1
+		end
+	end
 
 	ZoneTroves[Name] = ZoneTrove
 
