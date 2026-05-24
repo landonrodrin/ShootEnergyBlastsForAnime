@@ -3,10 +3,6 @@ local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
-local UiClientUtil = require(script.Parent.Parent:WaitForChild("UiClientUtil"))
-
-script:SetAttribute("ByteNetUiScript", true)
-UiClientUtil.PurgeDuplicateSiblingScripts(script)
 
 local Player = Players.LocalPlayer
 local DropGui = script.Parent

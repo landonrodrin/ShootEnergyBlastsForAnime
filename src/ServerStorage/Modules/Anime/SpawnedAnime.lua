@@ -122,11 +122,7 @@ function AnimeModule:Spawn()
 
 		local Carrying = PlayersModule.Retrieve(Player, "Carrying")
 
-		if Carrying and table.find(Carrying, Anime) then
-			AnimeModule.Drop(Player)
-
-			return
-		elseif Carrying and #Carrying >= PlayersModule.Retrieve(Player, "Carry") then
+		if Carrying and (table.find(Carrying, Anime) or #Carrying >= PlayersModule.Retrieve(Player, "Carry")) then
 			AnimeModule.Drop(Player)
 
 			return

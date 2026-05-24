@@ -8,10 +8,6 @@ local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local UpgradesConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("UpgradesConfigurations"))
-local UiClientUtil = require(script.Parent.Parent:WaitForChild("UiClientUtil"))
-
-script:SetAttribute("ByteNetUiScript", true)
-UiClientUtil.PurgeDuplicateSiblingScripts(script)
 
 local Player = Players.LocalPlayer
 local Upgrades = workspace:WaitForChild("Upgrades")

@@ -4,10 +4,6 @@ local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
-local UiClientUtil = require(script.Parent.Parent:WaitForChild("UiClientUtil"))
-
-script:SetAttribute("ByteNetUiScript", true)
-UiClientUtil.PurgeDuplicateSiblingScripts(script)
 
 local DataGui = script.Parent
 local DataFrame = DataGui:WaitForChild("DataFrame")

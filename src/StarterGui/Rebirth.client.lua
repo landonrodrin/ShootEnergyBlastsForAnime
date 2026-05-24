@@ -7,10 +7,6 @@ local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Animations = require(ReplicatedStorage.Modules:WaitForChild("Animations"))
 local GameConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("GameConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Configurations.Modules:WaitForChild("RebirthsConfigurations"))
-local UiClientUtil = require(script.Parent.Parent:WaitForChild("UiClientUtil"))
-
-script:SetAttribute("ByteNetUiScript", true)
-UiClientUtil.PurgeDuplicateSiblingScripts(script)
 
 local Player = Players.LocalPlayer
 local RebirthGui = script.Parent

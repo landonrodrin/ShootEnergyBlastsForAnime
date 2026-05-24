@@ -3,10 +3,6 @@ local UserInputService = game:GetService("UserInputService")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
-local UiClientUtil = require(script.Parent.Parent:WaitForChild("UiClientUtil"))
-
-script:SetAttribute("ByteNetUiScript", true)
-UiClientUtil.PurgeDuplicateSiblingScripts(script)
 
 local SpeedGui = script.Parent
 local SpeedButton = SpeedGui:WaitForChild("SpeedButton")

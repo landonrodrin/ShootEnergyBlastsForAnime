@@ -45,33 +45,7 @@
       },
       "Modules": {
         "$className": "Folder",
-        "Bases": {
-          "$path": "src/ServerStorage/Modules/Bases"
-        },
-        "FinishBarrier": {
-          "$path": "src/ServerStorage/Modules/FinishBarrier.lua"
-        },
-        "Grounding": {
-          "$path": "src/ServerStorage/Modules/Grounding.lua"
-        },
-        "Players": {
-          "$path": "src/ServerStorage/Modules/Players"
-        },
-        "SetProperties": {
-          "$path": "src/ServerStorage/Modules/SetProperties.lua"
-        },
-        "Anime": {
-          "$path": "src/ServerStorage/Modules/Anime"
-        },
-        "Tools": {
-          "$path": "src/ServerStorage/Modules/Tools.lua"
-        },
-        "Vip": {
-          "$path": "src/ServerStorage/Modules/Vip"
-        },
-        "ZoneTracker": {
-          "$path": "src/ServerStorage/Modules/ZoneTracker.lua"
-        }
+        "$path": "src/ServerStorage/Modules"
       },
       "Network": {
         "$className": "Folder",
@@ -82,9 +56,6 @@
     "StarterGui": {
       "$className": "StarterGui",
       "$ignoreUnknownInstances": true,
-      "UiClientUtil": {
-        "$path": "src/StarterGui/UiClientUtil.lua"
-      },
       "AnnouncementGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,

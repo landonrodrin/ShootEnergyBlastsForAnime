@@ -1,0 +1,7 @@
+std = "roblox"
+
+exclude = [
+	"Packages/_Index/**",
+	"tmp/**",
+	"studio_backups/**",
+]
