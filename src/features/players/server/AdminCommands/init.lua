@@ -1,6 +1,5 @@
 return function(ctx)
 	local ReplicatedStorage = ctx.ReplicatedStorage
-	local ServerStorage = ctx.ServerStorage
 	local Bases = ctx.Bases
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations

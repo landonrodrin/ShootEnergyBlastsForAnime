@@ -11,8 +11,6 @@ return function(ctx)
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
 	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local CreateToolEvent = ctx.CreateToolEvent
-	local AnnouncementEvent = ctx.AnnouncementEvent
-	local RebirthEvent = ctx.RebirthEvent
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
