@@ -428,7 +428,7 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 			clearAnimeViewport()
 
 			local Viewport = AnimeViewports.Mount(ToolIcon, tool.Name, tool:GetAttribute("Mutation"), {
-				Scale = 1.12,
+				Scale = 1.5,
 			})
 			ToolName.Visible = Viewport == nil
 

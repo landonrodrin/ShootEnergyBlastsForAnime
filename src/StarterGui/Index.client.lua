@@ -91,6 +91,7 @@ local function Anime(Index, Mutation, Override)
 
 			local IconObject = AnimeFrame:FindFirstChild("Icon")
 			local Viewport = AnimeViewports.Mount(IconObject, AnimeName, Mutation, {
+				Scale = 1.3,
 				Silhouette = not IsUnlocked
 			})
 
@@ -102,9 +103,6 @@ local function Anime(Index, Mutation, Override)
 
 			AnimeFrame.Area.Text = AnimeConfiguration.Area
 			AnimeFrame.Area.TextColor3 = AreasConfigurations[AnimeConfiguration.Area].Colour or Color3.fromRGB(255, 255, 255)
-
-			AnimeFrame.Mutation.Text = Mutation
-			AnimeFrame.Mutation.TextColor3 = Colour
 
 			AnimeFrame.Anime.Text = IsUnlocked and AnimeName or "?"
 

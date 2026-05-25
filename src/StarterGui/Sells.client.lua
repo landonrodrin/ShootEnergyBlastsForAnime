@@ -97,7 +97,9 @@ local function createRow(Item, LayoutOrder)
 	if Icon and Icon:IsA("GuiObject") then
 		Icon.BackgroundColor3 = Accent
 		Icon.BackgroundTransparency = Item.Mutation == "Default" and 0.35 or 0.08
-		local Viewport = AnimeViewports.Mount(Icon, Item.Name, Item.Mutation)
+		local Viewport = AnimeViewports.Mount(Icon, Item.Name, Item.Mutation, {
+			Scale = 1.4,
+		})
 		if Viewport then
 			RowTrove:Add(Viewport)
 		end
