@@ -41,8 +41,7 @@ local targetScript: ModuleScript = script
 
 require(script.Attribution)
 
-local Modules = ReplicatedStorage:WaitForChild("Modules")
-local AnimeViewports = require(Modules:WaitForChild("AnimeViewports"))
+local AnimeViewports = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeViewports"))
 
 -- Constants --
 local PREFERRED_TRANSPARENCY: number = GuiService.PreferredTransparency or 1

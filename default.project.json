@@ -173,9 +173,49 @@
       }
     },
 
+    "Workspace": {
+      "$className": "Workspace",
+      "$ignoreUnknownInstances": true,
+      "Leaderboards": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "Money": {
+          "$className": "Part",
+          "$ignoreUnknownInstances": true,
+          "LeaderboardGui": {
+            "$className": "SurfaceGui",
+            "$ignoreUnknownInstances": true,
+            "Leaderboard": {
+              "$path": "src/features/ui/server/MoneyLeaderboard.server.lua",
+              "$ignoreUnknownInstances": true
+            }
+          }
+        },
+        "Speed": {
+          "$className": "Part",
+          "$ignoreUnknownInstances": true,
+          "LeaderboardGui": {
+            "$className": "SurfaceGui",
+            "$ignoreUnknownInstances": true,
+            "Leaderboard": {
+              "$path": "src/features/ui/server/SpeedLeaderboard.server.lua",
+              "$ignoreUnknownInstances": true
+            }
+          }
+        }
+      }
+    },
+
     "StarterGui": {
       "$className": "StarterGui",
       "$ignoreUnknownInstances": true,
+      "AreaGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Area": {
+          "$path": "src/features/ui/ui/Area.client.lua"
+        }
+      },
       "AnnouncementGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
@@ -188,6 +228,13 @@
         "$ignoreUnknownInstances": true,
         "AnimeUnlock": {
           "$path": "src/features/ui/ui/AnimeUnlock.client.lua"
+        }
+      },
+      "InviteGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Invite": {
+          "$path": "src/features/ui/ui/Invite.client.lua"
         }
       },
       "IndexGui": {
@@ -204,6 +251,13 @@
         "Sells": {
           "$path": "src/features/shop/ui/Sells.client.lua",
           "$ignoreUnknownInstances": true
+        }
+      },
+      "ShopGui": {
+        "$className": "ScreenGui",
+        "$ignoreUnknownInstances": true,
+        "Shop": {
+          "$path": "src/features/shop/ui/Shop.client.lua"
         }
       },
       "DataGui": {
