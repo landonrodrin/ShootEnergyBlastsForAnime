@@ -1,9 +1,3 @@
-local RebirthsConfigurations = {
-	[1] = {
-		Speed = 50,
-		
-		Multiplier = 1.5
-	}
-}
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-return RebirthsConfigurations
+return require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))

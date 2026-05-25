@@ -4,11 +4,18 @@ Rojo project for the Roblox Studio place.
 
 ## Folder Layout
 
-- `src/ReplicatedStorage/Shared`: shared modules used by client and server.
+- `src/features`: feature-owned code organized by current game systems.
+  - `anime`: anime spawning, carry, placement, animation, viewports, and configs.
+  - `bases`: base claiming, slots, prompts, economy, leveling, and base resources.
+  - `players`: lifecycle, persistence, stats, inventory, tools, admin commands, and player controllers.
+  - `shop`: shop-facing UI and upgrade/rebirth configs.
+  - `ui`: cross-feature HUD, announcements, index, unlock, and UI animation modules.
+  - `walls`: shooting, wall debris, wall gameplay, ladder nudges, and wall config.
+- `src/shared`: shared packages, network packets, utilities, constants, and server-only shared helpers.
+- `src/client`: client bootstrap synced as `StarterPlayerScripts.Main`.
+- `src/server`: server bootstrap synced as `ServerScriptService.Main`.
+- `src/ReplicatedStorage`, `src/ServerStorage`, `src/ServerScriptService`, and `src/StarterPlayer`: compatibility shims and service-specific mounts for existing runtime paths.
 - `Packages`: Wally third-party packages synced into `ReplicatedStorage.Packages`.
-- `src/ReplicatedStorage/Remotes`: remote events/functions.
-- `src/ServerScriptService`: server entry point and services.
-- `src/StarterPlayer/StarterPlayerScripts`: client entry point and controllers.
 - `assets`: source art/audio/mesh/reference files that are not synced by Rojo.
 
 Workspace/map parts and most UI are intentionally managed in Roblox Studio, not Rojo.

@@ -1,7 +1,3 @@
-local Commands = {
-	Whitelist = {
-		2544344878
-	}
-}
+local ServerStorage = game:GetService("ServerStorage")
 
-return Commands
+return require(ServerStorage.Features.Players.Server.AdminCommands:WaitForChild("CommandsConfigurations"))

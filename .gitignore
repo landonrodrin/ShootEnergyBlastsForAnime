@@ -5,6 +5,8 @@
 *.rbxmx
 !src/ServerStorage/Modules/*/Resources/
 !src/ServerStorage/Modules/*/Resources/*.rbxm
+!src/features/*/server/Resources/
+!src/features/*/server/Resources/*.rbxm
 
 # Tooling
 .vscode/

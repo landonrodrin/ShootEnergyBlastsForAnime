@@ -6,9 +6,110 @@
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "$ignoreUnknownInstances": true,
+      "Features": {
+        "$className": "Folder",
+        "Anime": {
+          "$className": "Folder",
+          "Shared": {
+            "$className": "Folder",
+            "$path": "src/features/anime/shared"
+          }
+        },
+        "Bases": {
+          "$className": "Folder",
+          "Client": {
+            "$className": "Folder",
+            "$path": "src/features/bases/client"
+          },
+          "Shared": {
+            "$className": "Folder",
+            "$path": "src/features/bases/shared"
+          }
+        },
+        "Players": {
+          "$className": "Folder",
+          "Client": {
+            "$className": "Folder",
+            "$path": "src/features/players/client"
+          }
+        },
+        "Shop": {
+          "$className": "Folder",
+          "Shared": {
+            "$className": "Folder",
+            "$path": "src/features/shop/shared"
+          },
+          "Ui": {
+            "$className": "Folder",
+            "$path": "src/features/shop/ui"
+          }
+        },
+        "Ui": {
+          "$className": "Folder",
+          "Client": {
+            "$className": "Folder",
+            "$path": "src/features/ui/client"
+          },
+          "Shared": {
+            "$className": "Folder",
+            "$path": "src/features/ui/shared"
+          },
+          "Ui": {
+            "$className": "Folder",
+            "$path": "src/features/ui/ui"
+          }
+        },
+        "Walls": {
+          "$className": "Folder",
+          "Client": {
+            "$className": "Folder",
+            "$path": "src/features/walls/client"
+          },
+          "Shared": {
+            "$className": "Folder",
+            "$path": "src/features/walls/shared"
+          }
+        }
+      },
       "Shared": {
         "$className": "Folder",
-        "$path": "src/ReplicatedStorage/Shared"
+        "Packages": {
+          "$className": "Folder",
+          "$path": "src/shared/Packages"
+        },
+        "Network": {
+          "$className": "Folder",
+          "$path": "src/shared/Network"
+        },
+        "Util": {
+          "$className": "Folder",
+          "$path": "src/shared/Util"
+        },
+        "Constants": {
+          "$className": "Folder",
+          "$path": "src/shared/Constants"
+        },
+        "ByteNet": {
+          "$path": "src/ReplicatedStorage/Shared/ByteNet.lua"
+        },
+        "Loader": {
+          "$path": "src/ReplicatedStorage/Shared/Loader.lua"
+        },
+        "PathUtils": {
+          "$path": "src/ReplicatedStorage/Shared/PathUtils.lua"
+        },
+        "Promise": {
+          "$path": "src/ReplicatedStorage/Shared/Promise.lua"
+        },
+        "Trove": {
+          "$path": "src/ReplicatedStorage/Shared/Trove.lua"
+        },
+        "WallConfig": {
+          "$path": "src/ReplicatedStorage/Shared/WallConfig.lua"
+        },
+        "ZonePlus": {
+          "$path": "src/ReplicatedStorage/Shared/ZonePlus.lua"
+        }
       },
       "Modules": {
         "$className": "Folder",
@@ -34,12 +135,57 @@
 
     "ServerScriptService": {
       "$className": "ServerScriptService",
-      "$path": "src/ServerScriptService"
+      "Main": {
+        "$path": "src/server/Main.server.lua"
+      },
+      "WallGameplay": {
+        "$path": "src/ServerScriptService/WallGameplay.lua"
+      },
+      "StudioTools": {
+        "$className": "Folder",
+        "GenerateAnimeViewports": {
+          "$path": "src/features/anime/server/StudioTools/GenerateAnimeViewports.lua"
+        },
+        "GenerateHeldPreviewTemplates": {
+          "$path": "src/features/anime/server/StudioTools/GenerateHeldPreviewTemplates.lua"
+        }
+      }
     },
 
     "ServerStorage": {
       "$className": "ServerStorage",
       "$ignoreUnknownInstances": true,
+      "Features": {
+        "$className": "Folder",
+        "Anime": {
+          "$className": "Folder",
+          "Server": {
+            "$path": "src/features/anime/server"
+          }
+        },
+        "Bases": {
+          "$className": "Folder",
+          "Server": {
+            "$path": "src/features/bases/server"
+          }
+        },
+        "Players": {
+          "$className": "Folder",
+          "Server": {
+            "$path": "src/features/players/server"
+          }
+        },
+        "Walls": {
+          "$className": "Folder",
+          "Server": {
+            "$path": "src/features/walls/server"
+          }
+        }
+      },
+      "Shared": {
+        "$className": "Folder",
+        "$path": "src/shared/Server"
+      },
       "Configurations": {
         "$path": "src/ServerStorage/Configurations"
       },
@@ -60,21 +206,21 @@
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "Announcement": {
-          "$path": "src/StarterGui/Announcement.client.lua"
+          "$path": "src/features/ui/ui/Announcement.client.lua"
         }
       },
       "AnimeUnlockGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "AnimeUnlock": {
-          "$path": "src/StarterGui/AnimeUnlock.client.lua"
+          "$path": "src/features/ui/ui/AnimeUnlock.client.lua"
         }
       },
       "IndexGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "Index": {
-          "$path": "src/StarterGui/Index.client.lua",
+          "$path": "src/features/ui/ui/Index.client.lua",
           "$ignoreUnknownInstances": true
         }
       },
@@ -82,7 +228,7 @@
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "Sells": {
-          "$path": "src/StarterGui/Sells.client.lua",
+          "$path": "src/features/shop/ui/Sells.client.lua",
           "$ignoreUnknownInstances": true
         }
       },
@@ -90,28 +236,28 @@
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "Data": {
-          "$path": "src/StarterGui/Data.client.lua"
+          "$path": "src/features/ui/ui/Data.client.lua"
         }
       },
       "DropGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "Drop": {
-          "$path": "src/StarterGui/Drop.client.lua"
+          "$path": "src/features/ui/ui/Drop.client.lua"
         }
       },
       "RebirthGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "Rebirth": {
-          "$path": "src/StarterGui/Rebirth.client.lua"
+          "$path": "src/features/shop/ui/Rebirth.client.lua"
         }
       },
       "UpgradesGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,
         "Upgrades": {
-          "$path": "src/StarterGui/Upgrades.client.lua"
+          "$path": "src/features/shop/ui/Upgrades.client.lua"
         }
       }
     },
@@ -120,7 +266,34 @@
       "$className": "StarterPlayer",
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
-        "$path": "src/StarterPlayer/StarterPlayerScripts"
+        "Main": {
+          "$path": "src/client/Main.client.lua"
+        },
+        "BaseLevel": {
+          "$path": "src/features/bases/client/BaseLevel.client.lua"
+        },
+        "Cmdr": {
+          "$path": "src/features/players/client/Cmdr.client.lua"
+        },
+        "LadderNudge": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/LadderNudge.lua"
+        },
+        "SatchelLoader": {
+          "$path": "src/features/players/client/SatchelLoader.client.lua"
+        },
+        "SetProperties": {
+          "$path": "src/shared/Client/SetProperties.client.lua"
+        },
+        "Shooting": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Shooting.lua"
+        },
+        "WallDebris": {
+          "$path": "src/StarterPlayer/StarterPlayerScripts/WallDebris.lua"
+        },
+        "Controllers": {
+          "$className": "Folder",
+          "$path": "src/StarterPlayer/StarterPlayerScripts/Controllers"
+        }
       }
     }
   }
