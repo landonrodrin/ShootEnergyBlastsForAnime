@@ -2,10 +2,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local shared = ReplicatedStorage:WaitForChild("Shared")
-local WallConfig = require(shared:WaitForChild("WallConfig"))
-local PathUtils = require(shared:WaitForChild("PathUtils"))
-local Trove = require(shared:WaitForChild("Trove"))
+local WallConfig = require(ReplicatedStorage.Features.Walls.Shared:WaitForChild("WallConfig"))
+local PathUtils = require(ReplicatedStorage.Shared.Util:WaitForChild("PathUtils"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 
 local FinishBarrier = {}
 

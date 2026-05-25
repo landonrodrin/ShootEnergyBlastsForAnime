@@ -12,9 +12,8 @@ local FinishBarrier = require(SharedModules:WaitForChild("FinishBarrier"))
 local RequestGuard = require(SharedModules:WaitForChild("RequestGuard"))
 local RequestPolicy = require(SharedModules:WaitForChild("RequestPolicy"))
 
-local shared = ReplicatedStorage:WaitForChild("Shared")
-local PathUtils = require(shared:WaitForChild("PathUtils"))
-local Trove = require(shared:WaitForChild("Trove"))
+local PathUtils = require(ReplicatedStorage.Shared.Util:WaitForChild("PathUtils"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))

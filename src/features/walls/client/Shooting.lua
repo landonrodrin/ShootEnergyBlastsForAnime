@@ -3,9 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Trove = require(Shared:WaitForChild("Trove"))
-local WallConfig = require(Shared:WaitForChild("WallConfig"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
+local WallConfig = require(ReplicatedStorage.Features.Walls.Shared:WaitForChild("WallConfig"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 

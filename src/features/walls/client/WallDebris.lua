@@ -1,9 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
-local shared = ReplicatedStorage:WaitForChild("Shared")
-local WallConfig = require(shared:WaitForChild("WallConfig"))
-local Trove = require(shared:WaitForChild("Trove"))
+local WallConfig = require(ReplicatedStorage.Features.Walls.Shared:WaitForChild("WallConfig"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 
 local WallDebris = {}
