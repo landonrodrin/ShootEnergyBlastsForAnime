@@ -14,9 +14,7 @@ local ScriptTrove = Trove.new()
 
 local function RefreshSpeed()
 	local SavedSpeed = StatsController.Get("Speed") or 0
-	local UseNormalSpeed = StatsController.Get("UseNormalSpeed") == true
-	local ActiveSpeed = UseNormalSpeed and 16 or SavedSpeed
-	DataFrame.Speed.Text = string.format("Speed: %s", Format.Number(ActiveSpeed))
+	DataFrame.Speed.Text = string.format("Speed: %s", Format.Number(SavedSpeed))
 end
 
 local function RefreshMoney()
@@ -30,7 +28,7 @@ end)
 ScriptTrove:Connect(StatsController.Changed, function(Name)
 	if Name == "Money" then
 		RefreshMoney()
-	elseif Name == "Speed" or Name == "UseNormalSpeed" then
+	elseif Name == "Speed" then
 		RefreshSpeed()
 	end
 end)

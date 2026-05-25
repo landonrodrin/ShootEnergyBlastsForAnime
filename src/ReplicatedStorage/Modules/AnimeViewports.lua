@@ -85,7 +85,8 @@ function AnimeViewports.Mount(Placeholder, Name, Mutation, Options)
 	Viewport.Name = "AnimeViewport"
 	Viewport.AnchorPoint = Vector2.new(0.5, 0.5)
 	Viewport.Position = UDim2.fromScale(0.5, 0.5)
-	Viewport.Size = UDim2.fromScale(1, 1)
+	local Scale = tonumber(Options.Scale) or 1
+	Viewport.Size = UDim2.fromScale(Scale, Scale)
 	Viewport.LayoutOrder = 0
 	Viewport.ZIndex = Placeholder.ZIndex + 1
 	Viewport.BackgroundTransparency = 1

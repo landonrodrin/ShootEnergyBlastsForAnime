@@ -107,13 +107,6 @@
           "$path": "src/StarterGui/Rebirth.client.lua"
         }
       },
-      "SpeedGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Speed": {
-          "$path": "src/StarterGui/Speed.client.lua"
-        }
-      },
       "UpgradesGui": {
         "$className": "ScreenGui",
         "$ignoreUnknownInstances": true,

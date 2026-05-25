@@ -4,7 +4,6 @@ RequestPolicy.Cooldowns = {
 	IncrementSpeed = 0.2,
 	IncrementCarry = 0.2,
 	Rebirth = 0.75,
-	ToggleSpeed = 0.12,
 	Index = 0.2,
 	EquipInventory = 0.12,
 	SellInventory = 0.3,

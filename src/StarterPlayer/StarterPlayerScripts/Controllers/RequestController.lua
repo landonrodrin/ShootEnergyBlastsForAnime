@@ -8,12 +8,6 @@ local Started = false
 local LastSentAt = {}
 
 local REQUESTS = {
-	ToggleSpeed = {
-		Cooldown = 0.12,
-		Send = function(Value)
-			Packets.toggleSpeed.send(Value)
-		end,
-	},
 	IncrementSpeed = {
 		Cooldown = 0.2,
 		Send = function(Value)
@@ -106,10 +100,6 @@ function RequestController.Send(Name, Value)
 	LastSentAt[Name] = os.clock()
 	Definition.Send(Value)
 	return true
-end
-
-function RequestController.ToggleSpeed(UseNormalSpeed)
-	return RequestController.Send("ToggleSpeed", UseNormalSpeed)
 end
 
 function RequestController.IncrementSpeed(Amount)

@@ -32,7 +32,6 @@ return function(ctx)
 	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
 	local IncrementCarryEvent = ctx.IncrementCarryEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
-	local ToggleSpeedEvent = ctx.ToggleSpeedEvent
 	local IndexEvent = ctx.IndexEvent
 	local AnimeUnlockedEvent = ctx.AnimeUnlockedEvent
 	local InventorySyncEvent = ctx.InventorySyncEvent
@@ -42,8 +41,6 @@ return function(ctx)
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
-	local HeldModels = ctx.HeldModels
-	local HeldInventoryCarry = ctx.HeldInventoryCarry
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
@@ -66,8 +63,6 @@ return function(ctx)
 	local setHotbarSlot = ctx.setHotbarSlot
 	local migrateBaseProgression = ctx.migrateBaseProgression
 	local getBaseSlotCount = ctx.getBaseSlotCount
-	local createHeldModel = ctx.createHeldModel
-	local removeHeldModel = ctx.removeHeldModel
 	local equipInventoryTool = ctx.equipInventoryTool
 	local getInventorySnapshot = ctx.getInventorySnapshot
 	local syncInventory = ctx.syncInventory
@@ -156,12 +151,21 @@ return function(ctx)
 		}
 	end
 
-	local function normalizeToolEntry(ToolEntry)
+	local function normalizeToolEntry(ToolEntry, UsedIds)
 		if type(ToolEntry) ~= "table" then return end
 		if type(ToolEntry.Name) ~= "string" or not AnimeConfigurations[ToolEntry.Name] then return end
 
+		local Id = type(ToolEntry.Id) == "string" and ToolEntry.Id ~= "" and ToolEntry.Id or nil
+		if not Id or (UsedIds and UsedIds[Id]) then
+			Id = makeInventoryId()
+		end
+
+		if UsedIds then
+			UsedIds[Id] = true
+		end
+
 		return {
-			Id = type(ToolEntry.Id) == "string" and ToolEntry.Id ~= "" and ToolEntry.Id or makeInventoryId(),
+			Id = Id,
 			Name = ToolEntry.Name,
 			Mutation = normalizeMutation(ToolEntry.Mutation),
 			Level = normalizeLevel(ToolEntry.Name, ToolEntry.Level)
@@ -198,8 +202,9 @@ return function(ctx)
 		PlayerData.Level = clampInteger(PlayerData.Level, 1, 1, MAX_BASE_LEVEL)
 
 		local Tools = {}
+		local UsedToolIds = {}
 		for _, ToolEntry in ipairs(type(PlayerData.Tools) == "table" and PlayerData.Tools or {}) do
-			local NormalizedTool = normalizeToolEntry(ToolEntry)
+			local NormalizedTool = normalizeToolEntry(ToolEntry, UsedToolIds)
 			if NormalizedTool then
 				table.insert(Tools, NormalizedTool)
 			end
@@ -283,8 +288,9 @@ return function(ctx)
 
 	local function serializeTools(PlayerData)
 		local Tools = {}
+		local UsedToolIds = {}
 		for _, ToolData in ipairs(PlayerData.Tools or {}) do
-			local NormalizedTool = normalizeToolEntry(ToolData)
+			local NormalizedTool = normalizeToolEntry(ToolData, UsedToolIds)
 			if NormalizedTool then
 				table.insert(Tools, NormalizedTool)
 			end
@@ -406,9 +412,7 @@ return function(ctx)
 			local Backpack = Player:WaitForChild("Backpack")
 			local Character = Player.Character
 
-			if ctx.removeHeldModel then
-				ctx.removeHeldModel(Player)
-			end
+			Player:SetAttribute("HoldState", nil)
 
 			destroyInventoryTools(Backpack)
 			destroyInventoryTools(Character)
@@ -474,9 +478,7 @@ return function(ctx)
 			end)
 
 			PlayerTrove:Connect(Player.CharacterRemoving, function()
-				if ctx.removeHeldModel then
-					ctx.removeHeldModel(Player)
-				end
+				Player:SetAttribute("HoldState", nil)
 				task.defer(syncInventory, Player)
 			end)
 		end):catch(function(Error)
@@ -628,6 +630,9 @@ return function(ctx)
 	end
 
 	function PlayersModule:DestroySession()
+		if self.SessionDestroyed then return end
+		self.SessionDestroyed = true
+
 		local Player = self.Player
 
 		for _, ToolData in ipairs(self.Tools or {}) do

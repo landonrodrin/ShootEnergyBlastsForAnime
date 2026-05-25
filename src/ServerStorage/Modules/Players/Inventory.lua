@@ -32,7 +32,6 @@ return function(ctx)
 	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
 	local IncrementCarryEvent = ctx.IncrementCarryEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
-	local ToggleSpeedEvent = ctx.ToggleSpeedEvent
 	local IndexEvent = ctx.IndexEvent
 	local AnimeUnlockedEvent = ctx.AnimeUnlockedEvent
 	local InventorySyncEvent = ctx.InventorySyncEvent
@@ -42,8 +41,6 @@ return function(ctx)
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
-	local HeldModels = ctx.HeldModels
-	local HeldInventoryCarry = ctx.HeldInventoryCarry
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
@@ -66,14 +63,13 @@ return function(ctx)
 	local setHotbarSlot = ctx.setHotbarSlot
 	local migrateBaseProgression = ctx.migrateBaseProgression
 	local getBaseSlotCount = ctx.getBaseSlotCount
-	local createHeldModel = ctx.createHeldModel
-	local removeHeldModel = ctx.removeHeldModel
 	local equipInventoryTool = ctx.equipInventoryTool
 	local getInventorySnapshot = ctx.getInventorySnapshot
 	local syncInventory = ctx.syncInventory
 	local findToolDataById = ctx.findToolDataById
 	local removeToolData = ctx.removeToolData
 	local reconcileIndex = ctx.reconcileIndex
+	local PendingInventorySync = {}
 local function makeInventoryId()
 	return HttpService:GenerateGUID(false)
 end
@@ -195,10 +191,6 @@ local function equipInventoryTool(Player, ToolData)
 	ToolData.Tool.Parent = Player:WaitForChild("Backpack")
 	Humanoid:EquipTool(ToolData.Tool)
 
-	if ctx.createHeldModel then
-		ctx.createHeldModel(Player, ToolData.Name, ToolData.Mutation, ToolData.Level)
-	end
-
 	return true
 end
 
@@ -265,6 +257,47 @@ local function syncInventory(Player)
 	Packets.inventorySync.sendTo(Packets.EncodeInventorySnapshot(getInventorySnapshot(Player)), Player)
 end
 
+local function queueInventorySync(Player)
+	if not PlayersData[Player] or PendingInventorySync[Player] then return end
+
+	PendingInventorySync[Player] = true
+	task.defer(function()
+		PendingInventorySync[Player] = nil
+		syncInventory(Player)
+	end)
+end
+
+local function getEquippedInventoryTool(Player)
+	local Character = Player.Character
+	local Tool = Character and Character:FindFirstChildOfClass("Tool")
+	if not Tool then return end
+	if not Tool:GetAttribute("InventoryId") and not AnimeConfigurations[Tool.Name] then return end
+
+	return Tool
+end
+
+local function clearEquippedInventoryTool(Player)
+	local Tool = getEquippedInventoryTool(Player)
+	if Tool then
+		local Character = Player.Character
+		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+		if Humanoid then
+			Humanoid:UnequipTools()
+		else
+			local Backpack = Player:FindFirstChildOfClass("Backpack")
+			if Backpack then
+				Tool.Parent = Backpack
+			end
+		end
+	end
+
+	if Player:GetAttribute("HoldState") == "Inventory" then
+		Player:SetAttribute("HoldState", nil)
+	end
+
+	queueInventorySync(Player)
+end
+
 local function findToolDataById(Player, Id)
 	local PlayerData = PlayersData[Player]
 	if not PlayerData or not Id then return end
@@ -277,8 +310,9 @@ local function findToolDataById(Player, Id)
 end
 
 local function removeToolData(Player, Index, ToolData, SkipSync)
-	if ctx.removeHeldModel then
-		ctx.removeHeldModel(Player)
+	local Character = Player.Character
+	if ToolData and typeof(ToolData.Tool) == "Instance" and ToolData.Tool.Parent == Character then
+		clearEquippedInventoryTool(Player)
 	end
 
 	cleanupToolData(ToolData)
@@ -320,6 +354,9 @@ end
 	ctx.cleanupToolData = cleanupToolData
 	ctx.getInventorySnapshot = getInventorySnapshot
 	ctx.syncInventory = syncInventory
+	ctx.queueInventorySync = queueInventorySync
+	ctx.clearEquippedInventoryTool = clearEquippedInventoryTool
+	PlayersModule.ClearEquippedInventoryTool = clearEquippedInventoryTool
 	ctx.findToolDataById = findToolDataById
 	ctx.removeToolData = removeToolData
 	ctx.reconcileIndex = reconcileIndex

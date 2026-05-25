@@ -13,6 +13,10 @@ local AnimeConfigurations = {
 		Time = 60,
 
 		Index = 1,
+		ViewportCameraDirection = -1,
+		ViewportYawDegrees = 0,
+		ViewportZoom = 1,
+		ViewportYOffset = 0,
 
 		Levels = {
 			[1] = {
@@ -52,6 +56,10 @@ local AnimeConfigurations = {
 		Time = 60,
 
 		Index = 2,
+		ViewportCameraDirection = -1,
+		ViewportYawDegrees = 0,
+		ViewportZoom = 1,
+		ViewportYOffset = 0,
 
 		Levels = {
 			[1] = {
@@ -91,6 +99,10 @@ local AnimeConfigurations = {
 		Time = 60,
 
 		Index = 3,
+		ViewportCameraDirection = 1,
+		ViewportYawDegrees = 180,
+		ViewportZoom = 1,
+		ViewportYOffset = 0,
 
 		Levels = {
 			[1] = {

@@ -427,7 +427,9 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 			ToolIcon.Image = ""
 			clearAnimeViewport()
 
-			local Viewport = AnimeViewports.Mount(ToolIcon, tool.Name, tool:GetAttribute("Mutation"))
+			local Viewport = AnimeViewports.Mount(ToolIcon, tool.Name, tool:GetAttribute("Mutation"), {
+				Scale = 1.12,
+			})
 			ToolName.Visible = Viewport == nil
 
 			ToolName.Text = tool.Name

@@ -32,7 +32,6 @@ return function(ctx)
 	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
 	local IncrementCarryEvent = ctx.IncrementCarryEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
-	local ToggleSpeedEvent = ctx.ToggleSpeedEvent
 	local IndexEvent = ctx.IndexEvent
 	local AnimeUnlockedEvent = ctx.AnimeUnlockedEvent
 	local InventorySyncEvent = ctx.InventorySyncEvent
@@ -42,8 +41,6 @@ return function(ctx)
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
-	local HeldModels = ctx.HeldModels
-	local HeldInventoryCarry = ctx.HeldInventoryCarry
 	local MoneyPerSecondLeaderstatUpdates = ctx.MoneyPerSecondLeaderstatUpdates
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
@@ -67,8 +64,6 @@ return function(ctx)
 	local setHotbarSlot = ctx.setHotbarSlot
 	local migrateBaseProgression = ctx.migrateBaseProgression
 	local getBaseSlotCount = ctx.getBaseSlotCount
-	local createHeldModel = ctx.createHeldModel
-	local removeHeldModel = ctx.removeHeldModel
 	local equipInventoryTool = ctx.equipInventoryTool
 	local getInventorySnapshot = ctx.getInventorySnapshot
 	local syncInventory = ctx.syncInventory
@@ -143,15 +138,9 @@ function PlayersModule.Replace(Player, Name, Value)
 			Speed = Value,
 		}, Player)
 
-		Player:SetAttribute("UseNormalSpeed", false)
-
-		local Character = Player.Character
-		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-		if Humanoid then
-			Humanoid.WalkSpeed = Value
+		if ctx.applyPlayerMovementSpeed then
+			ctx.applyPlayerMovementSpeed(Player)
 		end
-
-		Packets.toggleSpeed.sendTo(nil, Player)
 	elseif Name == "Carry" then
 		Packets.carry.sendTo(Value, Player)
 	elseif Name == "Rebirths" then
@@ -194,7 +183,9 @@ function PlayersModule.Replace(Player, Name, Value)
 			Index = Value,
 		}, Player)
 	elseif Name == "Tools" then
-		removeHeldModel(Player)
+		if ctx.clearEquippedInventoryTool then
+			ctx.clearEquippedInventoryTool(Player)
+		end
 		normalizeHotbarOrder(PlayerData)
 		task.defer(syncInventory, Player)
 	end

@@ -13,7 +13,9 @@ local SetProperties = require(SharedModules:WaitForChild("SetProperties"))
 local ZoneTracker = require(SharedModules:WaitForChild("ZoneTracker"))
 local RequestGuard = require(SharedModules:WaitForChild("RequestGuard"))
 local RequestPolicy = require(SharedModules:WaitForChild("RequestPolicy"))
+local PreviewTemplates = require(SharedModules:WaitForChild("PreviewTemplates"))
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
 local Packets = require(ReplicatedStorage.Network:WaitForChild("Packets"))
 local Format = require(ReplicatedStorage.Modules:WaitForChild("Format"))
 
@@ -39,7 +41,9 @@ local ctx = {
 	ZoneTracker = ZoneTracker,
 	RequestGuard = RequestGuard,
 	RequestPolicy = RequestPolicy,
+	PreviewTemplates = PreviewTemplates,
 	Trove = Trove,
+	ZonePlus = ZonePlus,
 	Format = Format,
 	GameConfigurations = GameConfigurations,
 	AnimeConfigurations = AnimeConfigurations,
@@ -59,9 +63,6 @@ local ctx = {
 	Resources = script:WaitForChild("Resources"),
 	PlayersData = {},
 	PlayersModule = {},
-	HeldModels = {},
-	HeldTroves = {},
-	HeldInventoryCarry = {},
 	MoneyPerSecondLeaderstatUpdates = {},
 	AdminCommandDebounces = {},
 	SELL_STATION_DISTANCE = 18,
@@ -87,7 +88,6 @@ local ctx = {
 }
 
 require(script:WaitForChild("Inventory"))(ctx)
-require(script:WaitForChild("HeldPreview"))(ctx)
 require(script:WaitForChild("AdminCommands"))(ctx)
 require(script:WaitForChild("Stats"))(ctx)
 require(script:WaitForChild("Persistence"))(ctx)

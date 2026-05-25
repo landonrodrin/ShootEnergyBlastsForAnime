@@ -12,7 +12,6 @@ return function(ctx)
 	local ADMIN_RICH_MONEY = ctx.ADMIN_RICH_MONEY
 	local ADMIN_FAST_SPEED = ctx.ADMIN_FAST_SPEED
 	local BASE_PROGRESSION_VERSION = ctx.BASE_PROGRESSION_VERSION
-	local removeHeldModel = ctx.removeHeldModel
 	local reconcileIndex = ctx.reconcileIndex
 	local cleanupToolData = ctx.cleanupToolData
 
@@ -126,7 +125,9 @@ return function(ctx)
 			return "Reset is on cooldown."
 		end
 
-		removeHeldModel(Player)
+		if ctx.clearEquippedInventoryTool then
+			ctx.clearEquippedInventoryTool(Player)
+		end
 		destroyPlayerTools(Player, PlayerData)
 		clearBaseProgress(PlayerData)
 
@@ -143,10 +144,8 @@ return function(ctx)
 		PlayersModule.Replace(Player, "MoneyPerSecond", 0)
 		PlayerData.BaseProgressionVersion = BASE_PROGRESSION_VERSION
 
-		local Character = Player.Character
-		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-		if Humanoid then
-			Humanoid.WalkSpeed = GameConfigurations.Defaults.Speed
+		if ctx.applyPlayerMovementSpeed then
+			ctx.applyPlayerMovementSpeed(Player)
 		end
 
 		print(string.format("Owner reset executed for %s (%d)", Player.Name, Player.UserId))
@@ -191,10 +190,8 @@ return function(ctx)
 
 		PlayersModule.Replace(Player, "Speed", ADMIN_FAST_SPEED)
 
-		local Character = Player.Character
-		local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
-		if Humanoid then
-			Humanoid.WalkSpeed = ADMIN_FAST_SPEED
+		if ctx.applyPlayerMovementSpeed then
+			ctx.applyPlayerMovementSpeed(Player)
 		end
 
 		print(string.format("Owner fast command executed for %s (%d)", Player.Name, Player.UserId))

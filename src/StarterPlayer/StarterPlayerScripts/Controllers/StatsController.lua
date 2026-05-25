@@ -15,7 +15,6 @@ local State = {
 	Speed = GameConfigurations.Defaults.Speed,
 	Carry = 0,
 	Rebirths = 0,
-	UseNormalSpeed = false,
 }
 
 StatsController.Changed = ChangedEvent.Event
@@ -52,10 +51,6 @@ function StatsController.Start()
 
 		setState("Rebirths", tonumber(Data.Rebirths) or 0)
 		setState("Speed", tonumber(Data.Speed) or State.Speed)
-	end, ScriptTrove)
-
-	Packets.Listen(Packets.toggleSpeed, function(UseNormal)
-		setState("UseNormalSpeed", UseNormal == true)
 	end, ScriptTrove)
 
 	ScriptTrove:Connect(script.Destroying, function()

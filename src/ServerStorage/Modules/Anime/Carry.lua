@@ -253,7 +253,9 @@ function AnimeModule.Drop(Player, ResetTimers)
 		end
 	end
 
-	PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, false)
+	if Player:GetAttribute("HoldState") == "Carry" then
+		Player:SetAttribute("HoldState", nil)
+	end
 
 	PlayersModule.Replace(Player, "Carrying", nil)
 	PlayersModule.Replace(Player, "Carried", nil)

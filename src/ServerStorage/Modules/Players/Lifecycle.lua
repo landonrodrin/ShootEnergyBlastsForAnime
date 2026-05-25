@@ -11,6 +11,7 @@ return function(ctx)
 	local SetProperties = ctx.SetProperties
 	local ZoneTracker = ctx.ZoneTracker
 	local Trove = ctx.Trove
+	local ZonePlus = ctx.ZonePlus
 	local RequestGuard = ctx.RequestGuard
 	local RequestPolicy = ctx.RequestPolicy
 	local Format = ctx.Format
@@ -35,7 +36,6 @@ return function(ctx)
 	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
 	local IncrementCarryEvent = ctx.IncrementCarryEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
-	local ToggleSpeedEvent = ctx.ToggleSpeedEvent
 	local IndexEvent = ctx.IndexEvent
 	local AnimeUnlockedEvent = ctx.AnimeUnlockedEvent
 	local InventorySyncEvent = ctx.InventorySyncEvent
@@ -45,8 +45,7 @@ return function(ctx)
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
-	local HeldModels = ctx.HeldModels
-	local HeldInventoryCarry = ctx.HeldInventoryCarry
+	local PreviewTemplates = ctx.PreviewTemplates
 	local MoneyPerSecondLeaderstatUpdates = ctx.MoneyPerSecondLeaderstatUpdates
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
@@ -70,8 +69,6 @@ return function(ctx)
 	local setHotbarSlot = ctx.setHotbarSlot
 	local migrateBaseProgression = ctx.migrateBaseProgression
 	local getBaseSlotCount = ctx.getBaseSlotCount
-	local createHeldModel = ctx.createHeldModel
-	local removeHeldModel = ctx.removeHeldModel
 	local equipInventoryTool = ctx.equipInventoryTool
 	local getInventorySnapshot = ctx.getInventorySnapshot
 	local syncInventory = ctx.syncInventory
@@ -80,6 +77,8 @@ return function(ctx)
 	local reconcileIndex = ctx.reconcileIndex
 	local SetupTrove = Trove.new()
 	local NetworkListenersStarted = false
+	local BIND_TO_CLOSE_SAVE_TIMEOUT = 25
+	local PlayersInStrips = {}
 	local RequestCooldowns = RequestPolicy.Cooldowns
 	local AllowedSpeedIncrements = {
 		[1] = true,
@@ -100,15 +99,75 @@ local function isPositiveInteger(Value)
 	return type(Value) == "number" and Value > 0 and Value % 1 == 0
 end
 
+local function getCharacterHumanoid(Player)
+	local Character = Player.Character
+	return Character and Character:FindFirstChildOfClass("Humanoid")
+end
+
+local function getActiveMovementSpeed(Player)
+	local PlayerData = PlayersData[Player]
+	if not PlayerData then
+		return GameConfigurations.Defaults.Speed
+	end
+
+	if PlayersInStrips[Player] then
+		return PlayerData.Speed or GameConfigurations.Defaults.Speed
+	end
+
+	return GameConfigurations.Defaults.Speed
+end
+
+local function applyPlayerMovementSpeed(Player)
+	local Humanoid = getCharacterHumanoid(Player)
+	if not Humanoid then return end
+
+	Humanoid.WalkSpeed = getActiveMovementSpeed(Player)
+end
+
+local function bindSpeedZone(Name, Container, OnEntered, OnExited)
+	if not Container then
+		warn(string.format("Missing movement speed zone: %s", Name))
+		return
+	end
+
+	local Zone = ZonePlus.CreatePresenceZone(Container)
+	SetupTrove:Add(Zone, "destroy")
+
+	ZonePlus.ConnectSignal(SetupTrove, Zone.playerEntered, OnEntered)
+	ZonePlus.ConnectSignal(SetupTrove, Zone.playerExited, OnExited)
+
+	for _, Player in ipairs(Players:GetPlayers()) do
+		if Zone:findPlayer(Player) then
+			OnEntered(Player)
+		end
+	end
+end
+
+local function setupMovementSpeedZones()
+	table.clear(PlayersInStrips)
+
+	local Strips = workspace:FindFirstChild("Strips") or workspace:WaitForChild("Strips", 10)
+	bindSpeedZone("Workspace.Strips", Strips, function(Player)
+		PlayersInStrips[Player] = true
+		applyPlayerMovementSpeed(Player)
+	end, function(Player)
+		PlayersInStrips[Player] = nil
+		applyPlayerMovementSpeed(Player)
+	end)
+
+	local Map = workspace:FindFirstChild("Map") or workspace:WaitForChild("Map", 10)
+	local MainFloor = Map and (Map:FindFirstChild("Main Floor") or Map:WaitForChild("Main Floor", 10))
+	bindSpeedZone("Workspace.Map.Main Floor", MainFloor, function(Player)
+		applyPlayerMovementSpeed(Player)
+	end, function(Player)
+		applyPlayerMovementSpeed(Player)
+	end)
+end
+
 local function setGroupsCollidable(GroupA, GroupB, Collidable)
 	pcall(function()
 		PhysicsService:CollisionGroupSetCollidable(GroupA, GroupB, Collidable)
 	end)
-end
-
-local function isHoldAnimation(AnimationId)
-	return AnimationId == GameConfigurations.AnimationsIds.Carry
-		or AnimationId == GameConfigurations.AnimationsIds.OwnedHold
 end
 
 local function getSellStation()
@@ -263,13 +322,12 @@ function PlayersModule.Setup()
 
 	registerCollisionGroup("Players")
 	registerCollisionGroup("Anime")
-	registerCollisionGroup("HeldPreviews")
 	setGroupsCollidable("Players", "Anime", false)
 	setGroupsCollidable("Players", "Players", false)
-	setGroupsCollidable("HeldPreviews", "Default", false)
-	setGroupsCollidable("HeldPreviews", "Players", false)
-	setGroupsCollidable("HeldPreviews", "Anime", false)
-	setGroupsCollidable("HeldPreviews", "HeldPreviews", false)
+	if PreviewTemplates then
+		PreviewTemplates.ValidateAnimeTemplates()
+	end
+	setupMovementSpeedZones()
 
 	local SellStation = getSellStation()
 	if SellStation then
@@ -311,8 +369,8 @@ function PlayersModule.Setup()
 		end
 
 		ZoneTracker.ClearPlayer(Player)
-		removeHeldModel(Player)
-		HeldInventoryCarry[Player] = nil
+		Player:SetAttribute("HoldState", nil)
+		PlayersInStrips[Player] = nil
 		MoneyPerSecondLeaderstatUpdates[Player] = nil
 		AdminCommandDebounces[Player] = nil
 	end)
@@ -326,10 +384,31 @@ function PlayersModule.Setup()
 			})
 		end
 
+		local PendingSaves = #ClosingPlayersData
+		if PendingSaves <= 0 then return end
+
 		for _, Entry in ipairs(ClosingPlayersData) do
-			local PlayerData = Entry.PlayerData
-			PlayerData:QueueSave("BindToClose")
-			PlayerData:DestroySession()
+			task.spawn(function()
+				local Success, Error = pcall(function()
+					local PlayerData = Entry.PlayerData
+					PlayerData:QueueSave("BindToClose")
+					PlayerData:DestroySession()
+				end)
+				if not Success then
+					warn(string.format("BindToClose player save task failed: %s", tostring(Error)))
+				end
+
+				PendingSaves -= 1
+			end)
+		end
+
+		local Deadline = os.clock() + BIND_TO_CLOSE_SAVE_TIMEOUT
+		while PendingSaves > 0 and os.clock() < Deadline do
+			task.wait()
+		end
+
+		if PendingSaves > 0 then
+			warn(string.format("BindToClose finished with %s player save(s) still pending.", PendingSaves))
 		end
 	end)
 
@@ -377,33 +456,6 @@ function PlayersModule.Setup()
 
 			PlayersModule.Replace(Player, "Money", PlayersModule.Retrieve(Player, "Money") - Cost)
 			PlayersModule.Replace(Player, "Carry", CurrentCarry + Carry)
-		end)
-
-		Packets.announcement.listen(function(Data, Player)
-			if not Player then return end
-			Packets.announcement.sendTo({
-				Text = (Data and Data.Text) or "",
-				Colour = Data and Data.Colour,
-			}, Player)
-		end)
-
-		Packets.toggleSpeed.listen(function(Toggle, Player)
-			if not isLoadedPlayer(Player) then return end
-			if type(Toggle) ~= "boolean" then return end
-			if not RequestGuard.Allow(Player, "toggleSpeed", RequestCooldowns.ToggleSpeed) then return end
-
-			local Speed = PlayersModule.Retrieve(Player, "Speed") or 16
-			local UseNormalSpeed = Toggle == true
-
-			Player:SetAttribute("UseNormalSpeed", UseNormalSpeed)
-
-			local Character = Player.Character or Player.CharacterAdded:Wait()
-
-			local Humanoid = Character:WaitForChild("Humanoid")
-
-			Humanoid.WalkSpeed = UseNormalSpeed and 16 or Speed
-
-			Packets.toggleSpeed.sendTo(UseNormalSpeed, Player)
 		end)
 
 		Packets.rebirthRequest.listen(function(_, Player)
@@ -462,12 +514,18 @@ function PlayersModule.Setup()
 
 			if ToolData.Tool.Parent == Character then
 				Humanoid:UnequipTools()
-				removeHeldModel(Player)
+				if Player:GetAttribute("HoldState") == "Inventory" then
+					Player:SetAttribute("HoldState", nil)
+				end
 			else
 				equipInventoryTool(Player, ToolData)
 			end
 
-			task.defer(syncInventory, Player)
+			if ctx.queueInventorySync then
+				ctx.queueInventorySync(Player)
+			else
+				task.defer(syncInventory, Player)
+			end
 		end)
 
 		Packets.sellInventory.listen(function(Data, Player)
@@ -526,9 +584,9 @@ function PlayersModule.Create(Player)
 	MoneyPerSecond.Parent = Leaderstats
 
 	local Character = Player.Character or Player.CharacterAdded:Wait()
-	local Humanoid = Character:WaitForChild("Humanoid")
+	Character:WaitForChild("Humanoid")
 
-	Humanoid.WalkSpeed = PlayerData.Speed
+	applyPlayerMovementSpeed(Player)
 
 	for _, Descendant in ipairs(Character:GetDescendants()) do
 		if not Descendant:IsA("BasePart") then continue end
@@ -539,9 +597,9 @@ function PlayersModule.Create(Player)
 	scheduleCharacterSpawnMove(Character, PlayerData.Trove)
 
 	PlayerData.Trove:Connect(Player.CharacterAdded, function(Character)
-		local Humanoid = Character:WaitForChild("Humanoid")
+		Character:WaitForChild("Humanoid")
 
-		Humanoid.WalkSpeed = PlayerData.Speed
+		applyPlayerMovementSpeed(Player)
 
 		for _, Descendant in ipairs(Character:GetDescendants()) do
 			if not Descendant:IsA("BasePart") then continue end
@@ -687,4 +745,6 @@ function PlayersModule.Create(Player)
 end
 	ctx.registerCollisionGroup = registerCollisionGroup
 	ctx.setGroupsCollidable = setGroupsCollidable
+	ctx.getActiveMovementSpeed = getActiveMovementSpeed
+	ctx.applyPlayerMovementSpeed = applyPlayerMovementSpeed
 end

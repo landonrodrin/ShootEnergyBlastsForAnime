@@ -12,6 +12,7 @@ local ControllerOrder = {
 	"StatsController",
 	"InventoryController",
 	"PlayerController",
+	"HeldPreviewController",
 	"BaseController",
 	"UiController",
 }

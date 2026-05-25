@@ -130,8 +130,8 @@ function AnimeModule:Spawn()
 			Carrying = {}
 		end
 
-		if PlayersModule.ClearHeldInventoryPreview then
-			PlayersModule.ClearHeldInventoryPreview(Player)
+		if PlayersModule.ClearEquippedInventoryTool then
+			PlayersModule.ClearEquippedInventoryTool(Player)
 		end
 
 		table.insert(Carrying, Anime)
@@ -142,7 +142,7 @@ function AnimeModule:Spawn()
 
 		AnimeRegistry[Anime] = self
 
-		PlayersModule.Animate(Player, GameConfigurations.AnimationsIds.Carry, true)
+		Player:SetAttribute("HoldState", "Carry")
 
 		local AnimeGui = getAnimeGui(Anime)
 		if AnimeGui and AnimeGui:FindFirstChild("Time") then

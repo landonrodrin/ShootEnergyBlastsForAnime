@@ -32,7 +32,6 @@ return function(ctx)
 	local IncrementSpeedEvent = ctx.IncrementSpeedEvent
 	local IncrementCarryEvent = ctx.IncrementCarryEvent
 	local AnnouncementEvent = ctx.AnnouncementEvent
-	local ToggleSpeedEvent = ctx.ToggleSpeedEvent
 	local IndexEvent = ctx.IndexEvent
 	local AnimeUnlockedEvent = ctx.AnimeUnlockedEvent
 	local InventorySyncEvent = ctx.InventorySyncEvent
@@ -42,8 +41,6 @@ return function(ctx)
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
-	local HeldModels = ctx.HeldModels
-	local HeldInventoryCarry = ctx.HeldInventoryCarry
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
@@ -66,11 +63,9 @@ return function(ctx)
 	local setHotbarSlot = ctx.setHotbarSlot
 	local migrateBaseProgression = ctx.migrateBaseProgression
 	local getBaseSlotCount = ctx.getBaseSlotCount
-	local createHeldModel = ctx.createHeldModel
-	local removeHeldModel = ctx.removeHeldModel
 	local equipInventoryTool = ctx.equipInventoryTool
 	local getInventorySnapshot = ctx.getInventorySnapshot
-	local syncInventory = ctx.syncInventory
+	local queueInventorySync = ctx.queueInventorySync
 	local findToolDataById = ctx.findToolDataById
 	local removeToolData = ctx.removeToolData
 	local cleanupToolData = ctx.cleanupToolData
@@ -128,13 +123,17 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 	end
 
 	ToolTrove:Connect(Tool.Equipped, function()
-		createHeldModel(Player, Name, Mutation, Data.Level)
-		syncInventory(Player)
+		if Player:GetAttribute("HoldState") ~= "Carry" then
+			Player:SetAttribute("HoldState", "Inventory")
+		end
+		queueInventorySync(Player)
 	end)
 
 	ToolTrove:Connect(Tool.Unequipped, function()
-		removeHeldModel(Player)
-		syncInventory(Player)
+		if Player:GetAttribute("HoldState") == "Inventory" then
+			Player:SetAttribute("HoldState", nil)
+		end
+		queueInventorySync(Player)
 	end)
 
 	Tool.Name = Name
@@ -144,6 +143,7 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 	Tool:SetAttribute("InventoryId", Id)
 	Tool:SetAttribute("Mutation", Mutation)
 	Tool:SetAttribute("Level", Data.Level)
+	Tool:SetAttribute("Rebirths", PlayersData[Player] and PlayersData[Player].Rebirths or 0)
 
 	ToolTrove:Connect(Tool.Destroying, function()
 		Data.Tool = nil
@@ -179,10 +179,10 @@ function PlayersModule.Tool(Player, Name, AnimeConfiguration, Mutation, Level, T
 			if not Tool.Parent then return end
 
 			equipInventoryTool(Player, Data)
-			syncInventory(Player)
+			queueInventorySync(Player)
 		end)
 	elseif not SuppressSync then
-		task.defer(syncInventory, Player)
+		queueInventorySync(Player)
 	end
 
 	return Data
