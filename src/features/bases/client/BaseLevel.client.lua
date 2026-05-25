@@ -1,11 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 
-local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
-local RequestController = require(Controllers:WaitForChild("RequestController"))
+local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 RequestController.Start()
 
 local ScriptTrove = Trove.new()

@@ -275,24 +275,11 @@
         "Cmdr": {
           "$path": "src/features/players/client/Cmdr.client.lua"
         },
-        "LadderNudge": {
-          "$path": "src/StarterPlayer/StarterPlayerScripts/LadderNudge.lua"
-        },
         "SatchelLoader": {
           "$path": "src/features/players/client/SatchelLoader.client.lua"
         },
         "SetProperties": {
           "$path": "src/shared/Client/SetProperties.client.lua"
-        },
-        "Shooting": {
-          "$path": "src/StarterPlayer/StarterPlayerScripts/Shooting.lua"
-        },
-        "WallDebris": {
-          "$path": "src/StarterPlayer/StarterPlayerScripts/WallDebris.lua"
-        },
-        "Controllers": {
-          "$className": "Folder",
-          "$path": "src/StarterPlayer/StarterPlayerScripts/Controllers"
         }
       }
     }

@@ -3,8 +3,7 @@ local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 
-local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
-local InventoryController = require(Controllers:WaitForChild("InventoryController"))
+local InventoryController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("InventoryController"))
 InventoryController.Start()
 
 local Player = Players.LocalPlayer

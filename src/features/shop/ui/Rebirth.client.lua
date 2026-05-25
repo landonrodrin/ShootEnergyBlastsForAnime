@@ -7,9 +7,8 @@ local Animations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("An
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))
 
-local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
-local RequestController = require(Controllers:WaitForChild("RequestController"))
-local StatsController = require(Controllers:WaitForChild("StatsController"))
+local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
+local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
 RequestController.Start()
 StatsController.Start()
 

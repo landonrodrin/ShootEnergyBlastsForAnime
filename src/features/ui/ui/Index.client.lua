@@ -1,5 +1,4 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
@@ -9,8 +8,7 @@ local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:
 local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
 
-local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
-local RequestController = require(Controllers:WaitForChild("RequestController"))
+local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 RequestController.Start()
 
 local IndexGui = script.Parent

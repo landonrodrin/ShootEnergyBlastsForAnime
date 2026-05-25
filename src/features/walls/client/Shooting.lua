@@ -7,8 +7,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Trove = require(Shared:WaitForChild("Trove"))
 local WallConfig = require(Shared:WaitForChild("WallConfig"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
-local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
-local RequestController = require(Controllers:WaitForChild("RequestController"))
+local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 
 local Shooting = {}
 

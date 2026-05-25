@@ -8,8 +8,7 @@ local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("Animations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 
-local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
-local InventoryController = require(Controllers:WaitForChild("InventoryController"))
+local InventoryController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("InventoryController"))
 InventoryController.Start()
 
 local Player = Players.LocalPlayer

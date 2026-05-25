@@ -1,11 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
 
 local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 
-local Controllers = Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers")
-local StatsController = require(Controllers:WaitForChild("StatsController"))
+local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
 StatsController.Start()
 
 local DataGui = script.Parent
