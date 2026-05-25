@@ -111,18 +111,6 @@
           "$path": "src/ReplicatedStorage/Shared/ZonePlus.lua"
         }
       },
-      "Modules": {
-        "$className": "Folder",
-        "$path": "src/ReplicatedStorage/Modules"
-      },
-      "Configurations": {
-        "$className": "Folder",
-        "$path": "src/ReplicatedStorage/Configurations"
-      },
-      "Network": {
-        "$className": "Folder",
-        "$path": "src/ReplicatedStorage/Network"
-      },
       "Packages": {
         "$className": "Folder",
         "$path": "Packages"
@@ -137,9 +125,6 @@
       "$className": "ServerScriptService",
       "Main": {
         "$path": "src/server/Main.server.lua"
-      },
-      "WallGameplay": {
-        "$path": "src/ServerScriptService/WallGameplay.lua"
       },
       "StudioTools": {
         "$className": "Folder",
@@ -185,17 +170,6 @@
       "Shared": {
         "$className": "Folder",
         "$path": "src/shared/Server"
-      },
-      "Configurations": {
-        "$path": "src/ServerStorage/Configurations"
-      },
-      "Modules": {
-        "$className": "Folder",
-        "$path": "src/ServerStorage/Modules"
-      },
-      "Network": {
-        "$className": "Folder",
-        "$path": "src/ServerStorage/Network"
       }
     },
 

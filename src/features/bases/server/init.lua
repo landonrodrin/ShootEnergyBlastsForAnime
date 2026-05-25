@@ -5,6 +5,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
 local SharedModules = ServerStorage:WaitForChild("Shared")
+local ServerNetwork = SharedModules:WaitForChild("Network")
 local SetProperties = require(SharedModules:WaitForChild("SetProperties"))
 local Grounding = require(SharedModules:WaitForChild("Grounding"))
 local RequestGuard = require(SharedModules:WaitForChild("RequestGuard"))
@@ -20,12 +21,12 @@ local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:Wait
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))
 
-local RetrieveAnimeDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrieveAnimeData")
-local CreateAnimeFunction = ServerStorage.Network.BindableFunctions:WaitForChild("CreateAnime")
-local RetrievePlayerDataFunction = ServerStorage.Network.BindableFunctions:WaitForChild("RetrievePlayerData")
-local AnimateAnimeEvent = ServerStorage.Network.BindableEvents:WaitForChild("AnimateAnime")
-local ReplacePlayerDataEvent = ServerStorage.Network.BindableEvents:WaitForChild("ReplacePlayerData")
-local CreateToolEvent = ServerStorage.Network.BindableEvents:WaitForChild("CreateTool")
+local RetrieveAnimeDataFunction = ServerNetwork.BindableFunctions:WaitForChild("RetrieveAnimeData")
+local CreateAnimeFunction = ServerNetwork.BindableFunctions:WaitForChild("CreateAnime")
+local RetrievePlayerDataFunction = ServerNetwork.BindableFunctions:WaitForChild("RetrievePlayerData")
+local AnimateAnimeEvent = ServerNetwork.BindableEvents:WaitForChild("AnimateAnime")
+local ReplacePlayerDataEvent = ServerNetwork.BindableEvents:WaitForChild("ReplacePlayerData")
+local CreateToolEvent = ServerNetwork.BindableEvents:WaitForChild("CreateTool")
 
 local ctx = {
 	MarketplaceService = MarketplaceService,
