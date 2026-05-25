@@ -10,8 +10,8 @@ local function findIndexedZonePlus()
 	if not PackageIndex then return nil end
 
 	local Prefixes = {
-		"1foreverhd_zoneplus@",
 		"mattschrubb_zoneplus@",
+		"1foreverhd_zoneplus@",
 	}
 
 	for _, Child in ipairs(PackageIndex:GetChildren()) do
@@ -28,11 +28,20 @@ local function findIndexedZonePlus()
 	return nil
 end
 
+local function findZonePlusShim()
+	local ZonePlusModule = Packages:FindFirstChild("zoneplus")
+	if ZonePlusModule then
+		return ZonePlusModule
+	end
+
+	return Packages:FindFirstChild("ZonePlus")
+end
+
 local function findZonePlusModule()
 	local Deadline = os.clock() + ZONEPLUS_TIMEOUT
 
 	repeat
-		local ZonePlusModule = Packages:FindFirstChild("zoneplus") or findIndexedZonePlus()
+		local ZonePlusModule = findIndexedZonePlus() or findZonePlusShim()
 		if ZonePlusModule then
 			return ZonePlusModule
 		end
@@ -45,6 +54,19 @@ end
 
 local ZonePlusModule = findZonePlusModule()
 assert(ZonePlusModule, "Missing ReplicatedStorage.Packages.zoneplus or ReplicatedStorage.Packages._Index.*_zoneplus@*.zoneplus; run Wally install and restart the Rojo sync.")
+
+local ZonePlusReference = ReplicatedStorage:FindFirstChild("ZonePlusReference")
+local RunContextName = if game:GetService("RunService"):IsClient() then "Client" else "Server"
+local ZonePlusShim = findZonePlusShim()
+local IsSelfReference = ZonePlusReference
+	and ZonePlusReference:IsA("ObjectValue")
+	and (ZonePlusReference.Value == ZonePlusModule or ZonePlusReference.Value == ZonePlusShim)
+if IsSelfReference then
+	local ContextMarker = ZonePlusReference:FindFirstChild(RunContextName)
+	if ContextMarker then
+		ZonePlusReference:Destroy()
+	end
+end
 
 local ZonePlus = require(ZonePlusModule)
 
