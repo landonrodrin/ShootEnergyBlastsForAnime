@@ -4,6 +4,7 @@ local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets")
 local Features = ReplicatedStorage:WaitForChild("Features")
 local PlayersFeature = Features:WaitForChild("Players")
 local BasesFeature = Features:WaitForChild("Bases")
+local ShopFeature = Features:WaitForChild("Shop")
 local UiFeature = Features:WaitForChild("Ui")
 local WallsFeature = Features:WaitForChild("Walls")
 
@@ -15,6 +16,9 @@ local ControllerOrder = {
 	"HeldPreviewController",
 	"BaseController",
 	"UiController",
+	"AreaController",
+	"InviteController",
+	"ShopController",
 }
 
 local ControllerModules = {
@@ -25,6 +29,9 @@ local ControllerModules = {
 	HeldPreviewController = PlayersFeature.Client:WaitForChild("HeldPreviewController"),
 	BaseController = BasesFeature.Client:WaitForChild("BaseController"),
 	UiController = UiFeature.Client:WaitForChild("UiController"),
+	AreaController = UiFeature.Client:WaitForChild("AreaController"),
+	InviteController = UiFeature.Client:WaitForChild("InviteController"),
+	ShopController = ShopFeature.Client:WaitForChild("ShopController"),
 }
 
 local Controllers = {}
