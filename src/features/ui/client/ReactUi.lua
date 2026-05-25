@@ -45,6 +45,7 @@ function ReactUi.Text(Props)
 		TextColor3 = Props.TextColor3 or ReactUi.Colours.Text,
 		TextScaled = Props.TextScaled ~= false,
 		TextSize = Props.TextSize or 24,
+		TextStrokeColor3 = Props.TextStrokeColor3,
 		TextStrokeTransparency = Props.TextStrokeTransparency or 0.55,
 		TextTransparency = Props.TextTransparency or 0,
 		TextWrapped = Props.TextWrapped ~= false,

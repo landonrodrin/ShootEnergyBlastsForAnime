@@ -5,6 +5,7 @@ local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets")
 local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
+local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
 local RightRailButton = require(script.Parent:WaitForChild("RightRailButton"))
 local ViewportPreview = require(script.Parent:WaitForChild("ViewportPreview"))
@@ -36,10 +37,21 @@ end
 local MutationEntries = sortedEntries(MutationsConfigurations)
 local AnimeEntries = sortedEntries(AnimeConfigurations)
 
-local function IndexApp()
-	local Open, SetOpen = React.useState(false)
+local function IndexApp(Props)
+	Props = Props or {}
+
+	local LocalOpen, SetLocalOpen = React.useState(false)
 	local SelectedMutation, SetSelectedMutation = React.useState("Default")
 	local IndexData, SetIndexData = React.useState({})
+	local Open = if Props.SetActivePanel then Props.ActivePanel == "Index" else LocalOpen
+
+	local function setOpen(NextOpen)
+		if Props.SetActivePanel then
+			Props.SetActivePanel(if NextOpen then "Index" else nil)
+		else
+			SetLocalOpen(NextOpen)
+		end
+	end
 
 	React.useEffect(function()
 		local Connection = Packets.Listen(Packets.indexSync, function(Data)
@@ -140,14 +152,13 @@ local function IndexApp()
 	}, {
 		Button = React.createElement(RightRailButton, {
 			BackgroundColor3 = Color3.fromRGB(110, 116, 255),
+			Icon = UiAssets.Icons.Index,
 			OnActivated = function()
-				SetOpen(function(WasOpen)
-					local NextOpen = not WasOpen
-					if NextOpen then
-						RequestController.IndexRequest(SelectedMutation)
-					end
-					return NextOpen
-				end)
+				local NextOpen = not Open
+				if NextOpen then
+					RequestController.IndexRequest(SelectedMutation)
+				end
+				setOpen(NextOpen)
 			end,
 			Row = 2,
 			Text = "Index",
@@ -162,7 +173,7 @@ local function IndexApp()
 		}, {
 			Header = React.createElement(ReactUi.Header, {
 				OnClose = function()
-					SetOpen(false)
+					setOpen(false)
 				end,
 				Title = string.format("Index | %s", SelectedMutation),
 			}),

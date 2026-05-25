@@ -2,10 +2,22 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ReactUi = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("ReactUi"))
+local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local RightRailButton = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("RightRailButton"))
 
-local function ShopApp()
-	local Open, SetOpen = React.useState(false)
+local function ShopApp(Props)
+	Props = Props or {}
+
+	local LocalOpen, SetLocalOpen = React.useState(false)
+	local Open = if Props.SetActivePanel then Props.ActivePanel == "Shop" else LocalOpen
+
+	local function setOpen(NextOpen)
+		if Props.SetActivePanel then
+			Props.SetActivePanel(if NextOpen then "Shop" else nil)
+		else
+			SetLocalOpen(NextOpen)
+		end
+	end
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -13,10 +25,9 @@ local function ShopApp()
 	}, {
 		Button = React.createElement(RightRailButton, {
 			BackgroundColor3 = ReactUi.Colours.Accent,
+			Icon = UiAssets.Icons.Shop,
 			OnActivated = function()
-				SetOpen(function(WasOpen)
-					return not WasOpen
-				end)
+				setOpen(not Open)
 			end,
 			Row = 1,
 			Text = "Shop",
@@ -31,7 +42,7 @@ local function ShopApp()
 		}, {
 			Header = React.createElement(ReactUi.Header, {
 				OnClose = function()
-					SetOpen(false)
+					setOpen(false)
 				end,
 				Title = "Shop",
 			}),

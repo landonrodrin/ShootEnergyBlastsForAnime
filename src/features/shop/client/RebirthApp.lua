@@ -7,6 +7,7 @@ local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))
 local ReactUi = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("ReactUi"))
+local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local RightRailButton = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("RightRailButton"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
@@ -30,14 +31,25 @@ local function useStat(Name, Default)
 	return Value
 end
 
-local function RebirthApp()
-	local Open, SetOpen = React.useState(false)
+local function RebirthApp(Props)
+	Props = Props or {}
+
+	local LocalOpen, SetLocalOpen = React.useState(false)
 	local Rebirths = useStat("Rebirths", 0)
 	local Speed = useStat("Speed", GameConfigurations.Defaults.Speed)
 	local CurrentConfiguration = RebirthsConfigurations[Rebirths]
 	local NextConfiguration = RebirthsConfigurations[Rebirths + 1]
 	local CurrentMultiplier = CurrentConfiguration and CurrentConfiguration.Multiplier or 1
 	local Progress = NextConfiguration and math.clamp(Speed / NextConfiguration.Speed, 0, 1) or 1
+	local Open = if Props.SetActivePanel then Props.ActivePanel == "Rebirth" else LocalOpen
+
+	local function setOpen(NextOpen)
+		if Props.SetActivePanel then
+			Props.SetActivePanel(if NextOpen then "Rebirth" else nil)
+		else
+			SetLocalOpen(NextOpen)
+		end
+	end
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
@@ -45,14 +57,12 @@ local function RebirthApp()
 	}, {
 		Button = React.createElement(RightRailButton, {
 			BackgroundColor3 = Color3.fromRGB(235, 77, 112),
-			MaxTextSize = 22,
+			Icon = UiAssets.Icons.Rebirth,
 			OnActivated = function()
-				SetOpen(function(WasOpen)
-					return not WasOpen
-				end)
+				setOpen(not Open)
 			end,
 			Row = 3,
-			Text = string.format("Rebirth %s", Rebirths),
+			Text = "Rebirth",
 		}),
 		Panel = React.createElement(ReactUi.Panel, {
 			AnchorPoint = Vector2.new(0.5, 0.5),
@@ -64,7 +74,7 @@ local function RebirthApp()
 		}, {
 			Header = React.createElement(ReactUi.Header, {
 				OnClose = function()
-					SetOpen(false)
+					setOpen(false)
 				end,
 				Title = "Rebirth",
 			}),
