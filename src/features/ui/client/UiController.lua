@@ -1,16 +1,51 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
+local ReactRoblox = require(ReplicatedStorage.Shared.Packages:WaitForChild("ReactRoblox"))
 local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
+local AreaApp = require(script.Parent:WaitForChild("AreaApp"))
+local InviteApp = require(script.Parent:WaitForChild("InviteApp"))
+local ShopApp = require(ReplicatedStorage.Features.Shop.Client:WaitForChild("ShopApp"))
 
 local UiController = {}
 
 local Started = false
+local Root = nil
 
 function UiController.Init() end
 
 function UiController.Start()
 	if Started then return end
 	Started = true
+
+	local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local Gui = PlayerGui:FindFirstChild("FeatureReactGui")
+	if not Gui then
+		Gui = Instance.new("ScreenGui")
+		Gui.Name = "FeatureReactGui"
+		Gui.IgnoreGuiInset = true
+		Gui.ResetOnSpawn = false
+		Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		Gui.Parent = PlayerGui
+	end
+
+	Root = ReactRoblox.createRoot(Gui)
+	Root:render(React.createElement("Frame", {
+		BackgroundTransparency = 1,
+		Size = UDim2.fromScale(1, 1),
+	}, {
+		Area = React.createElement(AreaApp),
+		Invite = React.createElement(InviteApp),
+		Shop = React.createElement(ShopApp),
+	}))
+
+	Gui.Destroying:Connect(function()
+		if Root then
+			Root:unmount()
+			Root = nil
+		end
+	end)
 end
 
 function UiController.BindZoneFrame(OwnerTrove, ZoneContainer, Frame, SetOpen)
