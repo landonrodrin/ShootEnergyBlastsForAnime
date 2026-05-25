@@ -1,7 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 
 local MESSAGE_LIFETIME = 2.25

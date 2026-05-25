@@ -70,7 +70,7 @@ return function(ctx)
 	local removeToolData = ctx.removeToolData
 	local cleanupToolData = ctx.cleanupToolData
 	local reconcileIndex = ctx.reconcileIndex
-	local Promise = require(ReplicatedStorage.Shared:WaitForChild("Promise"))
+	local Promise = require(ReplicatedStorage.Shared.Packages:WaitForChild("Promise"))
 	local PLAYER_DATA_SCHEMA_VERSION = 2
 	local DATASTORE_MAX_ATTEMPTS = 4
 	local DATASTORE_BASE_BACKOFF = 0.5

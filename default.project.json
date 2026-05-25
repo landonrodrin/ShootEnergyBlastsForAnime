@@ -88,27 +88,6 @@
         "Constants": {
           "$className": "Folder",
           "$path": "src/shared/Constants"
-        },
-        "ByteNet": {
-          "$path": "src/ReplicatedStorage/Shared/ByteNet.lua"
-        },
-        "Loader": {
-          "$path": "src/ReplicatedStorage/Shared/Loader.lua"
-        },
-        "PathUtils": {
-          "$path": "src/ReplicatedStorage/Shared/PathUtils.lua"
-        },
-        "Promise": {
-          "$path": "src/ReplicatedStorage/Shared/Promise.lua"
-        },
-        "Trove": {
-          "$path": "src/ReplicatedStorage/Shared/Trove.lua"
-        },
-        "WallConfig": {
-          "$path": "src/ReplicatedStorage/Shared/WallConfig.lua"
-        },
-        "ZonePlus": {
-          "$path": "src/ReplicatedStorage/Shared/ZonePlus.lua"
         }
       },
       "Packages": {

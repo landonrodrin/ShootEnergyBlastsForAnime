@@ -11,7 +11,7 @@ local Grounding = require(SharedModules:WaitForChild("Grounding"))
 local RequestGuard = require(SharedModules:WaitForChild("RequestGuard"))
 local RequestPolicy = require(SharedModules:WaitForChild("RequestPolicy"))
 
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))

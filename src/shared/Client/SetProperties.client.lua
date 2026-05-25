@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 
 local ScriptTrove = Trove.new()

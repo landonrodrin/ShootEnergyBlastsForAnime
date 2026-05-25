@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
-local ByteNet = require(ReplicatedStorage.Shared:WaitForChild("ByteNet"))
+local ByteNet = require(ReplicatedStorage.Shared.Packages:WaitForChild("ByteNet"))
 
 local NAMESPACE_NAME = "gameplay"
 

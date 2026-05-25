@@ -1,7 +1,7 @@
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 
 local Frames = {} 
 local FrameTroves = setmetatable({}, {__mode = "k"})

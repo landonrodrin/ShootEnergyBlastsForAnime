@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
+local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
 
 local UiController = {}
 

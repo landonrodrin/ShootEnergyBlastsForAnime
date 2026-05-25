@@ -1,8 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
-local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
+local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
 local AnimeViewports = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeViewports"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local Animations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("Animations"))

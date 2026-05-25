@@ -1,8 +1,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
-local ZonePlus = require(ReplicatedStorage.Shared:WaitForChild("ZonePlus"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
+local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
 
 local ZoneTracker = {}
 

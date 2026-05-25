@@ -2,8 +2,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
-local Promise = require(ReplicatedStorage.Shared:WaitForChild("Promise"))
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Promise = require(ReplicatedStorage.Shared.Packages:WaitForChild("Promise"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
 
 local RETRY_INTERVAL = 0.5

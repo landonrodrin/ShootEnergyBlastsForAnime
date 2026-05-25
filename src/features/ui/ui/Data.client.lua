@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trove = require(ReplicatedStorage.Shared:WaitForChild("Trove"))
+local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 
 local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
