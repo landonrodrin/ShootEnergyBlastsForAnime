@@ -23,6 +23,9 @@ return function(ctx)
 	local PreviewTemplates = ctx.PreviewTemplates
 	local MoneyPerSecondLeaderstatUpdates = ctx.MoneyPerSecondLeaderstatUpdates
 	local AdminCommandDebounces = ctx.AdminCommandDebounces
+	local FriendBonusPercents = ctx.FriendBonusPercents
+	local FRIEND_BONUS_PER_FRIEND = ctx.FRIEND_BONUS_PER_FRIEND
+	local FRIEND_BONUS_MAX_PERCENT = ctx.FRIEND_BONUS_MAX_PERCENT
 	local SELL_STATION_DISTANCE = ctx.SELL_STATION_DISTANCE
 	local HOTBAR_MAX_SLOTS = ctx.HOTBAR_MAX_SLOTS
 	local PLAYER_SPAWN_BASE_NAME = ctx.PLAYER_SPAWN_BASE_NAME
@@ -56,6 +59,61 @@ end
 
 local function isPositiveInteger(Value)
 	return type(Value) == "number" and Value > 0 and Value % 1 == 0
+end
+
+local function areFriends(Player, OtherPlayer)
+	local Success, Result = pcall(function()
+		return Player:IsFriendsWith(OtherPlayer.UserId)
+	end)
+
+	return Success and Result == true
+end
+
+local function calculateFriendBonusPercent(Player)
+	local FriendCount = 0
+
+	for _, OtherPlayer in ipairs(Players:GetPlayers()) do
+		if OtherPlayer == Player then continue end
+		if not areFriends(Player, OtherPlayer) then continue end
+
+		FriendCount += 1
+	end
+
+	return math.min(FriendCount * FRIEND_BONUS_PER_FRIEND, FRIEND_BONUS_MAX_PERCENT)
+end
+
+local function applyFriendBonus(Player, Percent)
+	FriendBonusPercents[Player] = Percent
+	Player:SetAttribute("FriendBonusPercent", Percent)
+
+	Packets.friendBonus.sendTo({
+		Percent = Percent,
+	}, Player)
+
+	local PlayerData = PlayersData[Player]
+	if PlayerData and PlayerData.Base and Bases.RefreshPlayerEconomy then
+		Bases.RefreshPlayerEconomy(Player)
+	elseif PlayerData and PlayerData.Base and Bases.RefreshPlayerEconomyDisplays then
+		Bases.RefreshPlayerEconomyDisplays(Player)
+	end
+end
+
+local function refreshFriendBonus(Player)
+	if not Player or not Player.Parent then return end
+
+	local Percent = calculateFriendBonusPercent(Player)
+	if FriendBonusPercents[Player] == Percent then
+		applyFriendBonus(Player, Percent)
+		return
+	end
+
+	applyFriendBonus(Player, Percent)
+end
+
+local function refreshAllFriendBonuses()
+	for _, Player in ipairs(Players:GetPlayers()) do
+		task.spawn(refreshFriendBonus, Player)
+	end
 end
 
 local function getCharacterHumanoid(Player)
@@ -310,10 +368,15 @@ function PlayersModule.Setup()
 			return
 		end
 
+		task.defer(refreshAllFriendBonuses)
+
 		return PlayerDataOrError
 	end
 
-	SetupTrove:Connect(Players.PlayerAdded, setupPlayer)
+	SetupTrove:Connect(Players.PlayerAdded, function(Player)
+		setupPlayer(Player)
+		task.defer(refreshAllFriendBonuses)
+	end)
 
 	for _, Player in ipairs(Players:GetPlayers()) do
 		SetupTrove:Add(task.spawn(setupPlayer, Player))
@@ -332,6 +395,9 @@ function PlayersModule.Setup()
 		PlayersInStrips[Player] = nil
 		MoneyPerSecondLeaderstatUpdates[Player] = nil
 		AdminCommandDebounces[Player] = nil
+		FriendBonusPercents[Player] = nil
+		Player:SetAttribute("FriendBonusPercent", nil)
+		task.defer(refreshAllFriendBonuses)
 	end)
 
 	game:BindToClose(function()
@@ -706,4 +772,6 @@ end
 	ctx.setGroupsCollidable = setGroupsCollidable
 	ctx.getActiveMovementSpeed = getActiveMovementSpeed
 	ctx.applyPlayerMovementSpeed = applyPlayerMovementSpeed
+	ctx.refreshFriendBonus = refreshFriendBonus
+	ctx.refreshAllFriendBonuses = refreshAllFriendBonuses
 end

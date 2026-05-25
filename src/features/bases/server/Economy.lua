@@ -11,6 +11,17 @@ local function getPlayerRebirthMultiplier(Player)
 	return RebirthConfiguration and RebirthConfiguration.Multiplier or 1
 end
 
+local function getPlayerFriendBonusMultiplier(Player)
+	local Percent = tonumber(Player and Player:GetAttribute("FriendBonusPercent")) or 0
+	Percent = math.clamp(Percent, 0, 50)
+
+	return 1 + Percent / 100
+end
+
+local function getPlayerPassiveIncomeMultiplier(Player)
+	return getPlayerRebirthMultiplier(Player) * getPlayerFriendBonusMultiplier(Player)
+end
+
 local function getBaseIncomeValue(AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 	local LevelConfiguration = AnimeConfiguration and AnimeConfiguration.Levels and AnimeConfiguration.Levels[Level]
 	if not LevelConfiguration then return 0 end
@@ -69,6 +80,8 @@ local function setSlotLevelVisible(Slot, Visible)
 	end
 end
 	ctx.getPlayerRebirthMultiplier = getPlayerRebirthMultiplier
+	ctx.getPlayerFriendBonusMultiplier = getPlayerFriendBonusMultiplier
+	ctx.getPlayerPassiveIncomeMultiplier = getPlayerPassiveIncomeMultiplier
 	ctx.getBaseIncomeValue = getBaseIncomeValue
 	ctx.getBaseSellValue = getBaseSellValue
 	ctx.getBaseSellPromptText = getBaseSellPromptText

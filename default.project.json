@@ -42,10 +42,6 @@
           "Shared": {
             "$className": "Folder",
             "$path": "src/features/shop/shared"
-          },
-          "Ui": {
-            "$className": "Folder",
-            "$path": "src/features/shop/ui"
           }
         },
         "Ui": {
@@ -57,10 +53,6 @@
           "Shared": {
             "$className": "Folder",
             "$path": "src/features/ui/shared"
-          },
-          "Ui": {
-            "$className": "Folder",
-            "$path": "src/features/ui/ui"
           }
         },
         "Walls": {
@@ -185,69 +177,6 @@
               "$ignoreUnknownInstances": true
             }
           }
-        }
-      }
-    },
-
-    "StarterGui": {
-      "$className": "StarterGui",
-      "$ignoreUnknownInstances": true,
-      "AnnouncementGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Announcement": {
-          "$path": "src/features/ui/ui/Announcement.client.lua"
-        }
-      },
-      "AnimeUnlockGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "AnimeUnlock": {
-          "$path": "src/features/ui/ui/AnimeUnlock.client.lua"
-        }
-      },
-      "IndexGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Index": {
-          "$path": "src/features/ui/ui/Index.client.lua",
-          "$ignoreUnknownInstances": true
-        }
-      },
-      "SellsGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Sells": {
-          "$path": "src/features/shop/ui/Sells.client.lua",
-          "$ignoreUnknownInstances": true
-        }
-      },
-      "DataGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Data": {
-          "$path": "src/features/ui/ui/Data.client.lua"
-        }
-      },
-      "DropGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Drop": {
-          "$path": "src/features/ui/ui/Drop.client.lua"
-        }
-      },
-      "RebirthGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Rebirth": {
-          "$path": "src/features/shop/ui/Rebirth.client.lua"
-        }
-      },
-      "UpgradesGui": {
-        "$className": "ScreenGui",
-        "$ignoreUnknownInstances": true,
-        "Upgrades": {
-          "$path": "src/features/shop/ui/Upgrades.client.lua"
         }
       }
     },

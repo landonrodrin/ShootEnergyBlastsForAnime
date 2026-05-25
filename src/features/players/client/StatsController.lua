@@ -15,6 +15,7 @@ local State = {
 	Speed = GameConfigurations.Defaults.Speed,
 	Carry = 0,
 	Rebirths = 0,
+	FriendBonusPercent = 0,
 }
 
 StatsController.Changed = ChangedEvent.Event
@@ -44,6 +45,12 @@ function StatsController.Start()
 
 	Packets.Listen(Packets.carry, function(Carry)
 		setState("Carry", tonumber(Carry) or 0)
+	end, ScriptTrove)
+
+	Packets.Listen(Packets.friendBonus, function(Data)
+		if typeof(Data) ~= "table" then return end
+
+		setState("FriendBonusPercent", tonumber(Data.Percent) or 0)
 	end, ScriptTrove)
 
 	Packets.Listen(Packets.rebirth, function(Data)

@@ -2,11 +2,6 @@ return function(ctx)
 	local Bases = ctx.Bases
 	local Format = ctx.Format
 	local GameConfigurations = ctx.GameConfigurations
-	local AnimeConfigurations = ctx.AnimeConfigurations
-	local RebirthsConfigurations = ctx.RebirthsConfigurations
-	local MutationsConfigurations = ctx.MutationsConfigurations
-	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
-	local ReplacePlayerDataEvent = ctx.ReplacePlayerDataEvent
 	local Packets = ctx.Packets
 	local PlayersData = ctx.PlayersData
 	local PlayersModule = ctx.PlayersModule
@@ -92,28 +87,12 @@ function PlayersModule.Replace(Player, Name, Value)
 			Speed = PlayerData.Speed,
 		}, Player)
 
-		local MoneyPerSecond = 0
-
-		local SavedAnime = RetrievePlayerDataFunction:Invoke(Player, "Anime")
-		for _, AnimeEntry in ipairs(SavedAnime) do
-			local Name = AnimeEntry.Name
-			local AnimeConfiguration = AnimeConfigurations[Name]
-			local Mutation = AnimeEntry.Mutation
-			local MutationConfiguration = MutationsConfigurations[Mutation]
-			local Level = AnimeEntry.Level or 1
-
-			local Multiplier = MutationConfiguration.Multiplier or 1
-
-			MoneyPerSecond += AnimeConfiguration.Levels[Level].Money * Multiplier
+		if Bases.RefreshPlayerEconomy then
+			Bases.RefreshPlayerEconomy(Player)
+		else
+			Bases.RefreshPlayerEconomyDisplays(Player)
 		end
 
-		local RebirthMutiplier = RebirthsConfigurations[Value] and RebirthsConfigurations[Value].Multiplier or 1
-
-		MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
-
-		ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
-
-		Bases.RefreshPlayerEconomyDisplays(Player)
 		syncInventory(Player)
 	elseif Name == "Level" then
 		local Base = PlayerData.Base

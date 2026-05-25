@@ -61,6 +61,11 @@ local Packets = ByteNet.defineNamespace(NAMESPACE_NAME, function()
 		money = ByteNet.definePacket({value = ByteNet.float64}),
 		speed = ByteNet.definePacket({value = ByteNet.float64}),
 		carry = ByteNet.definePacket({value = ByteNet.uint16}),
+		friendBonus = ByteNet.definePacket({
+			value = ByteNet.struct({
+				Percent = ByteNet.uint8,
+			}),
+		}),
 		rebirth = ByteNet.definePacket({
 			value = ByteNet.struct({
 				Rebirths = ByteNet.uint16,
@@ -161,6 +166,7 @@ local ServerToClientPacketNames = {
 	"money",
 	"speed",
 	"carry",
+	"friendBonus",
 	"rebirth",
 	"announcement",
 	"inventorySync",

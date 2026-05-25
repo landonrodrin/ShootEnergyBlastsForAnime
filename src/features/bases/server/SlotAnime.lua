@@ -9,7 +9,6 @@ return function(ctx)
 	local AreasConfigurations = ctx.AreasConfigurations
 	local AnimeConfigurations = ctx.AnimeConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
-	local RebirthsConfigurations = ctx.RebirthsConfigurations
 	local RetrieveAnimeDataFunction = ctx.RetrieveAnimeDataFunction
 	local CreateAnimeFunction = ctx.CreateAnimeFunction
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
@@ -32,6 +31,7 @@ return function(ctx)
 	local getUnlockedSlots = ctx.getUnlockedSlots
 	local setSlotLevelVisible = ctx.setSlotLevelVisible
 	local getPlayerRebirthMultiplier = ctx.getPlayerRebirthMultiplier
+	local getPlayerPassiveIncomeMultiplier = ctx.getPlayerPassiveIncomeMultiplier
 	local updateBaseAnimeMoneyText = ctx.updateBaseAnimeMoneyText
 	local updateBaseSlotSellPrompt = ctx.updateBaseSlotSellPrompt
 	local updateBaseInfoMoneyPerSecond = ctx.updateBaseInfoMoneyPerSecond
@@ -102,9 +102,7 @@ local function refreshPlayerEconomy(Player, Base)
 		MoneyPerSecond += LevelConfiguration.Money * Multiplier
 	end
 
-	local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
-
-	MoneyPerSecond = MoneyPerSecond * RebirthMutiplier
+	MoneyPerSecond = MoneyPerSecond * getPlayerPassiveIncomeMultiplier(Player)
 
 	ReplacePlayerDataEvent:Fire(Player, "MoneyPerSecond", MoneyPerSecond)
 
@@ -273,7 +271,8 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 	Anime:PivotTo(TargetCFrame)
 
 	local RebirthMultiplier = getPlayerRebirthMultiplier(Player)
-	updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+	local PassiveIncomeMultiplier = getPlayerPassiveIncomeMultiplier(Player)
+	updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, PassiveIncomeMultiplier)
 
 	AnimateAnimeEvent:Fire(Anime, AnimeConfiguration.AnimationsIds.Idle, true)
 	Grounding.AlignBottomToSurfaceAfterAnimation(Anime, SlotSpawn, AnimeConfiguration, SlotTrove)
@@ -405,9 +404,9 @@ function Bases.Add(Player, Base, Slot, Name, Mutation, Level, Money)
 			if not IncomeLoopActive or not BasesData[Base] or not BasesData[Base].SlotsData[Slot.Name] or not BasesData[Base].SlotsData[Slot.Name].Money or not BasesData[Base].SlotsData[Slot.Name].Anime or BasesData[Base].SlotsData[Slot.Name].Anime ~= Anime then break end
 
 			local Multiplier = MutationConfiguration.Multiplier or 1
-			local RebirthMutiplier = RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")] and RebirthsConfigurations[RetrievePlayerDataFunction:Invoke(Player, "Rebirths")].Multiplier or 1
+			local CurrentPassiveIncomeMultiplier = getPlayerPassiveIncomeMultiplier(Player)
 
-			BasesData[Base].SlotsData[Slot.Name].Money += AnimeConfiguration.Levels[Level].Money * Multiplier * RebirthMutiplier
+			BasesData[Base].SlotsData[Slot.Name].Money += AnimeConfiguration.Levels[Level].Money * Multiplier * CurrentPassiveIncomeMultiplier
 
 			MoneyGui.Money.Money.Text = string.format("$%s", Format.Number(BasesData[Base].SlotsData[Slot.Name].Money))
 		end
@@ -428,11 +427,20 @@ function Bases.UpdateIncomeDisplay(Base, MoneyPerSecond)
 	updateBaseInfoMoneyPerSecond(Base, MoneyPerSecond)
 end
 
+function Bases.RefreshPlayerEconomy(Player)
+	for Base, BaseData in pairs(BasesData) do
+		if BaseData.Player ~= Player then continue end
+
+		refreshPlayerEconomy(Player, Base)
+	end
+end
+
 function Bases.RefreshPlayerEconomyDisplays(Player)
 	for Base, BaseData in pairs(BasesData) do
 		if BaseData.Player ~= Player then continue end
 
 		local RebirthMultiplier = getPlayerRebirthMultiplier(Player)
+		local PassiveIncomeMultiplier = getPlayerPassiveIncomeMultiplier(Player)
 
 		for SlotName, SlotData in pairs(BaseData.SlotsData or {}) do
 			local Anime = SlotData.Anime
@@ -447,7 +455,7 @@ function Bases.RefreshPlayerEconomyDisplays(Player)
 			local Mutation = RetrieveAnimeDataFunction:Invoke(Anime, "Mutation")
 			local Level = RetrieveAnimeDataFunction:Invoke(Anime, "Level") or 1
 
-			updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
+			updateBaseAnimeMoneyText(Anime, AnimeConfiguration, Level, Mutation, PassiveIncomeMultiplier)
 			updateBaseSlotSellPrompt(Slot, AnimeConfiguration, Level, Mutation, RebirthMultiplier)
 		end
 	end

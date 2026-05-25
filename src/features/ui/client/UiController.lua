@@ -4,9 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ReactRoblox = require(ReplicatedStorage.Shared.Packages:WaitForChild("ReactRoblox"))
 local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
-local AreaApp = require(script.Parent:WaitForChild("AreaApp"))
-local InviteApp = require(script.Parent:WaitForChild("InviteApp"))
-local ShopApp = require(ReplicatedStorage.Features.Shop.Client:WaitForChild("ShopApp"))
+local PlayerUiApp = require(script.Parent:WaitForChild("PlayerUiApp"))
 
 local UiController = {}
 
@@ -31,14 +29,7 @@ function UiController.Start()
 	end
 
 	Root = ReactRoblox.createRoot(Gui)
-	Root:render(React.createElement("Frame", {
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 1),
-	}, {
-		Area = React.createElement(AreaApp),
-		Invite = React.createElement(InviteApp),
-		Shop = React.createElement(ShopApp),
-	}))
+	Root:render(React.createElement(PlayerUiApp))
 
 	Gui.Destroying:Connect(function()
 		if Root then
