@@ -35,10 +35,6 @@
         },
         "Shop": {
           "$className": "Folder",
-          "Client": {
-            "$className": "Folder",
-            "$path": "src/features/shop/client"
-          },
           "Shared": {
             "$className": "Folder",
             "$path": "src/features/shop/shared"
