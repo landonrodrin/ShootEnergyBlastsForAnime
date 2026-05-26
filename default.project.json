@@ -50,6 +50,10 @@
             "$className": "Folder",
             "$path": "src/features/ui/client"
           },
+          "Stories": {
+            "$className": "Folder",
+            "$path": "src/features/ui/stories"
+          },
           "Shared": {
             "$className": "Folder",
             "$path": "src/features/ui/shared"
@@ -92,7 +96,7 @@
       },
       "Vendor": {
         "$className": "Folder",
-        "$path": "src/ReplicatedStorage/Vendor"
+        "$path": "src/shared/Vendor"
       }
     },
 

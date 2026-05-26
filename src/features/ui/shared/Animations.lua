@@ -68,13 +68,13 @@ function Animations.Button(Frame, Button)
 	local function Tween(Scale)
 		if UIScale.Scale == Scale then return end
 		
-		local Tween = TweenService:Create(
+		local ScaleTween = TweenService:Create(
 			UIScale,
 			TweenInfo.new(0.1, Enum.EasingStyle.Quad, Scale < UIScale.Scale and Enum.EasingDirection.In or Enum.EasingDirection.Out),
 			{Scale = Scale}
 		)
 
-		Tween:Play()
+		ScaleTween:Play()
 	end
 
 	ButtonTrove:Connect(Button.MouseEnter, function()

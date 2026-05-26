@@ -2,10 +2,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 
-local AnnouncementApp = require(script.Parent:WaitForChild("AnnouncementApp"))
-local AnimeUnlockApp = require(script.Parent:WaitForChild("AnimeUnlockApp"))
+local AnnouncementController = require(script.Parent:WaitForChild("AnnouncementController"))
+local AnimeUnlockController = require(script.Parent:WaitForChild("AnimeUnlockController"))
 local AreaApp = require(script.Parent:WaitForChild("AreaApp"))
-local DataHudApp = require(script.Parent:WaitForChild("DataHudApp"))
+local DataHudController = require(script.Parent:WaitForChild("DataHudController"))
 local DropApp = require(script.Parent:WaitForChild("DropApp"))
 local IndexApp = require(script.Parent:WaitForChild("IndexApp"))
 local RebirthApp = require(ReplicatedStorage.Features.Shop.Client:WaitForChild("RebirthApp"))
@@ -20,7 +20,7 @@ local function PlayerUiApp()
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 	}, {
-		Data = React.createElement(DataHudApp),
+		Data = React.createElement(DataHudController),
 		Area = React.createElement(AreaApp),
 		Shop = React.createElement(ShopApp, {
 			ActivePanel = ActivePanel,
@@ -37,8 +37,8 @@ local function PlayerUiApp()
 		Drop = React.createElement(DropApp),
 		Sell = React.createElement(SellApp),
 		Upgrades = React.createElement(UpgradesApp),
-		Announcements = React.createElement(AnnouncementApp),
-		Unlocks = React.createElement(AnimeUnlockApp),
+		Announcements = React.createElement(AnnouncementController),
+		Unlocks = React.createElement(AnimeUnlockController),
 	})
 end
 

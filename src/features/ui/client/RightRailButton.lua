@@ -1,12 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
+local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
 
-local BUTTON_SIZE = UDim2.fromOffset(112, 112)
-local ICON_SIZE = UDim2.fromOffset(86, 86)
-local RIGHT_PADDING = 32
-local ROW_SPACING = 112
+local RIGHT_RAIL = UiTuning.RightRail
+local BUTTON_SIZE = UDim2.fromOffset(RIGHT_RAIL.ItemWidth, RIGHT_RAIL.ItemHeight)
 local LABEL_STROKE = Color3.fromRGB(0, 0, 0)
 
 local function hasIcon(Icon)
@@ -18,6 +17,12 @@ local function RightRailButton(Props)
 	local Scale, SetScale = React.useState(0.01)
 	local Icon = Props.Icon
 	local HasIcon = hasIcon(Icon)
+	local IconSize = Props.IconSize or RIGHT_RAIL.IconSize
+	local ItemSize = Props.ItemSize or Props.Size or BUTTON_SIZE
+	local LabelOffset = Props.LabelOffset or IconSize
+	local LabelHeight = Props.LabelHeight or RIGHT_RAIL.LabelHeight
+	local RightPadding = Props.RightPadding or RIGHT_RAIL.RightPadding
+	local RowSpacing = Props.RowSpacing or RIGHT_RAIL.RowSpacing
 
 	React.useEffect(function()
 		local Cancelled = false
@@ -44,8 +49,8 @@ local function RightRailButton(Props)
 	return React.createElement("Frame", {
 		AnchorPoint = Vector2.new(1, 0.5),
 		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -RIGHT_PADDING, 0.5, (Row - 2) * ROW_SPACING),
-		Size = Props.Size or BUTTON_SIZE,
+		Position = UDim2.new(1, -RightPadding, 0.5, (Row - 2) * RowSpacing),
+		Size = ItemSize,
 		ZIndex = Props.ZIndex or 20,
 	}, {
 		UIScale = React.createElement("UIScale", {
@@ -84,13 +89,13 @@ local function RightRailButton(Props)
 				Image = Icon,
 				Position = UDim2.fromScale(0.5, 0),
 				ScaleType = Enum.ScaleType.Fit,
-				Size = ICON_SIZE,
+				Size = UDim2.fromOffset(IconSize, IconSize),
 				ZIndex = Props.ZIndex or 20,
 			}) or nil,
 			Label = React.createElement(ReactUi.Text, {
 				AnchorPoint = Vector2.new(0.5, HasIcon and 0 or 0.5),
-				Position = HasIcon and UDim2.new(0.5, 0, 0, 86) or UDim2.fromScale(0.5, 0.5),
-				Size = HasIcon and UDim2.new(1, 0, 0, 26) or UDim2.new(1, -10, 0.72, 0),
+				Position = HasIcon and UDim2.new(0.5, 0, 0, LabelOffset) or UDim2.fromScale(0.5, 0.5),
+				Size = HasIcon and UDim2.new(1, 0, 0, LabelHeight) or UDim2.new(1, -10, 0.72, 0),
 				Text = Props.Text,
 				TextScaled = true,
 				TextStrokeColor3 = LABEL_STROKE,
@@ -98,7 +103,7 @@ local function RightRailButton(Props)
 				ZIndex = Props.ZIndex or 20,
 			}, {
 				UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
-					MaxTextSize = Props.MaxTextSize or 26,
+					MaxTextSize = Props.LabelMaxTextSize or Props.MaxTextSize or RIGHT_RAIL.LabelMaxTextSize,
 				}),
 			}),
 		}),

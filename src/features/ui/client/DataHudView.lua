@@ -1,36 +1,13 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SocialService = game:GetService("SocialService")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
+local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
 
-local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
-local Player = Players.LocalPlayer
-
 local HUD_TEXT_STROKE = Color3.fromRGB(0, 0, 0)
-local ROW_HEIGHT = 56
-local ICON_SIZE = 52
-local ICON_SLOT_SIZE = 56
-
-local function useStat(Name, Default)
-	local Value, SetValue = React.useState(StatsController.Get(Name) or Default)
-
-	React.useEffect(function()
-		local Connection = StatsController.Changed:Connect(function(ChangedName, NextValue)
-			if ChangedName ~= Name then return end
-			SetValue(NextValue)
-		end)
-
-		return function()
-			Connection:Disconnect()
-		end
-	end, { Name })
-
-	return Value
-end
+local DATA_HUD = UiTuning.DataHud
 
 local function hasIcon(Icon)
 	return type(Icon) == "string" and Icon ~= ""
@@ -41,12 +18,15 @@ local function StatRow(Props)
 	local HasIcon = hasIcon(Icon)
 	local HasAction = Props.OnIconActivated ~= nil
 	local IconScale, SetIconScale = React.useState(1)
+	local RowHeight = Props.RowHeight or DATA_HUD.RowHeight
+	local IconSlotSize = Props.IconSlotSize or RowHeight
+	local IconSize = Props.IconSize or DATA_HUD.IconSize
 
 	local IconProps = {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = 1,
-		Size = UDim2.fromOffset(ICON_SLOT_SIZE, ICON_SLOT_SIZE),
+		Size = UDim2.fromOffset(IconSlotSize, IconSlotSize),
 	}
 
 	if HasAction then
@@ -74,11 +54,11 @@ local function StatRow(Props)
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		LayoutOrder = Props.LayoutOrder,
-		Size = UDim2.fromOffset(420, ROW_HEIGHT),
+		Size = UDim2.fromOffset(Props.RowWidth or DATA_HUD.RowWidth, RowHeight),
 	}, {
 		Layout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 10),
+			Padding = UDim.new(0, Props.RowPadding or 8),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
 		}),
@@ -92,7 +72,7 @@ local function StatRow(Props)
 				Image = Icon,
 				Position = UDim2.fromScale(0.5, 0.5),
 				ScaleType = Enum.ScaleType.Fit,
-				Size = UDim2.fromOffset(ICON_SIZE, ICON_SIZE),
+				Size = UDim2.fromOffset(IconSize, IconSize),
 			}) or nil,
 			Fallback = not HasIcon and React.createElement(ReactUi.Text, {
 				Size = UDim2.fromScale(1, 1),
@@ -108,7 +88,7 @@ local function StatRow(Props)
 		}),
 		Value = React.createElement(ReactUi.Text, {
 			LayoutOrder = 2,
-			Size = UDim2.fromOffset(340, ROW_HEIGHT),
+			Size = UDim2.fromOffset(Props.TextWidth or DATA_HUD.TextWidth, RowHeight),
 			Text = Props.Text,
 			TextScaled = true,
 			TextStrokeColor3 = HUD_TEXT_STROKE,
@@ -116,54 +96,67 @@ local function StatRow(Props)
 			TextXAlignment = Enum.TextXAlignment.Left,
 		}, {
 			UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
-				MaxTextSize = 42,
+				MaxTextSize = Props.TextMaxSize or DATA_HUD.TextMaxSize,
 			}),
 		}),
 	})
 end
 
-local function DataHudApp()
-	local Money = useStat("Money", 0)
-	local Speed = useStat("Speed", 0)
-	local FriendBonusPercent = useStat("FriendBonusPercent", 0)
+local function DataHudView(Props)
+	Props = Props or {}
 
 	return React.createElement("Frame", {
-		AnchorPoint = Vector2.new(0, 1),
+		AnchorPoint = Props.AnchorPoint or Vector2.new(0, 1),
 		BackgroundTransparency = 1,
-		Position = UDim2.new(0, 24, 1, -28),
-		Size = UDim2.fromOffset(430, 176),
+		Position = Props.Position or UDim2.new(0, 24, 1, -28),
+		Size = Props.Size or UDim2.fromOffset(Props.ContainerWidth or DATA_HUD.RowWidth, Props.ContainerHeight or (DATA_HUD.RowHeight * 3 + DATA_HUD.VerticalPadding * 2)),
 	}, {
 		Layout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
-			Padding = UDim.new(0, 2),
+			Padding = UDim.new(0, Props.VerticalPadding or DATA_HUD.VerticalPadding),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 		Speed = React.createElement(StatRow, {
-			Colour = ReactUi.Colours.Blue,
 			Fallback = "SPD",
 			Icon = UiAssets.Icons.Speed,
+			IconSize = Props.IconSize,
+			IconSlotSize = Props.IconSlotSize,
 			LayoutOrder = 1,
-			Text = Format.Number(Speed),
+			RowHeight = Props.RowHeight,
+			RowPadding = Props.RowPadding,
+			RowWidth = Props.RowWidth,
+			Text = Format.Number(Props.Speed or 0),
+			TextMaxSize = Props.TextMaxSize,
+			TextWidth = Props.TextWidth,
 		}),
 		Money = React.createElement(StatRow, {
-			Colour = ReactUi.Colours.Green,
 			Fallback = "$",
 			Icon = UiAssets.Icons.Money,
+			IconSize = Props.IconSize,
+			IconSlotSize = Props.IconSlotSize,
 			LayoutOrder = 2,
-			Text = string.format("$%s", Format.Number(Money)),
+			RowHeight = Props.RowHeight,
+			RowPadding = Props.RowPadding,
+			RowWidth = Props.RowWidth,
+			Text = string.format("$%s", Format.Number(Props.Money or 0)),
+			TextMaxSize = Props.TextMaxSize,
+			TextWidth = Props.TextWidth,
 		}),
 		FriendBonus = React.createElement(StatRow, {
 			Fallback = "+",
 			Icon = UiAssets.Icons.Invite,
+			IconSize = Props.IconSize,
+			IconSlotSize = Props.IconSlotSize,
 			LayoutOrder = 3,
-			OnIconActivated = function()
-				pcall(function()
-					SocialService:PromptGameInvite(Player)
-				end)
-			end,
-			Text = string.format("Friend Bonus: %s%%", Format.Number(FriendBonusPercent)),
+			OnIconActivated = Props.OnInvite,
+			RowHeight = Props.RowHeight,
+			RowPadding = Props.RowPadding,
+			RowWidth = Props.RowWidth,
+			Text = string.format("Friend Bonus: %s%%", Format.Number(Props.FriendBonusPercent or 0)),
+			TextMaxSize = Props.TextMaxSize,
+			TextWidth = Props.TextWidth,
 		}),
 	})
 end
 
-return DataHudApp
+return DataHudView
