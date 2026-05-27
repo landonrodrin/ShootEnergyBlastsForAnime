@@ -6,13 +6,15 @@ local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))
-local ReactUi = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("ReactUi"))
 local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
+local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
+local RebirthPanelView = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("RebirthPanelView"))
 local RightRailButton = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("RightRailButton"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
 local Player = Players.LocalPlayer
+local GAMEPLAY_PANELS = UiTuning.GameplayPanels
 
 local function useStat(Name, Default)
 	local Value, SetValue = React.useState(StatsController.Get(Name) or Default)
@@ -64,74 +66,24 @@ local function RebirthApp(Props)
 			Row = 3,
 			Text = "Rebirth",
 		}),
-		Panel = React.createElement(ReactUi.Panel, {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.52),
-			Size = UDim2.fromOffset(520, 420),
-			StrokeColor = Color3.fromRGB(235, 77, 112),
-			StrokeThickness = 3,
+		Panel = React.createElement(RebirthPanelView, {
+			CanRebirth = NextConfiguration ~= nil,
+			CurrentText = string.format("Current: Rebirth %s | %sx Money", Rebirths, CurrentMultiplier),
+			NextText = NextConfiguration and string.format("Next: Rebirth %s | %sx Money", Rebirths + 1, NextConfiguration.Multiplier) or "Max rebirth reached",
+			OnClose = function()
+				setOpen(false)
+			end,
+			OnRebirth = function()
+				RequestController.Rebirth()
+			end,
+			OnSkip = function()
+				MarketplaceService:PromptProductPurchase(Player, GameConfigurations.ProductsIds.SkipRebirth)
+			end,
+			Progress = Progress,
+			ProgressText = NextConfiguration and string.format("Speed %s / %s", Format.Number(Speed), Format.Number(NextConfiguration.Speed)) or "MAX",
+			SharedTuning = GAMEPLAY_PANELS,
+			Tuning = GAMEPLAY_PANELS.Rebirth,
 			Visible = Open,
-		}, {
-			Header = React.createElement(ReactUi.Header, {
-				OnClose = function()
-					setOpen(false)
-				end,
-				Title = "Rebirth",
-			}),
-			Current = React.createElement(ReactUi.Text, {
-				Position = UDim2.fromOffset(30, 88),
-				Size = UDim2.new(1, -60, 0, 52),
-				Text = string.format("Current: Rebirth %s | %sx Money", Rebirths, CurrentMultiplier),
-			}),
-			Next = React.createElement(ReactUi.Text, {
-				Position = UDim2.fromOffset(30, 146),
-				Size = UDim2.new(1, -60, 0, 52),
-				Text = NextConfiguration and string.format("Next: Rebirth %s | %sx Money", Rebirths + 1, NextConfiguration.Multiplier) or "Max rebirth reached",
-			}),
-			ProgressBackground = React.createElement("Frame", {
-				BackgroundColor3 = Color3.fromRGB(42, 46, 60),
-				BorderSizePixel = 0,
-				Position = UDim2.fromOffset(40, 220),
-				Size = UDim2.new(1, -80, 0, 42),
-			}, {
-				UICorner = React.createElement("UICorner", {
-					CornerRadius = UDim.new(0, 8),
-				}),
-				Fill = React.createElement("Frame", {
-					BackgroundColor3 = ReactUi.Colours.Green,
-					BorderSizePixel = 0,
-					Size = UDim2.fromScale(Progress, 1),
-				}, {
-					UICorner = React.createElement("UICorner", {
-						CornerRadius = UDim.new(0, 8),
-					}),
-				}),
-				Label = React.createElement(ReactUi.Text, {
-					Position = UDim2.fromScale(0.5, 0.5),
-					Size = UDim2.fromScale(0.95, 0.75),
-					Text = NextConfiguration and string.format("Speed %s / %s", Format.Number(Speed), Format.Number(NextConfiguration.Speed)) or "MAX",
-				}),
-			}),
-			Rebirth = React.createElement(ReactUi.Button, {
-				BackgroundColor3 = ReactUi.Colours.Green,
-				Disabled = NextConfiguration == nil,
-				OnActivated = function()
-					RequestController.Rebirth()
-				end,
-				Position = UDim2.fromOffset(72, 314),
-				Size = UDim2.fromOffset(170, 54),
-				Text = "Rebirth",
-			}),
-			Skip = React.createElement(ReactUi.Button, {
-				BackgroundColor3 = ReactUi.Colours.Accent,
-				Disabled = NextConfiguration == nil,
-				OnActivated = function()
-					MarketplaceService:PromptProductPurchase(Player, GameConfigurations.ProductsIds.SkipRebirth)
-				end,
-				Position = UDim2.fromOffset(278, 314),
-				Size = UDim2.fromOffset(170, 54),
-				Text = "Skip",
-			}),
 		}),
 	})
 end

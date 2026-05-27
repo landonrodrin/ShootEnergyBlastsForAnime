@@ -6,11 +6,13 @@ local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:Wait
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
+local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
+local IndexPanelView = require(script.Parent:WaitForChild("IndexPanelView"))
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
 local RightRailButton = require(script.Parent:WaitForChild("RightRailButton"))
-local ViewportPreview = require(script.Parent:WaitForChild("ViewportPreview"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
+local GAMEPLAY_PANELS = UiTuning.GameplayPanels
 
 local function sortedEntries(Source)
 	local Entries = {}
@@ -69,80 +71,29 @@ local function IndexApp(Props)
 		end
 	end, {})
 
-	local MutationChildren = {
-		Layout = React.createElement("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
-			Padding = UDim.new(0, 8),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-
+	local MutationRows = {}
 	for _, Entry in ipairs(MutationEntries) do
-		local Mutation = Entry.Name
 		local Configuration = Entry.Configuration
-		local Colour = Configuration.Colour or ReactUi.Colours.Accent
-
-		MutationChildren[Mutation] = React.createElement(ReactUi.Button, {
-			BackgroundColor3 = SelectedMutation == Mutation and Colour or ReactUi.Colours.PanelLight,
+		table.insert(MutationRows, {
+			Colour = Configuration.Colour or ReactUi.Colours.Accent,
 			LayoutOrder = Configuration.Index or 0,
-			MaxTextSize = 22,
-			OnActivated = function()
-				SetSelectedMutation(Mutation)
-				RequestController.IndexRequest(Mutation)
-			end,
-			Size = UDim2.fromOffset(132, 40),
-			StrokeColor = Colour,
-			Text = Mutation,
+			Name = Entry.Name,
 		})
 	end
 
-	local AnimeChildren = {
-		Grid = React.createElement("UIGridLayout", {
-			CellPadding = UDim2.fromOffset(10, 10),
-			CellSize = UDim2.fromOffset(150, 178),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
-	}
-
+	local AnimeRows = {}
 	for _, Entry in ipairs(AnimeEntries) do
-		local AnimeName = Entry.Name
 		local Configuration = Entry.Configuration
-		local IsUnlocked = IndexData[SelectedMutation] and IndexData[SelectedMutation][AnimeName] == true
-		local AreaConfiguration = AreasConfigurations[Configuration.Area] or {}
-		local Accent = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255)
+		local AreaName = Configuration.Area or ""
+		local AreaConfiguration = AreasConfigurations[AreaName] or {}
+		local AnimeName = Entry.Name
 
-		AnimeChildren[AnimeName] = React.createElement(ReactUi.Panel, {
-			BackgroundColor3 = Color3.fromRGB(24, 27, 36),
+		table.insert(AnimeRows, {
+			Accent = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255),
+			Area = AreaName,
+			IsUnlocked = IndexData[SelectedMutation] and IndexData[SelectedMutation][AnimeName] == true,
 			LayoutOrder = Configuration.Index or 0,
-			Size = UDim2.fromOffset(150, 178),
-			StrokeColor = IsUnlocked and Accent or Color3.fromRGB(86, 91, 108),
-			StrokeTransparency = IsUnlocked and 0.15 or 0.45,
-		}, {
-			Preview = React.createElement(ViewportPreview, {
-				AnimeName = AnimeName,
-				BackgroundColor3 = Accent,
-				BackgroundTransparency = IsUnlocked and 0.62 or 0.85,
-				Mutation = SelectedMutation,
-				Position = UDim2.fromOffset(25, 12),
-				Scale = 1.3,
-				Silhouette = not IsUnlocked,
-				Size = UDim2.fromOffset(100, 92),
-				StrokeColor = Accent,
-			}),
-			Name = React.createElement(ReactUi.Text, {
-				Position = UDim2.fromOffset(12, 108),
-				Size = UDim2.fromOffset(126, 34),
-				Text = IsUnlocked and AnimeName or "?",
-				TextScaled = true,
-			}),
-			Area = React.createElement(ReactUi.Text, {
-				Position = UDim2.fromOffset(12, 142),
-				Size = UDim2.fromOffset(126, 24),
-				Text = Configuration.Area or "",
-				TextColor3 = Accent,
-				TextScaled = true,
-				TextStrokeTransparency = 0.7,
-			}),
+			Name = AnimeName,
 		})
 	end
 
@@ -163,34 +114,20 @@ local function IndexApp(Props)
 			Row = 2,
 			Text = "Index",
 		}),
-		Panel = React.createElement(ReactUi.Panel, {
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.52),
-			Size = UDim2.fromScale(0.72, 0.72),
-			StrokeColor = Color3.fromRGB(110, 116, 255),
-			StrokeThickness = 3,
+		Panel = React.createElement(IndexPanelView, {
+			Anime = AnimeRows,
+			Mutations = MutationRows,
+			OnClose = function()
+				setOpen(false)
+			end,
+			OnSelectMutation = function(Mutation)
+				SetSelectedMutation(Mutation)
+				RequestController.IndexRequest(Mutation)
+			end,
+			SelectedMutation = SelectedMutation,
+			SharedTuning = GAMEPLAY_PANELS,
+			Tuning = GAMEPLAY_PANELS.Index,
 			Visible = Open,
-		}, {
-			Header = React.createElement(ReactUi.Header, {
-				OnClose = function()
-					setOpen(false)
-				end,
-				Title = string.format("Index | %s", SelectedMutation),
-			}),
-			Mutations = React.createElement("Frame", {
-				BackgroundTransparency = 1,
-				Position = UDim2.fromOffset(18, 72),
-				Size = UDim2.new(1, -36, 0, 44),
-			}, MutationChildren),
-			Anime = React.createElement("ScrollingFrame", {
-				AutomaticCanvasSize = Enum.AutomaticSize.Y,
-				BackgroundTransparency = 1,
-				BorderSizePixel = 0,
-				CanvasSize = UDim2.fromOffset(0, 0),
-				Position = UDim2.fromOffset(18, 126),
-				ScrollBarThickness = 8,
-				Size = UDim2.new(1, -36, 1, -144),
-			}, AnimeChildren),
 		}),
 	})
 end
