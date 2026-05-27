@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
-local AnnouncementFeedView = require(script.Parent:WaitForChild("AnnouncementFeedView"))
+local AnnouncementFeedView = require(script.Parent.Parent.Views:WaitForChild("AnnouncementFeedView"))
 
 local MESSAGE_LIFETIME = 2.25
 local MAX_MESSAGES = 4

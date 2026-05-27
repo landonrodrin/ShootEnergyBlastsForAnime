@@ -19,7 +19,7 @@ local BaseConfigurations = require(ReplicatedStorage.Features.Bases.Shared:WaitF
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
 local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
-local RebirthsConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))
+local RebirthsConfigurations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("RebirthsConfigurations"))
 
 local RetrieveAnimeDataFunction = ServerNetwork.BindableFunctions:WaitForChild("RetrieveAnimeData")
 local CreateAnimeFunction = ServerNetwork.BindableFunctions:WaitForChild("CreateAnime")

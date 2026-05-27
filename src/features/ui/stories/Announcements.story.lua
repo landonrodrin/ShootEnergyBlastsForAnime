@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ReactRoblox = require(ReplicatedStorage.Packages:WaitForChild("react-roblox"))
-local AnnouncementFeedView = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("AnnouncementFeedView"))
+local AnnouncementFeedView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("AnnouncementFeedView"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 
 local SUCCESS = Color3.fromRGB(95, 255, 140)

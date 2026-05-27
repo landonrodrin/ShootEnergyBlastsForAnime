@@ -28,7 +28,6 @@ local fireLoopRunning = false
 local activeBeam = nil
 local beamTrove = nil
 local beamRenderConnected = false
-local statusLabel = nil
 local animationCharacter = nil
 local animationTrove = nil
 local shootingAnimation = nil
@@ -40,51 +39,6 @@ local scriptTrove = Trove.new()
 scriptTrove:Connect(script.Destroying, function()
 	scriptTrove:Destroy()
 end)
-
-local function createHud()
-	local playerGui = player:WaitForChild("PlayerGui")
-	local existing = playerGui:FindFirstChild("ShootDebugHud")
-	if existing then
-		return existing:WaitForChild("Status")
-	end
-
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "ShootDebugHud"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	gui.Parent = playerGui
-
-	local status = Instance.new("TextLabel")
-	status.Name = "Status"
-	status.AnchorPoint = Vector2.new(1, 0)
-	status.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-	status.BackgroundTransparency = 0.2
-	status.BorderSizePixel = 0
-	status.Position = UDim2.new(1, -16, 0, 16)
-	status.Size = UDim2.fromOffset(360, 44)
-	status.Font = Enum.Font.GothamBold
-	status.Text = "Shoot client loaded"
-	status.TextColor3 = Color3.fromRGB(120, 255, 120)
-	status.TextSize = 16
-	status.TextXAlignment = Enum.TextXAlignment.Left
-	status.Parent = gui
-
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 12)
-	padding.PaddingRight = UDim.new(0, 12)
-	padding.Parent = status
-
-	return status
-end
-
-local function setStatus(text, color)
-	if not statusLabel then
-		return
-	end
-
-	statusLabel.Text = text
-	statusLabel.TextColor3 = color or Color3.fromRGB(120, 255, 120)
-end
 
 local function getTargetPoint()
 	local hit = mouse.Hit
@@ -313,7 +267,7 @@ local function ensureBeam()
 
 	local template = getBeamTemplate()
 	if not template then
-		setStatus("Missing KamehamehaBeamTemplate", Color3.fromRGB(255, 120, 120))
+		warn("Missing KamehamehaBeamTemplate")
 		return nil
 	end
 
@@ -411,11 +365,9 @@ end
 local function sendShot()
 	local targetPoint = getTargetPoint()
 	if not targetPoint then
-		setStatus("No cursor target", Color3.fromRGB(255, 210, 90))
 		return
 	end
 
-	setStatus("Firing...", Color3.fromRGB(150, 220, 255))
 	RequestController.Shoot(targetPoint)
 end
 
@@ -432,9 +384,6 @@ local function startFiring()
 			task.wait(1 / FIRE_RATE)
 		end
 		fireLoopRunning = false
-		if fireToken == currentFireToken then
-			setStatus("Ready", Color3.fromRGB(120, 255, 120))
-		end
 	end)
 end
 
@@ -464,13 +413,10 @@ local function startCharge()
 	local currentChargeToken = chargeToken
 	local track = playShootingAnimation()
 	if not track then
-		setStatus("Shot blocked: character not ready", Color3.fromRGB(255, 120, 120))
 		mouseHeld = false
 		charging = false
 		return
 	end
-
-	setStatus("Charging...", Color3.fromRGB(150, 220, 255))
 
 	task.spawn(function()
 		task.wait(getChargeDuration(track))
@@ -486,22 +432,6 @@ local function onShootResult(result)
 	if typeof(result) ~= "table" then
 		return
 	end
-
-	if result.Hit then
-		local suffix = result.Destroyed and " destroyed" or ""
-		setStatus(
-			string.format("Hit %s: %d/%d%s", result.WallName or "wall", result.Hp or 0, result.MaxHP or 0, suffix),
-			result.Destroyed and Color3.fromRGB(255, 180, 80) or Color3.fromRGB(120, 255, 120)
-		)
-	elseif result.Reason == "walls_reset" then
-		setStatus("Walls rebuilt", Color3.fromRGB(120, 255, 120))
-	elseif result.Reason == "miss" or result.Reason == "not_wall" then
-		setStatus("Miss", Color3.fromRGB(255, 210, 90))
-	elseif result.Reason == "not_ready" then
-		setStatus("Shot blocked: character not ready", Color3.fromRGB(255, 120, 120))
-	else
-		setStatus("Shot sent", Color3.fromRGB(150, 220, 255))
-	end
 end
 
 function Shooting.Start()
@@ -509,8 +439,6 @@ function Shooting.Start()
 		return
 	end
 	started = true
-
-	statusLabel = createHud()
 
 	scriptTrove:Connect(UserInputService.InputBegan, function(input, gameProcessed)
 		if gameProcessed then

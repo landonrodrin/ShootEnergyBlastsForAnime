@@ -24,7 +24,7 @@ local ControllerModules = {
 	PlayerController = PlayersFeature.Client:WaitForChild("PlayerController"),
 	HeldPreviewController = PlayersFeature.Client:WaitForChild("HeldPreviewController"),
 	BaseController = BasesFeature.Client:WaitForChild("BaseController"),
-	UiController = UiFeature.Client:WaitForChild("UiController"),
+	UiController = UiFeature.Client.Controllers:WaitForChild("UiController"),
 }
 
 local Controllers = {}

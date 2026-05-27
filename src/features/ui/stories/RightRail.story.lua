@@ -2,10 +2,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ReactRoblox = require(ReplicatedStorage.Packages:WaitForChild("react-roblox"))
-local RightRailButton = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("RightRailButton"))
+local RightRailButton = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("RightRailButton"))
 local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
-local ReactUi = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("ReactUi"))
+local ReactUi = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("ReactUi"))
 
 local RIGHT_RAIL = UiTuning.RightRail
 
@@ -18,7 +18,9 @@ return {
 		ItemHeight = RIGHT_RAIL.ItemHeight,
 		RowSpacing = RIGHT_RAIL.RowSpacing,
 		RightPadding = RIGHT_RAIL.RightPadding,
-		LabelMaxTextSize = RIGHT_RAIL.LabelMaxTextSize,
+		LabelOffset = RIGHT_RAIL.LabelOffset,
+		LabelWidth = RIGHT_RAIL.LabelWidth,
+		LabelTextSize = RIGHT_RAIL.LabelTextSize,
 		LabelHeight = RIGHT_RAIL.LabelHeight,
 	},
 	story = function(Props)
@@ -36,8 +38,9 @@ return {
 				IconSize = Controls.IconSize,
 				ItemSize = ItemSize,
 				LabelHeight = Controls.LabelHeight,
-				LabelMaxTextSize = Controls.LabelMaxTextSize,
-				LabelOffset = Controls.IconSize,
+				LabelOffset = Controls.LabelOffset,
+				LabelWidth = Controls.LabelWidth,
+				LabelTextSize = Controls.LabelTextSize,
 				RightPadding = Controls.RightPadding,
 				Row = 1,
 				RowSpacing = Controls.RowSpacing,
@@ -49,8 +52,9 @@ return {
 				IconSize = Controls.IconSize,
 				ItemSize = ItemSize,
 				LabelHeight = Controls.LabelHeight,
-				LabelMaxTextSize = Controls.LabelMaxTextSize,
-				LabelOffset = Controls.IconSize,
+				LabelOffset = Controls.LabelOffset,
+				LabelWidth = Controls.LabelWidth,
+				LabelTextSize = Controls.LabelTextSize,
 				RightPadding = Controls.RightPadding,
 				Row = 2,
 				RowSpacing = Controls.RowSpacing,
@@ -62,8 +66,9 @@ return {
 				IconSize = Controls.IconSize,
 				ItemSize = ItemSize,
 				LabelHeight = Controls.LabelHeight,
-				LabelMaxTextSize = Controls.LabelMaxTextSize,
-				LabelOffset = Controls.IconSize,
+				LabelOffset = Controls.LabelOffset,
+				LabelWidth = Controls.LabelWidth,
+				LabelTextSize = Controls.LabelTextSize,
 				RightPadding = Controls.RightPadding,
 				Row = 3,
 				RowSpacing = Controls.RowSpacing,

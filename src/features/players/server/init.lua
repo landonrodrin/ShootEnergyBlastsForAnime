@@ -23,9 +23,9 @@ local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))
 local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local BaseConfigurations = require(ReplicatedStorage.Features.Bases.Shared:WaitForChild("BaseConfigurations"))
-local UpgradesConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("UpgradesConfigurations"))
+local UpgradesConfigurations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UpgradesConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
-local RebirthsConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))
+local RebirthsConfigurations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("RebirthsConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 
 local ctx = {

@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ReactRoblox = require(ReplicatedStorage.Packages:WaitForChild("react-roblox"))
-local AnimeUnlockFeedView = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("AnimeUnlockFeedView"))
+local AnimeUnlockFeedView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("AnimeUnlockFeedView"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 
 local ANIME_UNLOCK = UiTuning.AnimeUnlock

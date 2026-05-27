@@ -6,7 +6,7 @@ local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:Wait
 
 local Player = Players.LocalPlayer
 
-local function AreaApp()
+local function AreaController()
 	local AreaName, SetAreaName = React.useState(nil)
 	local AreaColour, SetAreaColour = React.useState(Color3.fromRGB(255, 255, 255))
 	local ActiveArea = React.useRef(nil)
@@ -126,10 +126,12 @@ local function AreaApp()
 			Text = if AreaName then string.format("%s Area", AreaName) else "",
 			TextColor3 = AreaColour,
 			TextScaled = true,
+			TextStrokeColor3 = Color3.fromRGB(0, 0, 0),
 			TextStrokeTransparency = 0,
 			TextWrapped = true,
 		}, {
 			UIStroke = React.createElement("UIStroke", {
+				Color = Color3.fromRGB(0, 0, 0),
 				LineJoinMode = Enum.LineJoinMode.Miter,
 				Thickness = 10,
 			}),
@@ -137,4 +139,4 @@ local function AreaApp()
 	})
 end
 
-return AreaApp
+return AreaController

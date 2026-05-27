@@ -6,10 +6,10 @@ local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))
-local UpgradesConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("UpgradesConfigurations"))
-local ReactUi = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("ReactUi"))
+local UpgradesConfigurations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UpgradesConfigurations"))
+local ReactUi = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("ReactUi"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
-local UpgradesPanelView = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("UpgradesPanelView"))
+local UpgradesPanelView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("UpgradesPanelView"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
@@ -89,11 +89,39 @@ local function buildUpgradeRow(Options)
 	}
 end
 
-local function UpgradesApp()
-	local Open, SetOpen = React.useState(false)
+local function UpgradesController(Props)
+	Props = Props or {}
+
+	local LocalOpen, SetLocalOpen = React.useState(false)
 	local Speed = useStat("Speed", GameConfigurations.Defaults.Speed)
 	local Carry = useStat("Carry", GameConfigurations.Defaults.Carry)
 	local PriceTexts, SetPriceTexts = React.useState({})
+	local ActivePanelRef = React.useRef(Props.ActivePanel)
+	local Open = if Props.SetActivePanel then Props.ActivePanel == "Upgrades" else LocalOpen
+
+	React.useEffect(function()
+		ActivePanelRef.current = Props.ActivePanel
+
+		return nil
+	end, { Props.ActivePanel })
+
+	local function setOpen(NextOpen)
+		if Props.SetActivePanel then
+			Props.SetActivePanel(if NextOpen then "Upgrades" else nil)
+		else
+			SetLocalOpen(NextOpen)
+		end
+	end
+
+	local function closeIfActive()
+		if Props.SetActivePanel then
+			if ActivePanelRef.current == "Upgrades" then
+				Props.SetActivePanel(nil)
+			end
+		else
+			SetLocalOpen(false)
+		end
+	end
 
 	React.useEffect(function()
 		local Alive = true
@@ -124,14 +152,14 @@ local function UpgradesApp()
 		if Toggle then
 			UpgradesZone = ZonePlus.CreatePresenceZone(Toggle)
 			EnteredConnection = UpgradesZone.localPlayerEntered:Connect(function()
-				SetOpen(true)
+				setOpen(true)
 			end)
 			ExitedConnection = UpgradesZone.localPlayerExited:Connect(function()
-				SetOpen(false)
+				closeIfActive()
 			end)
 
 			if UpgradesZone:findLocalPlayer() then
-				SetOpen(true)
+				setOpen(true)
 			end
 		else
 			warn("Missing upgrades zone: Workspace.Upgrades.Toggle")
@@ -148,7 +176,7 @@ local function UpgradesApp()
 				UpgradesZone:destroy()
 			end
 		end
-	end, {})
+	end, { Props.SetActivePanel })
 
 	local Speed1Cost = math.round(UpgradesConfigurations.Speed1.Money * UpgradesConfigurations.Speed1.IncrementMultiplier ^ Speed)
 	local Speed5Cost = math.round(UpgradesConfigurations.Speed1.Money * UpgradesConfigurations.Speed1.IncrementMultiplier ^ (Speed + 4))
@@ -223,7 +251,7 @@ local function UpgradesApp()
 
 	return React.createElement(UpgradesPanelView, {
 		OnClose = function()
-			SetOpen(false)
+			closeIfActive()
 		end,
 		Rows = Rows,
 		SharedTuning = GAMEPLAY_PANELS,
@@ -232,4 +260,4 @@ local function UpgradesApp()
 	})
 end
 
-return UpgradesApp
+return UpgradesController

@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
-local AnimeUnlockFeedView = require(script.Parent:WaitForChild("AnimeUnlockFeedView"))
+local AnimeUnlockFeedView = require(script.Parent.Parent.Views:WaitForChild("AnimeUnlockFeedView"))
 
 local DISPLAY_TIME = 2.7
 

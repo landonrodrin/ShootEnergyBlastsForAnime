@@ -2,12 +2,12 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
-local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
+local ReactUi = require(script.Parent.Parent.Views:WaitForChild("ReactUi"))
 
 local InventoryController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("InventoryController"))
 local Player = Players.LocalPlayer
 
-local function DropApp()
+local function DropController()
 	local CanDrop, SetCanDrop = React.useState(InventoryController.CanDrop())
 
 	React.useEffect(function()
@@ -44,4 +44,4 @@ local function DropApp()
 	})
 end
 
-return DropApp
+return DropController

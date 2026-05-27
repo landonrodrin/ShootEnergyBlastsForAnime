@@ -5,11 +5,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))
-local RebirthsConfigurations = require(ReplicatedStorage.Features.Shop.Shared:WaitForChild("RebirthsConfigurations"))
+local RebirthsConfigurations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("RebirthsConfigurations"))
 local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
-local RebirthPanelView = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("RebirthPanelView"))
-local RightRailButton = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("RightRailButton"))
+local RebirthPanelView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("RebirthPanelView"))
+local RightRailButton = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("RightRailButton"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
@@ -33,7 +33,7 @@ local function useStat(Name, Default)
 	return Value
 end
 
-local function RebirthApp(Props)
+local function RebirthController(Props)
 	Props = Props or {}
 
 	local LocalOpen, SetLocalOpen = React.useState(false)
@@ -43,11 +43,32 @@ local function RebirthApp(Props)
 	local NextConfiguration = RebirthsConfigurations[Rebirths + 1]
 	local CurrentMultiplier = CurrentConfiguration and CurrentConfiguration.Multiplier or 1
 	local Progress = NextConfiguration and math.clamp(Speed / NextConfiguration.Speed, 0, 1) or 1
+	local ActivePanelRef = React.useRef(Props.ActivePanel)
 	local Open = if Props.SetActivePanel then Props.ActivePanel == "Rebirth" else LocalOpen
+
+	React.useEffect(function()
+		ActivePanelRef.current = Props.ActivePanel
+
+		return nil
+	end, { Props.ActivePanel })
+
+	local function closeIfActive()
+		if Props.SetActivePanel then
+			if ActivePanelRef.current == "Rebirth" then
+				Props.SetActivePanel(nil)
+			end
+		else
+			SetLocalOpen(false)
+		end
+	end
 
 	local function setOpen(NextOpen)
 		if Props.SetActivePanel then
-			Props.SetActivePanel(if NextOpen then "Rebirth" else nil)
+			if NextOpen then
+				Props.SetActivePanel("Rebirth")
+			else
+				closeIfActive()
+			end
 		else
 			SetLocalOpen(NextOpen)
 		end
@@ -71,7 +92,7 @@ local function RebirthApp(Props)
 			CurrentText = string.format("Current: Rebirth %s | %sx Money", Rebirths, CurrentMultiplier),
 			NextText = NextConfiguration and string.format("Next: Rebirth %s | %sx Money", Rebirths + 1, NextConfiguration.Multiplier) or "Max rebirth reached",
 			OnClose = function()
-				setOpen(false)
+				closeIfActive()
 			end,
 			OnRebirth = function()
 				RequestController.Rebirth()
@@ -88,4 +109,4 @@ local function RebirthApp(Props)
 	})
 end
 
-return RebirthApp
+return RebirthController

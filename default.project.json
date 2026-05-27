@@ -33,22 +33,18 @@
             "$path": "src/features/players/client"
           }
         },
-        "Shop": {
-          "$className": "Folder",
-          "Client": {
-            "$className": "Folder",
-            "$path": "src/features/shop/client"
-          },
-          "Shared": {
-            "$className": "Folder",
-            "$path": "src/features/shop/shared"
-          }
-        },
         "Ui": {
           "$className": "Folder",
           "Client": {
             "$className": "Folder",
-            "$path": "src/features/ui/client"
+            "Controllers": {
+              "$className": "Folder",
+              "$path": "src/features/ui/client/controllers"
+            },
+            "Views": {
+              "$className": "Folder",
+              "$path": "src/features/ui/client/views"
+            }
           },
           "Stories": {
             "$className": "Folder",

@@ -7,7 +7,7 @@ local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTu
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
 
 local HUD_TEXT_STROKE = Color3.fromRGB(0, 0, 0)
-local DATA_HUD = UiTuning.DataHud
+local LEFT_RAIL = UiTuning.LeftRail
 
 local function hasIcon(Icon)
 	return type(Icon) == "string" and Icon ~= ""
@@ -18,9 +18,9 @@ local function StatRow(Props)
 	local HasIcon = hasIcon(Icon)
 	local HasAction = Props.OnIconActivated ~= nil
 	local IconScale, SetIconScale = React.useState(1)
-	local RowHeight = Props.RowHeight or DATA_HUD.RowHeight
+	local RowHeight = Props.RowHeight or LEFT_RAIL.RowHeight
 	local IconSlotSize = Props.IconSlotSize or RowHeight
-	local IconSize = Props.IconSize or DATA_HUD.IconSize
+	local IconSize = Props.IconSize or LEFT_RAIL.IconSize
 
 	local IconProps = {
 		BackgroundTransparency = 1,
@@ -54,7 +54,7 @@ local function StatRow(Props)
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		LayoutOrder = Props.LayoutOrder,
-		Size = UDim2.fromOffset(Props.RowWidth or DATA_HUD.RowWidth, RowHeight),
+		Size = UDim2.fromOffset(Props.RowWidth or LEFT_RAIL.RowWidth, RowHeight),
 	}, {
 		Layout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Horizontal,
@@ -88,32 +88,31 @@ local function StatRow(Props)
 		}),
 		Value = React.createElement(ReactUi.Text, {
 			LayoutOrder = 2,
-			Size = UDim2.fromOffset(Props.TextWidth or DATA_HUD.TextWidth, RowHeight),
+			Size = UDim2.fromOffset(Props.TextWidth or LEFT_RAIL.TextWidth, RowHeight),
 			Text = Props.Text,
-			TextScaled = true,
+			TextScaled = false,
+			TextSize = Props.TextSize or LEFT_RAIL.TextSize,
 			TextStrokeColor3 = HUD_TEXT_STROKE,
 			TextStrokeTransparency = 0,
 			TextXAlignment = Enum.TextXAlignment.Left,
-		}, {
-			UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
-				MaxTextSize = Props.TextMaxSize or DATA_HUD.TextMaxSize,
-			}),
 		}),
 	})
 end
 
-local function DataHudView(Props)
+local function LeftRailView(Props)
 	Props = Props or {}
 
+	local RowSpacing = Props.RowSpacing or LEFT_RAIL.RowSpacing or 0
+
 	return React.createElement("Frame", {
-		AnchorPoint = Props.AnchorPoint or Vector2.new(0, 1),
+		AnchorPoint = Props.AnchorPoint or Vector2.new(0, 0.5),
 		BackgroundTransparency = 1,
-		Position = Props.Position or UDim2.new(0, 24, 1, -28),
-		Size = Props.Size or UDim2.fromOffset(Props.ContainerWidth or DATA_HUD.RowWidth, Props.ContainerHeight or (DATA_HUD.RowHeight * 3 + DATA_HUD.VerticalPadding * 2)),
+		Position = Props.Position or UDim2.new(0, Props.LeftPadding or LEFT_RAIL.LeftPadding, 0.5, 0),
+		Size = Props.Size or UDim2.fromOffset(Props.ContainerWidth or LEFT_RAIL.RowWidth, Props.ContainerHeight or (LEFT_RAIL.RowHeight * 3 + RowSpacing * 2)),
 	}, {
 		Layout = React.createElement("UIListLayout", {
 			FillDirection = Enum.FillDirection.Vertical,
-			Padding = UDim.new(0, Props.VerticalPadding or DATA_HUD.VerticalPadding),
+			Padding = UDim.new(0, RowSpacing),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 		Speed = React.createElement(StatRow, {
@@ -126,7 +125,7 @@ local function DataHudView(Props)
 			RowPadding = Props.RowPadding,
 			RowWidth = Props.RowWidth,
 			Text = Format.Number(Props.Speed or 0),
-			TextMaxSize = Props.TextMaxSize,
+			TextSize = Props.TextSize,
 			TextWidth = Props.TextWidth,
 		}),
 		Money = React.createElement(StatRow, {
@@ -139,7 +138,7 @@ local function DataHudView(Props)
 			RowPadding = Props.RowPadding,
 			RowWidth = Props.RowWidth,
 			Text = string.format("$%s", Format.Number(Props.Money or 0)),
-			TextMaxSize = Props.TextMaxSize,
+			TextSize = Props.TextSize,
 			TextWidth = Props.TextWidth,
 		}),
 		FriendBonus = React.createElement(StatRow, {
@@ -153,10 +152,10 @@ local function DataHudView(Props)
 			RowPadding = Props.RowPadding,
 			RowWidth = Props.RowWidth,
 			Text = string.format("Friend Bonus: %s%%", Format.Number(Props.FriendBonusPercent or 0)),
-			TextMaxSize = Props.TextMaxSize,
+			TextSize = Props.TextSize,
 			TextWidth = Props.TextWidth,
 		}),
 	})
 end
 
-return DataHudView
+return LeftRailView

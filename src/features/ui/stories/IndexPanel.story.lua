@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ReactRoblox = require(ReplicatedStorage.Packages:WaitForChild("react-roblox"))
-local IndexPanelView = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("IndexPanelView"))
+local IndexPanelView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("IndexPanelView"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 
 local GAMEPLAY_PANELS = UiTuning.GameplayPanels

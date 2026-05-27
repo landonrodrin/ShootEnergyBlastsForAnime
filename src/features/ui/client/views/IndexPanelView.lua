@@ -32,7 +32,7 @@ local function IndexPanelView(Props)
 
 	local MutationChildren = {
 		Layout = React.createElement("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
+			FillDirection = MutationTuning.FillDirection or Enum.FillDirection.Horizontal,
 			Padding = MutationTuning.Padding,
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
@@ -68,6 +68,18 @@ local function IndexPanelView(Props)
 			StrokeColor = Entry.IsUnlocked and Entry.Accent or Color3.fromRGB(86, 91, 108),
 			StrokeTransparency = Entry.IsUnlocked and 0.15 or 0.45,
 		}, {
+			Rarity = React.createElement(ReactUi.Text, {
+				Position = AnimeTuning.RarityPosition,
+				Size = AnimeTuning.RaritySize,
+				Text = Entry.Area,
+				TextColor3 = Entry.Accent,
+				TextScaled = true,
+				TextStrokeTransparency = 0.7,
+			}, {
+				UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
+					MaxTextSize = AnimeTuning.RarityMaxTextSize,
+				}),
+			}),
 			Preview = React.createElement(ViewportPreview, {
 				AnimeName = Entry.Name,
 				BackgroundColor3 = Entry.Accent,
@@ -84,14 +96,6 @@ local function IndexPanelView(Props)
 				Size = AnimeTuning.NameSize,
 				Text = Entry.IsUnlocked and Entry.Name or "?",
 				TextScaled = true,
-			}),
-			Area = React.createElement(ReactUi.Text, {
-				Position = AnimeTuning.AreaPosition,
-				Size = AnimeTuning.AreaSize,
-				Text = Entry.Area,
-				TextColor3 = Entry.Accent,
-				TextScaled = true,
-				TextStrokeTransparency = 0.7,
 			}),
 		})
 	end
@@ -121,6 +125,12 @@ local function IndexPanelView(Props)
 				Thickness = 2,
 				Transparency = 0,
 			}) or nil,
+			Padding = React.createElement("UIPadding", {
+				PaddingBottom = AnimeTuning.PaddingBottom,
+				PaddingLeft = AnimeTuning.PaddingLeft,
+				PaddingRight = AnimeTuning.PaddingRight,
+				PaddingTop = AnimeTuning.PaddingTop,
+			}),
 			Children = React.createElement(React.Fragment, nil, AnimeChildren),
 		}),
 	})

@@ -6,7 +6,7 @@ local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlu
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
-local SellPanelView = require(ReplicatedStorage.Features.Ui.Client:WaitForChild("SellPanelView"))
+local SellPanelView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("SellPanelView"))
 
 local InventoryController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("InventoryController"))
 local Player = Players.LocalPlayer
@@ -25,10 +25,38 @@ local function inventoryTotal(Inventory)
 	return Total
 end
 
-local function SellApp()
-	local Open, SetOpen = React.useState(false)
+local function SellController(Props)
+	Props = Props or {}
+
+	local LocalOpen, SetLocalOpen = React.useState(false)
 	local ConfirmOpen, SetConfirmOpen = React.useState(false)
 	local Inventory, SetInventory = React.useState(InventoryController.GetSnapshot())
+	local ActivePanelRef = React.useRef(Props.ActivePanel)
+	local Open = if Props.SetActivePanel then Props.ActivePanel == "Sell" else LocalOpen
+
+	React.useEffect(function()
+		ActivePanelRef.current = Props.ActivePanel
+
+		return nil
+	end, { Props.ActivePanel })
+
+	local function setOpen(NextOpen)
+		if Props.SetActivePanel then
+			Props.SetActivePanel(if NextOpen then "Sell" else nil)
+		else
+			SetLocalOpen(NextOpen)
+		end
+	end
+
+	local function closeIfActive()
+		if Props.SetActivePanel then
+			if ActivePanelRef.current == "Sell" then
+				Props.SetActivePanel(nil)
+			end
+		else
+			SetLocalOpen(false)
+		end
+	end
 
 	React.useEffect(function()
 		local ChangedConnection = InventoryController.Changed:Connect(function(Name)
@@ -37,7 +65,7 @@ local function SellApp()
 		end)
 
 		local CharacterConnection = Player.CharacterRemoving:Connect(function()
-			SetOpen(false)
+			closeIfActive()
 			SetConfirmOpen(false)
 		end)
 
@@ -50,15 +78,15 @@ local function SellApp()
 		if Toggle then
 			SellZone = ZonePlus.CreatePresenceZone(Toggle)
 			EnteredConnection = SellZone.localPlayerEntered:Connect(function()
-				SetOpen(true)
+				setOpen(true)
 			end)
 			ExitedConnection = SellZone.localPlayerExited:Connect(function()
-				SetOpen(false)
+				closeIfActive()
 				SetConfirmOpen(false)
 			end)
 
 			if SellZone:findLocalPlayer() then
-				SetOpen(true)
+				setOpen(true)
 			end
 		else
 			warn("Missing sell station zone: Workspace.Sell.Toggle")
@@ -77,7 +105,7 @@ local function SellApp()
 				SellZone:destroy()
 			end
 		end
-	end, {})
+	end, { Props.SetActivePanel })
 
 	local Total = inventoryTotal(Inventory)
 	local Items = {}
@@ -106,7 +134,7 @@ local function SellApp()
 				SetConfirmOpen(false)
 			end,
 			OnClose = function()
-				SetOpen(false)
+				closeIfActive()
 				SetConfirmOpen(false)
 			end,
 			OnConfirmSellAll = function()
@@ -127,4 +155,4 @@ local function SellApp()
 	})
 end
 
-return SellApp
+return SellController

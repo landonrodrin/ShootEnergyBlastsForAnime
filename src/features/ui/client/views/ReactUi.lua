@@ -1,8 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
+local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 
 local ReactUi = {}
+local TEXT_OUTLINE = UiTuning.TextOutline or {}
 
 ReactUi.Font = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 ReactUi.Colours = {
@@ -31,15 +34,44 @@ local function stroke(Colour, Thickness, Transparency)
 	})
 end
 
+local function addUDim2(Left, Right)
+	return UDim2.new(
+		Left.X.Scale + Right.X.Scale,
+		Left.X.Offset + Right.X.Offset,
+		Left.Y.Scale + Right.Y.Scale,
+		Left.Y.Offset + Right.Y.Offset
+	)
+end
+
+local function textOutline(Props)
+	if Props.TextOutlineEnabled == false then
+		return nil
+	end
+
+	return React.createElement("UIStroke", {
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
+		Color = Props.TextOutlineColor or Props.TextStrokeColor3 or TEXT_OUTLINE.Color or Color3.fromRGB(0, 0, 0),
+		Thickness = Props.TextOutlineThickness or TEXT_OUTLINE.Thickness or 2,
+		Transparency = if Props.TextOutlineTransparency ~= nil
+			then Props.TextOutlineTransparency
+			else if Props.TextStrokeTransparency ~= nil then Props.TextStrokeTransparency else (TEXT_OUTLINE.Transparency or 0),
+	})
+end
+
 function ReactUi.Text(Props)
 	local Children = Props.Children or Props.children
+	local TextChildren = {
+		TextOutline = textOutline(Props),
+	}
+
 	if Props.MaxTextSize then
-		Children = {
-			UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
-				MaxTextSize = Props.MaxTextSize,
-			}),
-			Children = Children and React.createElement(React.Fragment, nil, Children) or nil,
-		}
+		TextChildren.UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
+			MaxTextSize = Props.MaxTextSize,
+		})
+	end
+
+	if Children then
+		TextChildren.Children = React.createElement(React.Fragment, nil, Children)
 	end
 
 	return React.createElement("TextLabel", {
@@ -55,15 +87,15 @@ function ReactUi.Text(Props)
 		TextColor3 = Props.TextColor3 or ReactUi.Colours.Text,
 		TextScaled = Props.TextScaled ~= false,
 		TextSize = Props.TextSize or 24,
-		TextStrokeColor3 = Props.TextStrokeColor3,
-		TextStrokeTransparency = Props.TextStrokeTransparency or 0.55,
+		TextStrokeColor3 = Props.TextStrokeColor3 or Color3.fromRGB(0, 0, 0),
+		TextStrokeTransparency = if Props.TextStrokeTransparency ~= nil then Props.TextStrokeTransparency else 0,
 		TextTransparency = Props.TextTransparency or 0,
 		TextWrapped = Props.TextWrapped ~= false,
 		TextXAlignment = Props.TextXAlignment or Enum.TextXAlignment.Center,
 		TextYAlignment = Props.TextYAlignment or Enum.TextYAlignment.Center,
 		Visible = Props.Visible ~= false,
 		ZIndex = Props.ZIndex,
-	}, Children)
+	}, TextChildren)
 end
 
 function ReactUi.Panel(Props)
@@ -107,12 +139,20 @@ end
 
 function ReactUi.GameplayPanel(Props)
 	local ViewportRef = React.useRef(nil)
+	local PanelRef = React.useRef(nil)
+	local ActiveTweenRef = React.useRef(nil)
+	local AnimationTokenRef = React.useRef(0)
 	local DesignScale, SetDesignScale = React.useState(1)
 	local ViewportSize, SetViewportSize = React.useState(Vector2.zero)
+	local Rendered, SetRendered = React.useState(Props.Visible == true)
 	local GameplayPanels = Props.GameplayPanels
 	local ReferenceResolution = GameplayPanels.ReferenceResolution
 	local Outer = GameplayPanels.Outer
 	local CanvasSize = ReactUi.GetGameplayCanvasSize(GameplayPanels)
+	local OpenOffset = GameplayPanels.OpenOffset or UDim2.fromOffset(0, 80)
+	local HiddenPosition = addUDim2(Outer.Position, OpenOffset)
+	local OpenTweenInfo = GameplayPanels.OpenTweenInfo or TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local CloseTweenInfo = GameplayPanels.CloseTweenInfo or TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 	local Children = Props.Children or Props.children
 	local DebugGameplayPanel = GameplayPanels.DebugGameplayPanel == true
 	local DebugText = string.format(
@@ -164,13 +204,79 @@ function ReactUi.GameplayPanel(Props)
 		end
 	end, { ReferenceResolution.X, ReferenceResolution.Y, CanvasSize.X, CanvasSize.Y })
 
+	React.useEffect(function()
+		if Props.Visible and not Rendered then
+			SetRendered(true)
+		end
+
+		return nil
+	end, { Props.Visible, Rendered })
+
+	React.useEffect(function()
+		local Panel = PanelRef.current
+		if not Panel then return nil end
+		if Props.Visible and not Rendered then return nil end
+		if not Props.Visible and not Rendered then return nil end
+
+		AnimationTokenRef.current += 1
+		local AnimationToken = AnimationTokenRef.current
+		local ActiveTween = ActiveTweenRef.current
+		if ActiveTween then
+			ActiveTween:Cancel()
+			ActiveTweenRef.current = nil
+		end
+
+		Panel.Visible = true
+
+		local Tween
+		if Props.Visible then
+			Panel.Position = HiddenPosition
+			Tween = TweenService:Create(Panel, OpenTweenInfo, {
+				Position = Outer.Position,
+			})
+		else
+			Panel.Position = Outer.Position
+			Tween = TweenService:Create(Panel, CloseTweenInfo, {
+				Position = HiddenPosition,
+			})
+		end
+
+		ActiveTweenRef.current = Tween
+		local CompletedConnection
+		CompletedConnection = Tween.Completed:Connect(function()
+			if CompletedConnection then
+				CompletedConnection:Disconnect()
+				CompletedConnection = nil
+			end
+
+			if AnimationTokenRef.current ~= AnimationToken then
+				return
+			end
+
+			ActiveTweenRef.current = nil
+			if Props.Visible then
+				Panel.Position = Outer.Position
+			else
+				SetRendered(false)
+			end
+		end)
+
+		Tween:Play()
+
+		return function()
+			if CompletedConnection then
+				CompletedConnection:Disconnect()
+			end
+		end
+	end, { Props.Visible, Rendered })
+
 	return React.createElement("Frame", {
 		BorderSizePixel = 0,
 		BackgroundTransparency = 1,
 		ClipsDescendants = false,
 		ref = ViewportRef,
 		Size = UDim2.fromScale(1, 1),
-		Visible = Props.Visible,
+		Visible = Rendered,
 		ZIndex = Props.ZIndex,
 	}, {
 		DesignRoot = React.createElement("Frame", {
@@ -191,8 +297,9 @@ function ReactUi.GameplayPanel(Props)
 				ClipsDescendants = true,
 				BorderSizePixel = 0,
 				Position = Outer.Position,
+				ref = PanelRef,
 				Size = Outer.Size,
-				Visible = Props.Visible,
+				Visible = Rendered,
 				ZIndex = Props.ZIndex,
 			}, {
 				UICorner = corner(Outer.CornerRadius),
@@ -222,10 +329,13 @@ function ReactUi.GameplayPanel(Props)
 					Text = DebugText,
 					TextColor3 = Color3.fromRGB(80, 255, 255),
 					TextScaled = true,
+					TextStrokeColor3 = Color3.fromRGB(0, 0, 0),
+					TextStrokeTransparency = 0,
 					TextXAlignment = Enum.TextXAlignment.Left,
 					TextYAlignment = Enum.TextYAlignment.Center,
 					ZIndex = (Props.ZIndex or 1) + 50,
 				}, {
+					TextOutline = textOutline({}),
 					Padding = React.createElement("UIPadding", {
 						PaddingLeft = UDim.new(0, 8),
 						PaddingRight = UDim.new(0, 8),
@@ -268,7 +378,8 @@ function ReactUi.Button(Props)
 			Text = Props.Text or "",
 			TextColor3 = Props.TextColor3 or ReactUi.Colours.Text,
 			TextScaled = true,
-			TextStrokeTransparency = Props.TextStrokeTransparency or 0.45,
+			TextStrokeColor3 = Props.TextStrokeColor3 or Color3.fromRGB(0, 0, 0),
+			TextStrokeTransparency = if Props.TextStrokeTransparency ~= nil then Props.TextStrokeTransparency else 0,
 			TextWrapped = true,
 			ZIndex = Props.ZIndex,
 
@@ -294,6 +405,7 @@ function ReactUi.Button(Props)
 		}, {
 			UICorner = corner(Props.CornerRadius),
 			UIStroke = stroke(Props.StrokeColor or Color3.fromRGB(0, 0, 0), Props.StrokeThickness or 2, Props.StrokeTransparency or 0.2),
+			TextOutline = textOutline(Props),
 			UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
 				MaxTextSize = Props.MaxTextSize or 34,
 			}),

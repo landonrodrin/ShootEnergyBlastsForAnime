@@ -19,8 +19,10 @@ local function RightRailButton(Props)
 	local HasIcon = hasIcon(Icon)
 	local IconSize = Props.IconSize or RIGHT_RAIL.IconSize
 	local ItemSize = Props.ItemSize or Props.Size or BUTTON_SIZE
-	local LabelOffset = Props.LabelOffset or IconSize
+	local LabelOffset = Props.LabelOffset or RIGHT_RAIL.LabelOffset or IconSize
+	local LabelWidth = Props.LabelWidth or RIGHT_RAIL.LabelWidth or ItemSize.X.Offset
 	local LabelHeight = Props.LabelHeight or RIGHT_RAIL.LabelHeight
+	local LabelTextSize = Props.LabelTextSize or Props.TextSize or RIGHT_RAIL.LabelTextSize
 	local RightPadding = Props.RightPadding or RIGHT_RAIL.RightPadding
 	local RowSpacing = Props.RowSpacing or RIGHT_RAIL.RowSpacing
 
@@ -95,16 +97,13 @@ local function RightRailButton(Props)
 			Label = React.createElement(ReactUi.Text, {
 				AnchorPoint = Vector2.new(0.5, HasIcon and 0 or 0.5),
 				Position = HasIcon and UDim2.new(0.5, 0, 0, LabelOffset) or UDim2.fromScale(0.5, 0.5),
-				Size = HasIcon and UDim2.new(1, 0, 0, LabelHeight) or UDim2.new(1, -10, 0.72, 0),
+				Size = HasIcon and UDim2.fromOffset(LabelWidth, LabelHeight) or UDim2.new(1, -10, 0.72, 0),
 				Text = Props.Text,
-				TextScaled = true,
+				TextScaled = false,
+				TextSize = LabelTextSize,
 				TextStrokeColor3 = LABEL_STROKE,
 				TextStrokeTransparency = 0,
 				ZIndex = Props.ZIndex or 20,
-			}, {
-				UITextSizeConstraint = React.createElement("UITextSizeConstraint", {
-					MaxTextSize = Props.LabelMaxTextSize or Props.MaxTextSize or RIGHT_RAIL.LabelMaxTextSize,
-				}),
 			}),
 		}),
 	})

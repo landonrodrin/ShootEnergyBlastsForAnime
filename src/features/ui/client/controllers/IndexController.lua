@@ -7,9 +7,9 @@ local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:Wait
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
-local IndexPanelView = require(script.Parent:WaitForChild("IndexPanelView"))
-local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
-local RightRailButton = require(script.Parent:WaitForChild("RightRailButton"))
+local IndexPanelView = require(script.Parent.Parent.Views:WaitForChild("IndexPanelView"))
+local ReactUi = require(script.Parent.Parent.Views:WaitForChild("ReactUi"))
+local RightRailButton = require(script.Parent.Parent.Views:WaitForChild("RightRailButton"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 local GAMEPLAY_PANELS = UiTuning.GameplayPanels
@@ -39,17 +39,38 @@ end
 local MutationEntries = sortedEntries(MutationsConfigurations)
 local AnimeEntries = sortedEntries(AnimeConfigurations)
 
-local function IndexApp(Props)
+local function IndexController(Props)
 	Props = Props or {}
 
 	local LocalOpen, SetLocalOpen = React.useState(false)
 	local SelectedMutation, SetSelectedMutation = React.useState("Default")
 	local IndexData, SetIndexData = React.useState({})
+	local ActivePanelRef = React.useRef(Props.ActivePanel)
 	local Open = if Props.SetActivePanel then Props.ActivePanel == "Index" else LocalOpen
+
+	React.useEffect(function()
+		ActivePanelRef.current = Props.ActivePanel
+
+		return nil
+	end, { Props.ActivePanel })
+
+	local function closeIfActive()
+		if Props.SetActivePanel then
+			if ActivePanelRef.current == "Index" then
+				Props.SetActivePanel(nil)
+			end
+		else
+			SetLocalOpen(false)
+		end
+	end
 
 	local function setOpen(NextOpen)
 		if Props.SetActivePanel then
-			Props.SetActivePanel(if NextOpen then "Index" else nil)
+			if NextOpen then
+				Props.SetActivePanel("Index")
+			else
+				closeIfActive()
+			end
 		else
 			SetLocalOpen(NextOpen)
 		end
@@ -118,7 +139,7 @@ local function IndexApp(Props)
 			Anime = AnimeRows,
 			Mutations = MutationRows,
 			OnClose = function()
-				setOpen(false)
+				closeIfActive()
 			end,
 			OnSelectMutation = function(Mutation)
 				SetSelectedMutation(Mutation)
@@ -132,4 +153,4 @@ local function IndexApp(Props)
 	})
 end
 
-return IndexApp
+return IndexController
