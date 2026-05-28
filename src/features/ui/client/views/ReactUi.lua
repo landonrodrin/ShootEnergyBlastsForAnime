@@ -137,6 +137,122 @@ function ReactUi.GetGameplayCanvasSize(GameplayPanels)
 	)
 end
 
+function ReactUi.ReferenceScaledFrame(Props)
+	local ViewportRef = React.useRef(nil)
+	local DesignScale, SetDesignScale = React.useState(1)
+	local ViewportSize, SetViewportSize = React.useState(Vector2.zero)
+	local ReferenceResolution = Props.ReferenceResolution or UiTuning.GameplayPanels.ReferenceResolution
+	local Children = Props.Children or Props.children
+	local FillScaledViewport = Props.FillScaledViewport == true
+	local DebugEnabled = Props.DebugEnabled == true
+	local DebugName = Props.DebugName or "ReferenceScaledFrame"
+	local RootSize = ReferenceResolution
+
+	if FillScaledViewport and DesignScale > 0 and ViewportSize.X > 0 and ViewportSize.Y > 0 then
+		RootSize = Vector2.new(ViewportSize.X / DesignScale, ViewportSize.Y / DesignScale)
+	end
+
+	local DebugText = string.format(
+		"%s | Viewport: %dx%d | Root: %.0fx%.0f | RootScale: %.3f",
+		DebugName,
+		ViewportSize.X,
+		ViewportSize.Y,
+		RootSize.X,
+		RootSize.Y,
+		DesignScale
+	)
+
+	React.useEffect(function()
+		local Viewport = ViewportRef.current
+		if not Viewport then return nil end
+
+		local function updateDesignScale()
+			local AbsoluteSize = Viewport.AbsoluteSize
+			if AbsoluteSize.X <= 0 or AbsoluteSize.Y <= 0 then return end
+
+			local NextScale = math.min(AbsoluteSize.X / ReferenceResolution.X, AbsoluteSize.Y / ReferenceResolution.Y)
+			SetViewportSize(AbsoluteSize)
+			SetDesignScale(NextScale)
+
+			if DebugEnabled then
+				local NextRootSize = ReferenceResolution
+				if FillScaledViewport then
+					NextRootSize = Vector2.new(AbsoluteSize.X / NextScale, AbsoluteSize.Y / NextScale)
+				end
+
+				print(string.format(
+					"%s Debug | Viewport=%dx%d | Root=%.1fx%.1f | RootScale=%.3f",
+					DebugName,
+					AbsoluteSize.X,
+					AbsoluteSize.Y,
+					NextRootSize.X,
+					NextRootSize.Y,
+					NextScale
+				))
+			end
+		end
+
+		updateDesignScale()
+		local Connection = Viewport:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateDesignScale)
+
+		return function()
+			Connection:Disconnect()
+		end
+	end, { ReferenceResolution.X, ReferenceResolution.Y, DebugEnabled, DebugName, FillScaledViewport })
+
+	return React.createElement("Frame", {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ref = ViewportRef,
+		Size = UDim2.fromScale(1, 1),
+		Visible = Props.Visible ~= false,
+		ZIndex = Props.ZIndex,
+	}, {
+		DesignRoot = React.createElement("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			ClipsDescendants = false,
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(RootSize.X, RootSize.Y),
+			ZIndex = Props.ZIndex,
+		}, {
+			UIScale = React.createElement("UIScale", {
+				Scale = DesignScale,
+			}),
+			DebugStroke = DebugEnabled and React.createElement("UIStroke", {
+				Color = Color3.fromRGB(0, 255, 255),
+				Thickness = 2,
+				Transparency = 0,
+			}) or nil,
+			DebugLabel = DebugEnabled and React.createElement("TextLabel", {
+				AnchorPoint = Vector2.new(0, 0),
+				BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+				BackgroundTransparency = 0.25,
+				FontFace = ReactUi.Font,
+				Position = UDim2.fromOffset(8, 8),
+				Size = UDim2.new(1, -16, 0, 34),
+				Text = DebugText,
+				TextColor3 = Color3.fromRGB(80, 255, 255),
+				TextScaled = true,
+				TextStrokeColor3 = Color3.fromRGB(0, 0, 0),
+				TextStrokeTransparency = 0,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextYAlignment = Enum.TextYAlignment.Center,
+				ZIndex = (Props.ZIndex or 1) + 50,
+			}, {
+				TextOutline = textOutline({}),
+				Padding = React.createElement("UIPadding", {
+					PaddingLeft = UDim.new(0, 8),
+					PaddingRight = UDim.new(0, 8),
+				}),
+			}) or nil,
+			Children = Children and React.createElement(React.Fragment, nil, Children) or nil,
+		}),
+	})
+end
+
 function ReactUi.GameplayPanel(Props)
 	local ViewportRef = React.useRef(nil)
 	local PanelRef = React.useRef(nil)

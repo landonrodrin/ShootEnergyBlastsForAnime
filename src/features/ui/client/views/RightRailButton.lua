@@ -23,8 +23,6 @@ local function RightRailButton(Props)
 	local LabelWidth = Props.LabelWidth or RIGHT_RAIL.LabelWidth or ItemSize.X.Offset
 	local LabelHeight = Props.LabelHeight or RIGHT_RAIL.LabelHeight
 	local LabelTextSize = Props.LabelTextSize or Props.TextSize or RIGHT_RAIL.LabelTextSize
-	local RightPadding = Props.RightPadding or RIGHT_RAIL.RightPadding
-	local RowSpacing = Props.RowSpacing or RIGHT_RAIL.RowSpacing
 
 	React.useEffect(function()
 		local Cancelled = false
@@ -49,9 +47,10 @@ local function RightRailButton(Props)
 	end, { Row })
 
 	return React.createElement("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
+		AnchorPoint = Props.AnchorPoint,
 		BackgroundTransparency = 1,
-		Position = UDim2.new(1, -RightPadding, 0.5, (Row - 2) * RowSpacing),
+		LayoutOrder = Props.LayoutOrder,
+		Position = Props.Position,
 		Size = ItemSize,
 		ZIndex = Props.ZIndex or 20,
 	}, {

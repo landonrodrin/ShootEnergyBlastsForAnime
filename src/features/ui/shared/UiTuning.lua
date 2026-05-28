@@ -1,8 +1,23 @@
+local REFERENCE_RESOLUTION = Vector2.new(1920, 1080)
+
 local UiTuning = {
 	TextOutline = {
 		Color = Color3.fromRGB(0, 0, 0),
 		Thickness = 2,
 		Transparency = 0,
+	},
+
+	HudRails = {
+		DebugHudRails = false,
+		ReferenceResolution = REFERENCE_RESOLUTION,
+		Left = {
+			AnchorPoint = Vector2.new(0, 0.5),
+			Position = UDim2.new(0, 50, 0.5, 0),
+		},
+		Right = {
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -115, 0.5, 0),
+		},
 	},
 
 	LeftRail = {
@@ -11,7 +26,6 @@ local UiTuning = {
 		RowWidth = 200,
 		TextWidth = 260,
 		TextSize = 30,
-		LeftPadding = 50,
 		RowSpacing = 25,
 	},
 
@@ -20,7 +34,6 @@ local UiTuning = {
 		ItemWidth = 140,
 		ItemHeight = 140,
 		RowSpacing = 185,
-		RightPadding = 115,
 		LabelOffset = 120,
 		LabelTextSize = 45,
 		LabelWidth = 150,
@@ -43,7 +56,7 @@ local UiTuning = {
 
 	GameplayPanels = {
 		DebugGameplayPanel = true,
-		ReferenceResolution = Vector2.new(1920, 1080),
+		ReferenceResolution = REFERENCE_RESOLUTION,
 		OpenOffset = UDim2.fromOffset(0, 120),
 		OpenTweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 		CloseTweenInfo = TweenInfo.new(0.01, Enum.EasingStyle.Quad, Enum.EasingDirection.In),

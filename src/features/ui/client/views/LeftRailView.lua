@@ -7,6 +7,7 @@ local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTu
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
 
 local HUD_TEXT_STROKE = Color3.fromRGB(0, 0, 0)
+local HUD_RAILS = UiTuning.HudRails
 local LEFT_RAIL = UiTuning.LeftRail
 
 local function hasIcon(Icon)
@@ -103,11 +104,12 @@ local function LeftRailView(Props)
 	Props = Props or {}
 
 	local RowSpacing = Props.RowSpacing or LEFT_RAIL.RowSpacing or 0
+	local RailTuning = HUD_RAILS.Left
 
 	return React.createElement("Frame", {
-		AnchorPoint = Props.AnchorPoint or Vector2.new(0, 0.5),
+		AnchorPoint = Props.AnchorPoint or RailTuning.AnchorPoint,
 		BackgroundTransparency = 1,
-		Position = Props.Position or UDim2.new(0, Props.LeftPadding or LEFT_RAIL.LeftPadding, 0.5, 0),
+		Position = Props.Position or RailTuning.Position,
 		Size = Props.Size or UDim2.fromOffset(Props.ContainerWidth or LEFT_RAIL.RowWidth, Props.ContainerHeight or (LEFT_RAIL.RowHeight * 3 + RowSpacing * 2)),
 	}, {
 		Layout = React.createElement("UIListLayout", {

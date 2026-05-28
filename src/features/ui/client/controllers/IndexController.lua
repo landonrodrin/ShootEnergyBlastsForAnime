@@ -5,11 +5,9 @@ local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets")
 local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
-local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 local IndexPanelView = require(script.Parent.Parent.Views:WaitForChild("IndexPanelView"))
 local ReactUi = require(script.Parent.Parent.Views:WaitForChild("ReactUi"))
-local RightRailButton = require(script.Parent.Parent.Views:WaitForChild("RightRailButton"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 local GAMEPLAY_PANELS = UiTuning.GameplayPanels
@@ -64,18 +62,6 @@ local function IndexController(Props)
 		end
 	end
 
-	local function setOpen(NextOpen)
-		if Props.SetActivePanel then
-			if NextOpen then
-				Props.SetActivePanel("Index")
-			else
-				closeIfActive()
-			end
-		else
-			SetLocalOpen(NextOpen)
-		end
-	end
-
 	React.useEffect(function()
 		local Connection = Packets.Listen(Packets.indexSync, function(Data)
 			local NextIndex = Data.Index or {}
@@ -85,12 +71,18 @@ local function IndexController(Props)
 			SetSelectedMutation(NextMutation)
 		end)
 
-		RequestController.IndexRequest("Default")
-
 		return function()
 			Connection()
 		end
 	end, {})
+
+	React.useEffect(function()
+		if Open then
+			RequestController.IndexRequest(SelectedMutation)
+		end
+
+		return nil
+	end, { Open })
 
 	local MutationRows = {}
 	for _, Entry in ipairs(MutationEntries) do
@@ -122,19 +114,6 @@ local function IndexController(Props)
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 	}, {
-		Button = React.createElement(RightRailButton, {
-			BackgroundColor3 = Color3.fromRGB(110, 116, 255),
-			Icon = UiAssets.Icons.Index,
-			OnActivated = function()
-				local NextOpen = not Open
-				if NextOpen then
-					RequestController.IndexRequest(SelectedMutation)
-				end
-				setOpen(NextOpen)
-			end,
-			Row = 2,
-			Text = "Index",
-		}),
 		Panel = React.createElement(IndexPanelView, {
 			Anime = AnimeRows,
 			Mutations = MutationRows,

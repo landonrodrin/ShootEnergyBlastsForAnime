@@ -6,10 +6,8 @@ local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local GameConfigurations = require(ReplicatedStorage.Shared.Constants:WaitForChild("GameConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("RebirthsConfigurations"))
-local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 local RebirthPanelView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("RebirthPanelView"))
-local RightRailButton = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("RightRailButton"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
@@ -62,31 +60,10 @@ local function RebirthController(Props)
 		end
 	end
 
-	local function setOpen(NextOpen)
-		if Props.SetActivePanel then
-			if NextOpen then
-				Props.SetActivePanel("Rebirth")
-			else
-				closeIfActive()
-			end
-		else
-			SetLocalOpen(NextOpen)
-		end
-	end
-
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 	}, {
-		Button = React.createElement(RightRailButton, {
-			BackgroundColor3 = Color3.fromRGB(235, 77, 112),
-			Icon = UiAssets.Icons.Rebirth,
-			OnActivated = function()
-				setOpen(not Open)
-			end,
-			Row = 3,
-			Text = "Rebirth",
-		}),
 		Panel = React.createElement(RebirthPanelView, {
 			CanRebirth = NextConfiguration ~= nil,
 			CurrentText = string.format("Current: Rebirth %s | %sx Money", Rebirths, CurrentMultiplier),

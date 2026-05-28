@@ -19,7 +19,6 @@ return {
 		RowWidth = LEFT_RAIL.RowWidth,
 		TextWidth = LEFT_RAIL.TextWidth,
 		TextSize = LEFT_RAIL.TextSize,
-		LeftPadding = LEFT_RAIL.LeftPadding,
 		RowSpacing = LEFT_RAIL.RowSpacing,
 	},
 	story = function(Props)
@@ -39,7 +38,6 @@ return {
 				FriendBonusPercent = Controls.FriendBonus,
 				IconSize = Controls.IconSize,
 				IconSlotSize = Controls.RowHeight,
-				LeftPadding = Controls.LeftPadding,
 				Money = Controls.Money,
 				OnInvite = function() end,
 				RowHeight = Controls.RowHeight,

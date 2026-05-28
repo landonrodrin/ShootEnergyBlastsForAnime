@@ -12,15 +12,44 @@ local RebirthController = require(script.Parent:WaitForChild("RebirthController"
 local SellController = require(script.Parent:WaitForChild("SellController"))
 local ShopController = require(script.Parent:WaitForChild("ShopController"))
 local UpgradesController = require(script.Parent:WaitForChild("UpgradesController"))
+local ReactUi = require(script.Parent.Parent.Views:WaitForChild("ReactUi"))
+local RightRailView = require(script.Parent.Parent.Views:WaitForChild("RightRailView"))
+local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
+
+local HUD_RAILS = UiTuning.HudRails
 
 local function PlayerUiController()
 	local ActivePanel, SetActivePanel = React.useState(nil)
+
+	local function togglePanel(PanelName)
+		SetActivePanel(if ActivePanel == PanelName then nil else PanelName)
+	end
 
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 	}, {
-		LeftRail = React.createElement(LeftRailController),
+		Rails = React.createElement(ReactUi.ReferenceScaledFrame, {
+			DebugEnabled = HUD_RAILS.DebugHudRails == true,
+			DebugName = "HudRails",
+			FillScaledViewport = true,
+			ReferenceResolution = HUD_RAILS.ReferenceResolution,
+			ZIndex = 20,
+		}, {
+			LeftRail = React.createElement(LeftRailController),
+			RightRail = React.createElement(RightRailView, {
+				OnShopActivated = function()
+					togglePanel("Shop")
+				end,
+				OnIndexActivated = function()
+					togglePanel("Index")
+				end,
+				OnRebirthActivated = function()
+					togglePanel("Rebirth")
+				end,
+				ZIndex = 20,
+			}),
+		}),
 		Area = React.createElement(AreaController),
 		Shop = React.createElement(ShopController, {
 			ActivePanel = ActivePanel,

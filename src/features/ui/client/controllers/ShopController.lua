@@ -1,10 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
-local ReactUi = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("ReactUi"))
-local UiAssets = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiAssets"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
-local RightRailButton = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("RightRailButton"))
 local ShopPanelView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("ShopPanelView"))
 
 local GAMEPLAY_PANELS = UiTuning.GameplayPanels
@@ -32,31 +29,10 @@ local function ShopController(Props)
 		end
 	end
 
-	local function setOpen(NextOpen)
-		if Props.SetActivePanel then
-			if NextOpen then
-				Props.SetActivePanel("Shop")
-			else
-				closeIfActive()
-			end
-		else
-			SetLocalOpen(NextOpen)
-		end
-	end
-
 	return React.createElement("Frame", {
 		BackgroundTransparency = 1,
 		Size = UDim2.fromScale(1, 1),
 	}, {
-		Button = React.createElement(RightRailButton, {
-			BackgroundColor3 = ReactUi.Colours.Accent,
-			Icon = UiAssets.Icons.Shop,
-			OnActivated = function()
-				setOpen(not Open)
-			end,
-			Row = 1,
-			Text = "Shop",
-		}),
 		Panel = React.createElement(ShopPanelView, {
 			OnClose = function()
 				closeIfActive()
