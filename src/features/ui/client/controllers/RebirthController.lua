@@ -80,6 +80,7 @@ local function RebirthController(Props)
 			Progress = Progress,
 			ProgressText = NextConfiguration and string.format("Speed %s / %s", Format.Number(Speed), Format.Number(NextConfiguration.Speed)) or "MAX",
 			SharedTuning = GAMEPLAY_PANELS,
+			SkipCloseTween = Props.SkipCloseTween,
 			Tuning = GAMEPLAY_PANELS.Rebirth,
 			Visible = Open,
 		}),

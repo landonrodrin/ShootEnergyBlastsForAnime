@@ -282,6 +282,22 @@ local function createHeldAnimeGui(Model, Name, AnimeConfiguration, Mutation, Lev
 	AnimeGui.AlwaysOnTop = false
 	AnimeGui.MaxDistance = HELD_ANIME_GUI_MAX_DISTANCE
 
+	if AnimeGui:FindFirstChild("Time") then
+		AnimeGui.Time.LayoutOrder = 0
+	end
+	if AnimeGui:FindFirstChild("Mutation") then
+		AnimeGui.Mutation.LayoutOrder = 1
+	end
+	if AnimeGui:FindFirstChild("Area") then
+		AnimeGui.Area.LayoutOrder = 2
+	end
+	if AnimeGui:FindFirstChild("Anime") then
+		AnimeGui.Anime.LayoutOrder = 3
+	end
+	if AnimeGui:FindFirstChild("Money") then
+		AnimeGui.Money.LayoutOrder = 4
+	end
+
 	for _, LabelName in ipairs({"Mutation", "Anime", "Area", "Money", "Time"}) do
 		local Label = AnimeGui:FindFirstChild(LabelName)
 		if Label and Label:IsA("TextLabel") then

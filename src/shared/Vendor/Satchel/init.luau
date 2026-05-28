@@ -101,7 +101,7 @@ local TOOLTIP_OFFSET: number = -5 -- From to
 -- Topbar icons
 local ARROW_IMAGE_OPEN: string = "rbxasset://textures/ui/TopBar/inventoryOn.png"
 local ARROW_IMAGE_CLOSE: string = "rbxasset://textures/ui/TopBar/inventoryOff.png"
--- local ARROW_HOTKEY: { Enum.KeyCode } = { Enum.KeyCode.Backquote, Enum.KeyCode.DPadUp } --TODO: Hookup '~' too?
+-- local ARROW_HOTKEY: { Enum.KeyCode } = { Enum.KeyCode.B, Enum.KeyCode.DPadUp }
 
 -- Hotbar slots
 local HOTBAR_SLOTS_FULL: number = 10 -- 10 is the max
@@ -187,15 +187,9 @@ local inventoryIcon: any = Icon.new()
 	:setImage(ARROW_IMAGE_CLOSE, "Deselected")
 	:setImageScale(1)
 	:setCaption("Inventory")
-	:bindToggleKey(Enum.KeyCode.Backquote)
+	:bindToggleKey(Enum.KeyCode.B)
 	:autoDeselect(false)
 	:setOrder(-1)
-
-inventoryIcon.toggled:Connect(function(): ()
-	if not GuiService.MenuIsOpen then
-		BackpackScript.OpenClose()
-	end
-end)
 
 local BackpackGui: ScreenGui = Instance.new("ScreenGui")
 BackpackGui.DisplayOrder = 120
@@ -306,7 +300,7 @@ local function UseGazeSelection(): boolean
 end
 
 local function AdjustHotbarFrames(): ()
-	local inventoryOpen: boolean = InventoryFrame.Visible -- (Show all)
+	local inventoryOpen: boolean = BackpackScript.IsOpen -- (Show all)
 	local visualTotal: number = inventoryOpen and NumberOfHotbarSlots or FullHotbarSlots
 	local visualIndex: number = 0
 
@@ -393,7 +387,9 @@ local function UpdateBackpackLayout(): ()
 	)
 	HotbarFrame.Position = HotbarPosition
 	InventoryFrame.Size = UDim2.fromOffset(INVENTORY_PANEL_SIZE.X, INVENTORY_PANEL_SIZE.Y)
-	InventoryFrame.Position = UDim2.fromScale(0.5, 0.5)
+	InventoryFrame.Position = if BackpackScript.IsOpen
+		then UDim2.fromScale(0.5, 0.5)
+		else UDim2.new(0.5, 0, 0.5, 120)
 
 	ScrollingFrame.Size = UDim2.new(
 		1,
@@ -573,7 +569,7 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 		ToolLevelChangeConn = tool:GetAttributeChangedSignal("Level"):Connect(assignToolData)
 
 		local hotbarSlot: boolean = (self.Index <= NumberOfHotbarSlots)
-		local inventoryOpen: boolean = InventoryFrame.Visible
+		local inventoryOpen: boolean = BackpackScript.IsOpen
 
 		if (not hotbarSlot or inventoryOpen) and not UserInputService.VREnabled then
 			SlotFrame.Draggable = true
@@ -1117,7 +1113,7 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 	if index > NumberOfHotbarSlots then
 		UpdateScrollingFrameCanvasSize()
 		-- Scroll to new inventory slot, if we're open and not viewing search results
-		if InventoryFrame.Visible and not ViewingSearchResults then
+		if BackpackScript.IsOpen and not ViewingSearchResults then
 			local offset: number = ScrollingFrame.CanvasSize.Y.Offset - ScrollingFrame.AbsoluteSize.Y
 			ScrollingFrame.CanvasPosition = Vector2.new(0, math.max(0, offset))
 		end
@@ -1179,7 +1175,7 @@ local function OnChildAdded(child: Instance): () -- To Character or Backpack
 	else -- New! Put into lowest hotbar slot or new inventory slot
 		slot = LowestEmptySlot or MakeSlot(UIGridFrame)
 		slot:Fill(tool)
-		if slot.Index <= NumberOfHotbarSlots and not InventoryFrame.Visible then
+		if slot.Index <= NumberOfHotbarSlots and not BackpackScript.IsOpen then
 			AdjustHotbarFrames()
 		end
 		if tool:IsA("HopperBin") then --NOTE: HopperBin
@@ -1212,7 +1208,7 @@ local function OnChildRemoved(child: Instance): () -- From Character or Backpack
 		slot:Clear()
 		if slot.Index > NumberOfHotbarSlots then -- Inventory slot
 			slot:Delete()
-		elseif not InventoryFrame.Visible then
+		elseif not BackpackScript.IsOpen then
 			AdjustHotbarFrames()
 		end
 	end
@@ -1285,7 +1281,7 @@ local function OnInputBegan(input: InputObject, isProcessed: boolean): ()
 	local inputType: Enum.UserInputType = input.UserInputType
 	if not isProcessed then
 		if inputType == Enum.UserInputType.MouseButton1 or inputType == Enum.UserInputType.Touch then
-			if InventoryFrame.Visible then
+			if BackpackScript.IsOpen then
 				inventoryIcon:deselect()
 			end
 		end
@@ -1518,7 +1514,7 @@ end
 
 -- selene: allow(unused_variable)
 function changeSlot(slot: any): ()
-	local swapInVr: boolean = not VRService.VREnabled or InventoryFrame.Visible
+	local swapInVr: boolean = not VRService.VREnabled or BackpackScript.IsOpen
 
 	if slot.Frame == GuiService.SelectedObject and swapInVr then
 		local currentlySelectedSlot: any = getGamepadSwapSlot()
@@ -1600,7 +1596,7 @@ function enableGamepadInventoryControl(): ()
 				selectedSlot.Frame.BorderSizePixel = 0
 				return
 			end
-		elseif InventoryFrame.Visible then
+		elseif BackpackScript.IsOpen then
 			inventoryIcon:deselect()
 		end
 	end
@@ -1667,7 +1663,7 @@ function gamepadConnected(): ()
 		bindBackpackHotbarAction()
 	end
 
-	if InventoryFrame.Visible then
+	if BackpackScript.IsOpen then
 		enableGamepadInventoryControl()
 	end
 end
@@ -2232,6 +2228,27 @@ GuiService.MenuClosed:Connect(function(): ()
 end)
 
 do -- Make the Inventory expand/collapse arrow (unless TopBar)
+	local TweenService = game:GetService("TweenService")
+	local inventoryOpenPosition: UDim2 = UDim2.fromScale(0.5, 0.5)
+	local inventoryHiddenPosition: UDim2 = UDim2.new(0.5, 0, 0.5, 150)
+	local inventoryOpenTweenInfo: TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	local inventoryCloseTweenInfo: TweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	local ignoreInventoryIconToggle: boolean = false
+	local inventoryTween: any = nil
+	local inventoryAnimationToken: number = 0
+
+	inventoryIcon.toggled:Connect(function(): ()
+		if ignoreInventoryIconToggle then
+			return
+		end
+
+		if not GuiService.MenuIsOpen then
+			BackpackScript.OpenClose({
+				SyncIcon = false,
+			})
+		end
+	end)
+
 	-- selene: allow(unused_variable)
 	local removeHotBarSlot = function(name: string, state: Enum.UserInputState, input: InputObject): ()
 		if state ~= Enum.UserInputState.Begin then
@@ -2249,18 +2266,70 @@ do -- Make the Inventory expand/collapse arrow (unless TopBar)
 		end
 	end
 
-	local function openClose(): ()
-		if not next(Dragging) then -- Only continue if nothing is being dragged
-			InventoryFrame.Visible = not InventoryFrame.Visible
-			local nowOpen: boolean = InventoryFrame.Visible
-			AdjustHotbarFrames()
-			HotbarFrame.Active = not HotbarFrame.Active
-			for i: number = 1, NumberOfHotbarSlots do
-				Slots[i]:SetClickability(not nowOpen)
-			end
+	local function setInventoryIconSelected(isOpen: boolean): ()
+		ignoreInventoryIconToggle = true
+		if isOpen then
+			pcall(function()
+				inventoryIcon:select()
+			end)
+		else
+			pcall(function()
+				inventoryIcon:deselect()
+			end)
+		end
+		ignoreInventoryIconToggle = false
+	end
+
+	local function animateInventoryFrame(isOpen: boolean, skipTween: boolean): ()
+		if inventoryTween then
+			inventoryTween:Cancel()
+			inventoryTween = nil
 		end
 
-		if InventoryFrame.Visible then
+		inventoryAnimationToken += 1
+		local animationToken: number = inventoryAnimationToken
+
+		if isOpen then
+			InventoryFrame.Visible = true
+			if skipTween then
+				InventoryFrame.Position = inventoryOpenPosition
+				return
+			end
+
+			InventoryFrame.Position = inventoryHiddenPosition
+			inventoryTween = TweenService:Create(InventoryFrame, inventoryOpenTweenInfo, {
+				Position = inventoryOpenPosition,
+			})
+			inventoryTween:Play()
+			return
+		end
+
+		if skipTween then
+			InventoryFrame.Position = inventoryHiddenPosition
+			InventoryFrame.Visible = false
+			return
+		end
+
+		InventoryFrame.Position = inventoryOpenPosition
+		inventoryTween = TweenService:Create(InventoryFrame, inventoryCloseTweenInfo, {
+			Position = inventoryHiddenPosition,
+		})
+		inventoryTween.Completed:Connect(function()
+			if inventoryAnimationToken == animationToken then
+				InventoryFrame.Visible = false
+			end
+		end)
+		inventoryTween:Play()
+	end
+
+	local function applyInventorySideEffects(isOpen: boolean): ()
+		AdjustHotbarFrames()
+		HotbarFrame.Active = not isOpen
+		for i: number = 1, NumberOfHotbarSlots do
+			Slots[i]:SetClickability(not isOpen)
+		end
+
+		if isOpen then
 			if GamepadEnabled then
 				if GAMEPAD_INPUT_TYPES[UserInputService:GetLastInputType()] then
 					resizeGamepadHintsFrame()
@@ -2279,18 +2348,50 @@ do -- Make the Inventory expand/collapse arrow (unless TopBar)
 			disableGamepadInventoryControl()
 		end
 
-		if InventoryFrame.Visible then
+		if isOpen then
 			ContextActionService:BindAction("BackpackRemoveSlot", removeHotBarSlot, false, Enum.KeyCode.ButtonX)
 		else
 			ContextActionService:UnbindAction("BackpackRemoveSlot")
 		end
+	end
 
-		BackpackScript.IsOpen = InventoryFrame.Visible
-		BackpackScript.StateChanged:Fire(InventoryFrame.Visible)
+	local function setInventoryOpen(isOpen: boolean, options: any?): boolean
+		options = options or {}
+		if next(Dragging) then
+			return false
+		end
+
+		if BackpackScript.IsOpen == isOpen then
+			return false
+		end
+
+		BackpackScript.IsOpen = isOpen
+		if options.SyncIcon ~= false then
+			setInventoryIconSelected(isOpen)
+		end
+
+		applyInventorySideEffects(isOpen)
+		animateInventoryFrame(isOpen, options.SkipTween == true)
+		BackpackScript.StateChanged:Fire(isOpen)
+
+		return true
+	end
+
+	local function openClose(options: any?): ()
+		setInventoryOpen(not BackpackScript.IsOpen, options)
 	end
 
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 	BackpackScript.OpenClose = openClose -- Exposed
+	function BackpackScript:SetOpen(isOpen: boolean, options: any?): boolean
+		return setInventoryOpen(isOpen == true, options)
+	end
+	function BackpackScript:Open(options: any?): boolean
+		return setInventoryOpen(true, options)
+	end
+	function BackpackScript:Close(options: any?): boolean
+		return setInventoryOpen(false, options)
+	end
 end
 
 -- Now that we're done building the GUI, we Connect to all the major events

@@ -28,6 +28,7 @@ local function RebirthPanelView(Props)
 
 	return React.createElement(ReactUi.GameplayPanel, {
 		GameplayPanels = SharedTuning,
+		SkipCloseTween = Props.SkipCloseTween,
 		StrokeColor = Tuning.StrokeColor,
 		Visible = Props.Visible,
 	}, {

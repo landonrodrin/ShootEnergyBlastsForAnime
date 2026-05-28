@@ -255,6 +255,7 @@ local function UpgradesController(Props)
 		end,
 		Rows = Rows,
 		SharedTuning = GAMEPLAY_PANELS,
+		SkipCloseTween = Props.SkipCloseTween,
 		Tuning = GAMEPLAY_PANELS.Upgrades,
 		Visible = Open,
 	})

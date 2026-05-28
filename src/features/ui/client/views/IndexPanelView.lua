@@ -1,8 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
+local AnimeSlotIcon = require(script.Parent:WaitForChild("AnimeSlotIcon"))
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
-local ViewportPreview = require(script.Parent:WaitForChild("ViewportPreview"))
 
 local function headerProps(SharedTuning, Tuning, SelectedMutation, OnClose)
 	local Header = SharedTuning.Header
@@ -28,7 +28,6 @@ local function IndexPanelView(Props)
 	local Tuning = Props.Tuning
 	local MutationTuning = Tuning.Mutations
 	local AnimeTuning = Tuning.Anime
-	local DebugGameplayPanel = SharedTuning.DebugGameplayPanel == true
 
 	local MutationChildren = {
 		Layout = React.createElement("UIListLayout", {
@@ -80,16 +79,14 @@ local function IndexPanelView(Props)
 					MaxTextSize = AnimeTuning.RarityMaxTextSize,
 				}),
 			}),
-			Preview = React.createElement(ViewportPreview, {
+			Preview = React.createElement(AnimeSlotIcon, {
 				AnimeName = Entry.Name,
-				BackgroundColor3 = Entry.Accent,
-				BackgroundTransparency = Entry.IsUnlocked and 0.62 or 0.85,
 				Mutation = Props.SelectedMutation,
 				Position = AnimeTuning.PreviewPosition,
 				Scale = AnimeTuning.PreviewScale,
 				Silhouette = not Entry.IsUnlocked,
 				Size = AnimeTuning.PreviewSize,
-				StrokeColor = Entry.Accent,
+				Tuning = AnimeTuning.SlotIcon,
 			}),
 			Name = React.createElement(ReactUi.Text, {
 				Position = AnimeTuning.NamePosition,
@@ -102,6 +99,7 @@ local function IndexPanelView(Props)
 
 	return React.createElement(ReactUi.GameplayPanel, {
 		GameplayPanels = SharedTuning,
+		SkipCloseTween = Props.SkipCloseTween,
 		StrokeColor = Tuning.StrokeColor,
 		Visible = Props.Visible,
 	}, {
@@ -120,11 +118,6 @@ local function IndexPanelView(Props)
 			ScrollBarThickness = AnimeTuning.ScrollBarThickness,
 			Size = AnimeTuning.Size,
 		}, {
-			DebugStroke = DebugGameplayPanel and React.createElement("UIStroke", {
-				Color = Color3.fromRGB(255, 255, 0),
-				Thickness = 2,
-				Transparency = 0,
-			}) or nil,
 			Padding = React.createElement("UIPadding", {
 				PaddingBottom = AnimeTuning.PaddingBottom,
 				PaddingLeft = AnimeTuning.PaddingLeft,

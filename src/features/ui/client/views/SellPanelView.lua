@@ -1,8 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
+local AnimeSlotIcon = require(script.Parent:WaitForChild("AnimeSlotIcon"))
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
-local ViewportPreview = require(script.Parent:WaitForChild("ViewportPreview"))
 
 local function headerProps(SharedTuning, Tuning, OnClose)
 	local Header = SharedTuning.Header
@@ -44,31 +44,56 @@ local function SellPanelView(Props)
 			Size = ListTuning.RowSize,
 			StrokeColor = Item.Accent,
 		}, {
-			Preview = React.createElement(ViewportPreview, {
+			Preview = React.createElement(AnimeSlotIcon, {
 				AnimeName = Item.Name,
-				BackgroundColor3 = Item.Accent,
-				BackgroundTransparency = 0.72,
+				Level = Item.Level,
 				Mutation = Item.Mutation,
 				Position = ListTuning.PreviewPosition,
 				Scale = ListTuning.PreviewScale,
+				ShowLevelBadge = true,
 				Size = ListTuning.PreviewSize,
-				StrokeColor = Item.Accent,
-			}),
-			Name = React.createElement(ReactUi.Text, {
-				AnchorPoint = Vector2.new(0, 0.5),
-				Position = ListTuning.NamePosition,
-				Size = ListTuning.NameSize,
-				Text = Item.Name,
-				TextXAlignment = Enum.TextXAlignment.Left,
+				Tuning = ListTuning.SlotIcon,
 			}),
 			Mutation = React.createElement(ReactUi.Text, {
 				AnchorPoint = Vector2.new(0, 0.5),
+				MaxTextSize = ListTuning.DetailMaxTextSize,
 				Position = ListTuning.MutationPosition,
 				Size = ListTuning.MutationSize,
 				Text = Item.MutationText,
-				TextColor3 = Item.Accent,
+				TextColor3 = Item.MutationColor,
 				TextScaled = true,
 				TextStrokeTransparency = 0.75,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			}),
+			Area = React.createElement(ReactUi.Text, {
+				AnchorPoint = Vector2.new(0, 0.5),
+				MaxTextSize = ListTuning.DetailMaxTextSize,
+				Position = ListTuning.AreaPosition,
+				Size = ListTuning.AreaSize,
+				Text = Item.AreaText,
+				TextColor3 = Item.AreaColor,
+				TextScaled = true,
+				TextStrokeTransparency = 0.75,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			}),
+			NameLevel = React.createElement(ReactUi.Text, {
+				AnchorPoint = Vector2.new(0, 0.5),
+				MaxTextSize = ListTuning.NameLevelMaxTextSize,
+				Position = ListTuning.NameLevelPosition,
+				Size = ListTuning.NameLevelSize,
+				Text = Item.NameLevelText,
+				TextScaled = true,
+				TextXAlignment = Enum.TextXAlignment.Left,
+			}),
+			Income = React.createElement(ReactUi.Text, {
+				AnchorPoint = Vector2.new(0, 0.5),
+				MaxTextSize = ListTuning.DetailMaxTextSize,
+				Position = ListTuning.IncomePosition,
+				Size = ListTuning.IncomeSize,
+				Text = Item.IncomeText,
+				TextColor3 = ReactUi.Colours.Green,
+				TextScaled = true,
+				TextStrokeTransparency = 0.4,
 				TextXAlignment = Enum.TextXAlignment.Left,
 			}),
 			Sell = React.createElement(ReactUi.Button, {
@@ -103,6 +128,7 @@ local function SellPanelView(Props)
 	}, {
 		Panel = React.createElement(ReactUi.GameplayPanel, {
 			GameplayPanels = SharedTuning,
+			SkipCloseTween = Props.SkipCloseTween,
 			StrokeColor = Tuning.StrokeColor,
 			Visible = Props.Visible,
 		}, {

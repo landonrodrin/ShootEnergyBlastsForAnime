@@ -126,6 +126,7 @@ local function IndexController(Props)
 			end,
 			SelectedMutation = SelectedMutation,
 			SharedTuning = GAMEPLAY_PANELS,
+			SkipCloseTween = Props.SkipCloseTween,
 			Tuning = GAMEPLAY_PANELS.Index,
 			Visible = Open,
 		}),

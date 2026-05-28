@@ -1,6 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
+local Satchel = require(ReplicatedStorage:WaitForChild("Vendor"):WaitForChild("Satchel"))
 
 local AnnouncementController = require(script.Parent:WaitForChild("AnnouncementController"))
 local AnimeUnlockController = require(script.Parent:WaitForChild("AnimeUnlockController"))
@@ -20,9 +21,63 @@ local HUD_RAILS = UiTuning.HudRails
 
 local function PlayerUiController()
 	local ActivePanel, SetActivePanel = React.useState(nil)
+	local ActivePanelRef = React.useRef(ActivePanel)
+	local IgnoreInventoryCloseRef = React.useRef(false)
+
+	React.useEffect(function()
+		ActivePanelRef.current = ActivePanel
+
+		return nil
+	end, { ActivePanel })
+
+	React.useEffect(function()
+		local StateChanged = Satchel:GetStateChangedEvent()
+		local Connection = StateChanged.Event:Connect(function(IsOpen)
+			if IsOpen then
+				ActivePanelRef.current = "Inventory"
+				SetActivePanel("Inventory")
+			elseif not IgnoreInventoryCloseRef.current and ActivePanelRef.current == "Inventory" then
+				ActivePanelRef.current = nil
+				SetActivePanel(nil)
+			end
+		end)
+
+		return function()
+			Connection:Disconnect()
+		end
+	end, {})
+
+	local function isInventoryOpen()
+		return Satchel:IsOpened()
+	end
+
+	local function closeInventoryForPanelSwitch()
+		if not isInventoryOpen() then
+			return
+		end
+
+		IgnoreInventoryCloseRef.current = true
+		Satchel:Close({
+			SkipTween = true,
+		})
+		IgnoreInventoryCloseRef.current = false
+	end
+
+	local function setActivePanel(NextPanel)
+		if NextPanel ~= nil and NextPanel ~= "Inventory" then
+			closeInventoryForPanelSwitch()
+		end
+
+		ActivePanelRef.current = NextPanel
+		SetActivePanel(NextPanel)
+	end
 
 	local function togglePanel(PanelName)
-		SetActivePanel(if ActivePanel == PanelName then nil else PanelName)
+		setActivePanel(if ActivePanel == PanelName then nil else PanelName)
+	end
+
+	local function shouldSkipClose(PanelName)
+		return ActivePanel ~= nil and ActivePanel ~= PanelName
 	end
 
 	return React.createElement("Frame", {
@@ -53,24 +108,29 @@ local function PlayerUiController()
 		Area = React.createElement(AreaController),
 		Shop = React.createElement(ShopController, {
 			ActivePanel = ActivePanel,
-			SetActivePanel = SetActivePanel,
+			SetActivePanel = setActivePanel,
+			SkipCloseTween = shouldSkipClose("Shop"),
 		}),
 		Index = React.createElement(IndexController, {
 			ActivePanel = ActivePanel,
-			SetActivePanel = SetActivePanel,
+			SetActivePanel = setActivePanel,
+			SkipCloseTween = shouldSkipClose("Index"),
 		}),
 		Rebirth = React.createElement(RebirthController, {
 			ActivePanel = ActivePanel,
-			SetActivePanel = SetActivePanel,
+			SetActivePanel = setActivePanel,
+			SkipCloseTween = shouldSkipClose("Rebirth"),
 		}),
 		Drop = React.createElement(DropController),
 		Sell = React.createElement(SellController, {
 			ActivePanel = ActivePanel,
-			SetActivePanel = SetActivePanel,
+			SetActivePanel = setActivePanel,
+			SkipCloseTween = shouldSkipClose("Sell"),
 		}),
 		Upgrades = React.createElement(UpgradesController, {
 			ActivePanel = ActivePanel,
-			SetActivePanel = SetActivePanel,
+			SetActivePanel = setActivePanel,
+			SkipCloseTween = shouldSkipClose("Upgrades"),
 		}),
 		Announcements = React.createElement(AnnouncementController),
 		Unlocks = React.createElement(AnimeUnlockController),

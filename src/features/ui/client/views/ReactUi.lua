@@ -259,7 +259,7 @@ function ReactUi.GameplayPanel(Props)
 	local ActiveTweenRef = React.useRef(nil)
 	local AnimationTokenRef = React.useRef(0)
 	local DesignScale, SetDesignScale = React.useState(1)
-	local ViewportSize, SetViewportSize = React.useState(Vector2.zero)
+	local _, SetViewportSize = React.useState(Vector2.zero)
 	local Rendered, SetRendered = React.useState(Props.Visible == true)
 	local GameplayPanels = Props.GameplayPanels
 	local ReferenceResolution = GameplayPanels.ReferenceResolution
@@ -270,19 +270,6 @@ function ReactUi.GameplayPanel(Props)
 	local OpenTweenInfo = GameplayPanels.OpenTweenInfo or TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	local CloseTweenInfo = GameplayPanels.CloseTweenInfo or TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 	local Children = Props.Children or Props.children
-	local DebugGameplayPanel = GameplayPanels.DebugGameplayPanel == true
-	local DebugText = string.format(
-		"Viewport: %dx%d | Root: %.0fx%.0f | RootScale: %.3f | Panel: %.0fx%.0f | Canvas: %.0fx%.0f",
-		ViewportSize.X,
-		ViewportSize.Y,
-		ReferenceResolution.X,
-		ReferenceResolution.Y,
-		DesignScale,
-		CanvasSize.X,
-		CanvasSize.Y,
-		CanvasSize.X,
-		CanvasSize.Y
-	)
 
 	React.useEffect(function()
 		local Viewport = ViewportRef.current
@@ -295,21 +282,6 @@ function ReactUi.GameplayPanel(Props)
 			local NextScale = math.min(AbsoluteSize.X / ReferenceResolution.X, AbsoluteSize.Y / ReferenceResolution.Y)
 			SetViewportSize(AbsoluteSize)
 			SetDesignScale(NextScale)
-
-			if DebugGameplayPanel then
-				print(string.format(
-					"GameplayPanel Debug | Viewport=%dx%d | Root=%.1fx%.1f | RootScale=%.3f | Panel=%.1fx%.1f | Canvas=%.1fx%.1f",
-					AbsoluteSize.X,
-					AbsoluteSize.Y,
-					ReferenceResolution.X,
-					ReferenceResolution.Y,
-					NextScale,
-					CanvasSize.X,
-					CanvasSize.Y,
-					CanvasSize.X,
-					CanvasSize.Y
-				))
-			end
 		end
 
 		updateDesignScale()
@@ -340,6 +312,13 @@ function ReactUi.GameplayPanel(Props)
 		if ActiveTween then
 			ActiveTween:Cancel()
 			ActiveTweenRef.current = nil
+		end
+
+		if not Props.Visible and Props.SkipCloseTween == true then
+			Panel.Position = HiddenPosition
+			Panel.Visible = false
+			SetRendered(false)
+			return nil
 		end
 
 		Panel.Visible = true
@@ -384,7 +363,7 @@ function ReactUi.GameplayPanel(Props)
 				CompletedConnection:Disconnect()
 			end
 		end
-	end, { Props.Visible, Rendered })
+	end, { Props.Visible, Props.SkipCloseTween, Rendered })
 
 	return React.createElement("Frame", {
 		BorderSizePixel = 0,
@@ -428,40 +407,8 @@ function ReactUi.GameplayPanel(Props)
 					Size = UDim2.fromOffset(CanvasSize.X, CanvasSize.Y),
 					ZIndex = Props.ZIndex,
 				}, {
-					DebugStroke = DebugGameplayPanel and React.createElement("UIStroke", {
-						Color = Color3.fromRGB(0, 255, 255),
-						Thickness = 2,
-						Transparency = 0,
-					}) or nil,
 					Children = Children and React.createElement(React.Fragment, nil, Children) or nil,
 				}),
-				DebugLabel = DebugGameplayPanel and React.createElement("TextLabel", {
-					AnchorPoint = Vector2.new(0, 0),
-					BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-					BackgroundTransparency = 0.25,
-					FontFace = ReactUi.Font,
-					Position = UDim2.fromOffset(8, 8),
-					Size = UDim2.new(1, -16, 0, 34),
-					Text = DebugText,
-					TextColor3 = Color3.fromRGB(80, 255, 255),
-					TextScaled = true,
-					TextStrokeColor3 = Color3.fromRGB(0, 0, 0),
-					TextStrokeTransparency = 0,
-					TextXAlignment = Enum.TextXAlignment.Left,
-					TextYAlignment = Enum.TextYAlignment.Center,
-					ZIndex = (Props.ZIndex or 1) + 50,
-				}, {
-					TextOutline = textOutline({}),
-					Padding = React.createElement("UIPadding", {
-						PaddingLeft = UDim.new(0, 8),
-						PaddingRight = UDim.new(0, 8),
-					}),
-				}) or nil,
-				DebugStroke = DebugGameplayPanel and React.createElement("UIStroke", {
-					Color = Color3.fromRGB(255, 0, 255),
-					Thickness = 3,
-					Transparency = 0,
-				}) or nil,
 			}),
 		}),
 	})

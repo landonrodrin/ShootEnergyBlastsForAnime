@@ -38,6 +38,7 @@ local function ShopController(Props)
 				closeIfActive()
 			end,
 			SharedTuning = GAMEPLAY_PANELS,
+			SkipCloseTween = Props.SkipCloseTween,
 			Tuning = GAMEPLAY_PANELS.Shop,
 			Visible = Open,
 		}),
