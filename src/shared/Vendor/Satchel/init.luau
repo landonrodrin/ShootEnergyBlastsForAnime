@@ -41,7 +41,9 @@ local targetScript: ModuleScript = script
 
 require(script.Attribution)
 
+local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local AnimeViewports = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeViewports"))
+local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 
 -- Constants --
 local PREFERRED_TRANSPARENCY: number = GuiService.PreferredTransparency or 1
@@ -64,6 +66,29 @@ local SLOT_LOCKED_TRANSPARENCY: number = SLOT_LOCKED_TRANSPARENCY_DEFAULT * PREF
 local SLOT_EQUIP_THICKNESS: number = targetScript:GetAttribute("EquipBorderSizePixel") or 5 -- Relative
 local SLOT_CORNER_RADIUS: UDim = targetScript:GetAttribute("CornerRadius") or UDim.new(0, 8)
 local SLOT_BORDER_COLOR: Color3 = Color3.new(1, 1, 1) -- Appears when dragging
+local SLOT_AREA_COLORS: { [string]: Color3 } = {
+	Common = Color3.fromRGB(115, 115, 115),
+	Uncommon = Color3.fromRGB(35, 165, 70),
+	Rare = Color3.fromRGB(45, 105, 255),
+	Epic = Color3.fromRGB(150, 70, 220),
+	Legendary = Color3.fromRGB(255, 210, 45),
+}
+local SLOT_LEVEL_BADGE_DESKTOP_SIZE: UDim2 = UDim2.fromOffset(46, 26)
+local SLOT_LEVEL_BADGE_TOUCH_SIZE: UDim2 = UDim2.fromOffset(58, 32)
+local SLOT_LEVEL_BADGE_DESKTOP_POSITION: UDim2 = UDim2.new(1, -7, 0, 7)
+local SLOT_LEVEL_BADGE_TOUCH_POSITION: UDim2 = UDim2.new(1, -9, 0, 9)
+local SLOT_LEVEL_BADGE_DESKTOP_CORNER_RADIUS: UDim = UDim.new(0, 6)
+local SLOT_LEVEL_BADGE_TOUCH_CORNER_RADIUS: UDim = UDim.new(0, 8)
+local SLOT_LEVEL_BADGE_DESKTOP_TEXT_SIZE: number = 16
+local SLOT_LEVEL_BADGE_TOUCH_TEXT_SIZE: number = 18
+local SLOT_LEVEL_BADGE_BACKGROUND_COLOR: Color3 = Color3.fromRGB(12, 14, 18)
+local SLOT_LEVEL_BADGE_BACKGROUND_TRANSPARENCY: number = 0.15
+local SLOT_LEVEL_BADGE_TEXT_COLOR: Color3 = Color3.fromRGB(255, 255, 255)
+local SLOT_MUTATION_BORDER_DESKTOP_INSET: number = 4
+local SLOT_MUTATION_BORDER_TOUCH_INSET: number = 5
+local SLOT_MUTATION_BORDER_DESKTOP_THICKNESS: number = 4
+local SLOT_MUTATION_BORDER_TOUCH_THICKNESS: number = 5
+local SLOT_MUTATION_BORDER_TRANSPARENCY: number = 0
 
 -- Tooltips
 local TOOLTIP_CORNER_RADIUS: UDim = SLOT_CORNER_RADIUS - UDim.new(0, 5) or UDim.new(0, 3)
@@ -80,14 +105,14 @@ local ARROW_IMAGE_CLOSE: string = "rbxasset://textures/ui/TopBar/inventoryOff.pn
 
 -- Hotbar slots
 local HOTBAR_SLOTS_FULL: number = 10 -- 10 is the max
-local HOTBAR_SLOTS_VR: number = 6
-local HOTBAR_SLOTS_MINI: number = 6 -- Mobile gets 6 slots instead of default 3 it had before
-local HOTBAR_SLOTS_WIDTH_CUTOFF: number = 1024 -- Anything smaller is MINI
+local HOTBAR_SLOTS_VR: number = 8
+local HOTBAR_SLOTS_TOUCH: number = 8
+local HOTBAR_DESKTOP_ANCHOR_POINT: Vector2 = Vector2.new(0.5, 1)
+local HOTBAR_DESKTOP_POSITION: UDim2 = UDim2.fromScale(0.5, 0.97)
+local HOTBAR_TOUCH_VR_ANCHOR_POINT: Vector2 = Vector2.new(0.5, 1)
+local HOTBAR_TOUCH_VR_POSITION: UDim2 = UDim2.fromScale(0.5, 1)
 
-local INVENTORY_ROWS_FULL: number = 4
-local INVENTORY_ROWS_VR: number = 3
-local INVENTORY_ROWS_MINI: number = 2
-local INVENTORY_HEADER_SIZE: number = 40
+local INVENTORY_HEADER_SIZE: number = 100
 local INVENTORY_ARROWS_BUFFER_VR: number = 40
 
 -- Text
@@ -104,11 +129,12 @@ local SEARCH_BORDER_TRANSPARENCY: number = 0.8
 local SEARCH_BORDER_THICKNESS: number = 1
 local SEARCH_TEXT_PLACEHOLDER: string = "Search"
 local SEARCH_TEXT_OFFSET: number = 8
+local SEARCH_TEXT_SIZE_PIXELS: number = 50
 local SEARCH_TEXT: string = ""
 local SEARCH_CORNER_RADIUS: UDim = UDim.new(0, 3)
 local SEARCH_IMAGE_X: string = "rbxasset://textures/ui/InspectMenu/x.png"
 local SEARCH_BUFFER_PIXELS: number = 5
-local SEARCH_WIDTH_PIXELS: number = 200
+local SEARCH_WIDTH_PIXELS: number = 480
 
 -- Misc
 local FONT_FAMILY: Font = targetScript:GetAttribute("FontFace")
@@ -118,7 +144,16 @@ local DROP_HOTKEY_VALUE: number = Enum.KeyCode.Backspace.Value
 local ZERO_KEY_VALUE: number = Enum.KeyCode.Zero.Value
 local DOUBLE_CLICK_TIME: number = 0.5
 local ICON_BUFFER_PIXELS: number = 5
-local ICON_SIZE_PIXELS: number = 60
+local ICON_SIZE_DESKTOP_PIXELS: number = 112.9
+local ICON_SIZE_TOUCH_PIXELS: number = 140
+local INVENTORY_GRID_PADDING_X_PIXELS: number = 7
+local INVENTORY_GRID_PADDING_Y_PIXELS: number = 10
+local REFERENCE_RESOLUTION: Vector2 = Vector2.new(1920, 1080)
+local INVENTORY_PANEL_SIZE_SCALE: Vector2 = Vector2.new(0.615, 0.64)
+local INVENTORY_PANEL_SIZE: Vector2 = Vector2.new(
+	REFERENCE_RESOLUTION.X * INVENTORY_PANEL_SIZE_SCALE.X,
+	REFERENCE_RESOLUTION.Y * INVENTORY_PANEL_SIZE_SCALE.Y
+)
 
 local MOUSE_INPUT_TYPES: { [Enum.UserInputType]: boolean } =
 	{ -- These are the input types that will be used for mouse -- [[ADDED]], Optional
@@ -171,17 +206,16 @@ BackpackGui.Parent = PlayerGui
 
 local IsTenFootInterface: boolean = GuiService:IsTenFootInterface()
 if IsTenFootInterface then
-	ICON_SIZE_PIXELS = 100
 	FONT_SIZE = 24
 end
 
 local GamepadActionsBound: boolean = false
 
-local IS_PHONE: boolean = UserInputService.TouchEnabled
-	and workspace.CurrentCamera.ViewportSize.X < HOTBAR_SLOTS_WIDTH_CUTOFF
-
 local Player: Player = Players.LocalPlayer
 
+local ReferenceViewportFrame: Frame = nil
+local ReferenceRootFrame: Frame = nil
+local ReferenceScale: UIScale = nil
 local MainFrame: Frame = nil
 local HotbarFrame: Frame = nil
 local InventoryFrame: Frame = nil
@@ -213,9 +247,25 @@ local CharConns: { RBXScriptConnection } = {} -- Holds character Connections to 
 local GamepadEnabled: boolean = false -- determines if our gui needs to be gamepad friendly
 
 local IsVR: boolean = VRService.VREnabled -- Are we currently using a VR device?
-local NumberOfHotbarSlots: number = IsVR and HOTBAR_SLOTS_VR or (IS_PHONE and HOTBAR_SLOTS_MINI or HOTBAR_SLOTS_FULL) -- Number of slots shown at the bottom
-local NumberOfInventoryRows: number = IsVR and INVENTORY_ROWS_VR
-	or (IS_PHONE and INVENTORY_ROWS_MINI or INVENTORY_ROWS_FULL) -- How many rows in the popped-up inventory
+local NumberOfHotbarSlots: number = IsVR and HOTBAR_SLOTS_VR
+	or (UserInputService.TouchEnabled and HOTBAR_SLOTS_TOUCH or HOTBAR_SLOTS_FULL) -- Number of slots shown at the bottom
+local UsesTouchSlotTuning: boolean = IsVR or UserInputService.TouchEnabled
+local HotbarAnchorPoint: Vector2 = UsesTouchSlotTuning and HOTBAR_TOUCH_VR_ANCHOR_POINT
+	or HOTBAR_DESKTOP_ANCHOR_POINT
+local HotbarPosition: UDim2 = UsesTouchSlotTuning and HOTBAR_TOUCH_VR_POSITION or HOTBAR_DESKTOP_POSITION
+local IconSizePixels: number = UsesTouchSlotTuning and ICON_SIZE_TOUCH_PIXELS or ICON_SIZE_DESKTOP_PIXELS
+local SlotLevelBadgeSize: UDim2 = UsesTouchSlotTuning and SLOT_LEVEL_BADGE_TOUCH_SIZE
+	or SLOT_LEVEL_BADGE_DESKTOP_SIZE
+local SlotLevelBadgePosition: UDim2 = UsesTouchSlotTuning and SLOT_LEVEL_BADGE_TOUCH_POSITION
+	or SLOT_LEVEL_BADGE_DESKTOP_POSITION
+local SlotLevelBadgeCornerRadius: UDim = UsesTouchSlotTuning and SLOT_LEVEL_BADGE_TOUCH_CORNER_RADIUS
+	or SLOT_LEVEL_BADGE_DESKTOP_CORNER_RADIUS
+local SlotLevelBadgeTextSize: number = UsesTouchSlotTuning and SLOT_LEVEL_BADGE_TOUCH_TEXT_SIZE
+	or SLOT_LEVEL_BADGE_DESKTOP_TEXT_SIZE
+local SlotMutationBorderInset: number = UsesTouchSlotTuning and SLOT_MUTATION_BORDER_TOUCH_INSET
+	or SLOT_MUTATION_BORDER_DESKTOP_INSET
+local SlotMutationBorderThickness: number = UsesTouchSlotTuning and SLOT_MUTATION_BORDER_TOUCH_THICKNESS
+	or SLOT_MUTATION_BORDER_DESKTOP_THICKNESS
 local BackpackPanel = nil
 local lastEquippedSlot: any = nil
 
@@ -273,9 +323,14 @@ local function AdjustHotbarFrames(): ()
 end
 
 local function UpdateScrollingFrameCanvasSize(): ()
-	local countX: number = math.floor(ScrollingFrame.AbsoluteSize.X / (ICON_SIZE_PIXELS + ICON_BUFFER_PIXELS))
+	local scale: number = (ReferenceScale and ReferenceScale.Scale > 0) and ReferenceScale.Scale or 1
+	local referenceWidth: number = ScrollingFrame.AbsoluteSize.X / scale
+	local contentWidth: number = math.max(IconSizePixels, referenceWidth - INVENTORY_GRID_PADDING_X_PIXELS)
+	local countX: number = math.max(1, math.floor(contentWidth / (IconSizePixels + ICON_BUFFER_PIXELS)))
 	local maxRow: number = math.ceil((#UIGridFrame:GetChildren() - 1) / countX)
-	local canvasSizeY: number = maxRow * (ICON_SIZE_PIXELS + ICON_BUFFER_PIXELS) + ICON_BUFFER_PIXELS
+	local canvasSizeY: number = INVENTORY_GRID_PADDING_Y_PIXELS
+		+ (maxRow * (IconSizePixels + ICON_BUFFER_PIXELS))
+		+ ICON_BUFFER_PIXELS
 	ScrollingFrame.CanvasSize = UDim2.fromOffset(0, canvasSizeY)
 end
 
@@ -288,28 +343,57 @@ local function AdjustInventoryFrames(): ()
 	UpdateScrollingFrameCanvasSize()
 end
 
+local function GetSlotAreaColor(toolName: string): Color3
+	local animeConfiguration = AnimeConfigurations[toolName]
+	if not animeConfiguration then
+		return BACKGROUND_COLOR
+	end
+
+	local area = animeConfiguration.Area
+	if type(area) ~= "string" then
+		return BACKGROUND_COLOR
+	end
+
+	return SLOT_AREA_COLORS[area] or BACKGROUND_COLOR
+end
+
+local function GetMutationColor(mutation: string?): Color3?
+	if not mutation or mutation == "Default" then
+		return nil
+	end
+
+	local mutationConfiguration = MutationsConfigurations[mutation]
+	if not mutationConfiguration then
+		return nil
+	end
+
+	return mutationConfiguration.Colour
+end
+
+local function UpdateReferenceScale(): ()
+	if not ReferenceViewportFrame or not ReferenceScale then
+		return
+	end
+
+	local viewportSize: Vector2 = ReferenceViewportFrame.AbsoluteSize
+	if viewportSize.X <= 0 or viewportSize.Y <= 0 then
+		return
+	end
+
+	ReferenceScale.Scale =
+		math.min(viewportSize.X / REFERENCE_RESOLUTION.X, viewportSize.Y / REFERENCE_RESOLUTION.Y)
+end
+
 local function UpdateBackpackLayout(): ()
 	HotbarFrame.Size = UDim2.new(
 		0,
-		ICON_BUFFER_PIXELS + (NumberOfHotbarSlots * (ICON_SIZE_PIXELS + ICON_BUFFER_PIXELS)),
+		ICON_BUFFER_PIXELS + (NumberOfHotbarSlots * (IconSizePixels + ICON_BUFFER_PIXELS)),
 		0,
-		ICON_BUFFER_PIXELS + ICON_SIZE_PIXELS + ICON_BUFFER_PIXELS
+		ICON_BUFFER_PIXELS + IconSizePixels + ICON_BUFFER_PIXELS
 	)
-	HotbarFrame.Position = UDim2.new(0.5, -HotbarFrame.Size.X.Offset / 2, 1, -HotbarFrame.Size.Y.Offset)
-	InventoryFrame.Size = UDim2.new(
-		0,
-		HotbarFrame.Size.X.Offset,
-		0,
-		(HotbarFrame.Size.Y.Offset * NumberOfInventoryRows)
-			+ INVENTORY_HEADER_SIZE
-			+ (IsVR and 2 * INVENTORY_ARROWS_BUFFER_VR or 0)
-	)
-	InventoryFrame.Position = UDim2.new(
-		0.5,
-		-InventoryFrame.Size.X.Offset / 2,
-		1,
-		HotbarFrame.Position.Y.Offset - InventoryFrame.Size.Y.Offset
-	)
+	HotbarFrame.Position = HotbarPosition
+	InventoryFrame.Size = UDim2.fromOffset(INVENTORY_PANEL_SIZE.X, INVENTORY_PANEL_SIZE.Y)
+	InventoryFrame.Position = UDim2.fromScale(0.5, 0.5)
 
 	ScrollingFrame.Size = UDim2.new(
 		1,
@@ -379,8 +463,13 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 	local ToolName: TextLabel = nil
 	local ToolChangeConn: any = nil
 	local ToolAttributeChangeConn: any = nil
+	local ToolLevelChangeConn: any = nil
 	local HighlightFrame: any = nil -- UIStroke
 	local SelectionObj: ImageLabel = nil
+	local MutationBorder: Frame = nil
+	local MutationBorderStroke: UIStroke = nil
+	local LevelBadge: Frame = nil
+	local LevelBadgeText: TextLabel = nil
 
 	--NOTE: The following are only defined for Hotbar Slots
 	local ToolTip: TextLabel = nil
@@ -405,11 +494,11 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 	-- Adjust the slots to the centered
 	function slot:Readjust(visualIndex: number, visualTotal: number): ...any --NOTE: Only used for Hotbar slots
 		local centered: number = HotbarFrame.Size.X.Offset / 2
-		local sizePlus: number = ICON_BUFFER_PIXELS + ICON_SIZE_PIXELS
+		local sizePlus: number = ICON_BUFFER_PIXELS + IconSizePixels
 		local midpointish: number = (visualTotal / 2) + 0.5
 		local factor: number = visualIndex - midpointish
 		SlotFrame.Position =
-			UDim2.fromOffset(centered - (ICON_SIZE_PIXELS / 2) + (sizePlus * factor), ICON_BUFFER_PIXELS)
+			UDim2.fromOffset(centered - (IconSizePixels / 2) + (sizePlus * factor), ICON_BUFFER_PIXELS)
 	end
 
 	-- Fill the slot with a tool
@@ -425,8 +514,26 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 		local function assignToolData(): ()
 			ToolIcon.Image = ""
 			clearAnimeViewport()
+			SlotFrame.BackgroundColor3 = GetSlotAreaColor(tool.Name)
+			local mutation = tool:GetAttribute("Mutation")
+			local mutationName = if type(mutation) == "string" then mutation else nil
+			local mutationColor = GetMutationColor(mutationName)
+			if mutationColor then
+				MutationBorderStroke.Color = mutationColor
+				MutationBorder.Visible = true
+			else
+				MutationBorder.Visible = false
+			end
 
-			local Viewport = AnimeViewports.Mount(ToolIcon, tool.Name, tool:GetAttribute("Mutation"), {
+			local level = tool:GetAttribute("Level")
+			if level ~= nil then
+				LevelBadgeText.Text = string.format("Lvl %s", tostring(level))
+				LevelBadge.Visible = true
+			else
+				LevelBadge.Visible = false
+			end
+
+			local Viewport = AnimeViewports.Mount(ToolIcon, tool.Name, mutationName, {
 				Scale = 1.5,
 			})
 			ToolName.Visible = Viewport == nil
@@ -451,6 +558,10 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 			ToolAttributeChangeConn:Disconnect()
 			ToolAttributeChangeConn = nil
 		end
+		if ToolLevelChangeConn then
+			ToolLevelChangeConn:Disconnect()
+			ToolLevelChangeConn = nil
+		end
 
 		-- Update the slot with new tool data if the tool's properties changes
 		ToolChangeConn = tool.Changed:Connect(function(property: string): ()
@@ -459,6 +570,7 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 			end
 		end)
 		ToolAttributeChangeConn = tool:GetAttributeChangedSignal("Mutation"):Connect(assignToolData)
+		ToolLevelChangeConn = tool:GetAttributeChangedSignal("Level"):Connect(assignToolData)
 
 		local hotbarSlot: boolean = (self.Index <= NumberOfHotbarSlots)
 		local inventoryOpen: boolean = InventoryFrame.Visible
@@ -504,9 +616,16 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 			ToolAttributeChangeConn:Disconnect()
 			ToolAttributeChangeConn = nil
 		end
+		if ToolLevelChangeConn then
+			ToolLevelChangeConn:Disconnect()
+			ToolLevelChangeConn = nil
+		end
 
 		ToolIcon.Image = ""
 		clearAnimeViewport()
+		SlotFrame.BackgroundColor3 = BACKGROUND_COLOR
+		MutationBorder.Visible = false
+		LevelBadge.Visible = false
 		ToolName.Text = ""
 		if ToolTip then
 			ToolTip.Text = ""
@@ -647,7 +766,7 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 	SlotFrame.BorderColor3 = SLOT_BORDER_COLOR
 	SlotFrame.Text = ""
 	SlotFrame.BorderSizePixel = 0
-	SlotFrame.Size = UDim2.fromOffset(ICON_SIZE_PIXELS, ICON_SIZE_PIXELS)
+	SlotFrame.Size = UDim2.fromOffset(IconSizePixels, IconSizePixels)
 	SlotFrame.Active = true
 	SlotFrame.Draggable = false
 	SlotFrame.BackgroundTransparency = SLOT_LOCKED_TRANSPARENCY
@@ -699,6 +818,28 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 	end
 	ToolIconCorner.Parent = ToolIcon
 
+	MutationBorder = Instance.new("Frame")
+	MutationBorder.Name = "MutationBorder"
+	MutationBorder.BackgroundTransparency = 1
+	MutationBorder.BorderSizePixel = 0
+	MutationBorder.Position = UDim2.fromOffset(SlotMutationBorderInset, SlotMutationBorderInset)
+	MutationBorder.Size = UDim2.new(1, -SlotMutationBorderInset * 2, 1, -SlotMutationBorderInset * 2)
+	MutationBorder.Visible = false
+	MutationBorder.ZIndex = 3
+	MutationBorder.Parent = SlotFrame
+
+	local mutationBorderCorner: UICorner = Instance.new("UICorner")
+	mutationBorderCorner.Name = "Corner"
+	mutationBorderCorner.CornerRadius = SLOT_CORNER_RADIUS - UDim.new(0, SlotMutationBorderInset)
+	mutationBorderCorner.Parent = MutationBorder
+
+	MutationBorderStroke = Instance.new("UIStroke")
+	MutationBorderStroke.Name = "Border"
+	MutationBorderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	MutationBorderStroke.Thickness = SlotMutationBorderThickness
+	MutationBorderStroke.Transparency = SLOT_MUTATION_BORDER_TRANSPARENCY
+	MutationBorderStroke.Parent = MutationBorder
+
 	ToolName = Instance.new("TextLabel")
 	ToolName.BackgroundTransparency = 1
 	ToolName.Name = "ToolName"
@@ -714,6 +855,38 @@ local function MakeSlot(parent: Instance, initIndex: number?): GuiObject
 	ToolName.TextWrapped = true
 	ToolName.TextTruncate = Enum.TextTruncate.AtEnd
 	ToolName.Parent = SlotFrame
+
+	LevelBadge = Instance.new("Frame")
+	LevelBadge.Name = "LevelBadge"
+	LevelBadge.AnchorPoint = Vector2.new(1, 0)
+	LevelBadge.BackgroundColor3 = SLOT_LEVEL_BADGE_BACKGROUND_COLOR
+	LevelBadge.BackgroundTransparency = SLOT_LEVEL_BADGE_BACKGROUND_TRANSPARENCY
+	LevelBadge.BorderSizePixel = 0
+	LevelBadge.Position = SlotLevelBadgePosition
+	LevelBadge.Size = SlotLevelBadgeSize
+	LevelBadge.Visible = false
+	LevelBadge.ZIndex = 4
+	LevelBadge.Parent = SlotFrame
+
+	local levelBadgeCorner: UICorner = Instance.new("UICorner")
+	levelBadgeCorner.Name = "Corner"
+	levelBadgeCorner.CornerRadius = SlotLevelBadgeCornerRadius
+	levelBadgeCorner.Parent = LevelBadge
+
+	LevelBadgeText = Instance.new("TextLabel")
+	LevelBadgeText.Name = "Text"
+	LevelBadgeText.BackgroundTransparency = 1
+	LevelBadgeText.FontFace = Font.new(FONT_FAMILY.Family, Enum.FontWeight.Heavy, Enum.FontStyle.Normal)
+	LevelBadgeText.Size = UDim2.fromScale(1, 1)
+	LevelBadgeText.Text = ""
+	LevelBadgeText.TextColor3 = SLOT_LEVEL_BADGE_TEXT_COLOR
+	LevelBadgeText.TextSize = SlotLevelBadgeTextSize
+	LevelBadgeText.TextStrokeColor3 = TEXT_STROKE_COLOR
+	LevelBadgeText.TextStrokeTransparency = TEXT_STROKE_TRANSPARENCY
+	LevelBadgeText.TextXAlignment = Enum.TextXAlignment.Center
+	LevelBadgeText.TextYAlignment = Enum.TextYAlignment.Center
+	LevelBadgeText.ZIndex = 5
+	LevelBadgeText.Parent = LevelBadge
 
 	slot.Frame.LayoutOrder = slot.Index
 
@@ -1556,18 +1729,40 @@ local function MakeVRRoundButton(name: string, image: string): (ImageButton, Ima
 	return newButton, buttonIcon, buttonSelectionObject
 end
 
--- Make the main frame, which (mostly) covers the screen
+ReferenceViewportFrame = Instance.new("Frame")
+ReferenceViewportFrame.BackgroundTransparency = 1
+ReferenceViewportFrame.BorderSizePixel = 0
+ReferenceViewportFrame.Name = "ReferenceViewport"
+ReferenceViewportFrame.Size = UDim2.fromScale(1, 1)
+ReferenceViewportFrame.Parent = BackpackGui
+
+ReferenceRootFrame = Instance.new("Frame")
+ReferenceRootFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+ReferenceRootFrame.BackgroundTransparency = 1
+ReferenceRootFrame.BorderSizePixel = 0
+ReferenceRootFrame.Name = "ReferenceRoot"
+ReferenceRootFrame.Position = UDim2.fromScale(0.5, 0.5)
+ReferenceRootFrame.Size = UDim2.fromOffset(REFERENCE_RESOLUTION.X, REFERENCE_RESOLUTION.Y)
+ReferenceRootFrame.Parent = ReferenceViewportFrame
+
+ReferenceScale = Instance.new("UIScale")
+ReferenceScale.Name = "ReferenceScale"
+ReferenceScale.Parent = ReferenceRootFrame
+UpdateReferenceScale()
+
+-- Make the main frame, which (mostly) covers the reference root
 MainFrame = Instance.new("Frame")
 MainFrame.BackgroundTransparency = 1
 MainFrame.Name = "Backpack"
 MainFrame.Size = UDim2.fromScale(1, 1)
 MainFrame.Visible = false
-MainFrame.Parent = BackpackGui
+MainFrame.Parent = ReferenceRootFrame
 
 -- Make the HotbarFrame, which holds only the Hotbar Slots
 HotbarFrame = Instance.new("Frame")
 HotbarFrame.BackgroundTransparency = 1
 HotbarFrame.Name = "Hotbar"
+HotbarFrame.AnchorPoint = HotbarAnchorPoint
 HotbarFrame.Size = UDim2.fromScale(1, 1)
 HotbarFrame.Parent = MainFrame
 
@@ -1596,6 +1791,7 @@ RightBumperButton.Position = UDim2.new(1, 0, 0.5, -RightBumperButton.Size.Y.Offs
 -- Make the Inventory, which holds the ScrollingFrame, the header, and the search box
 InventoryFrame = Instance.new("Frame")
 InventoryFrame.Name = "Inventory"
+InventoryFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 InventoryFrame.Size = UDim2.fromScale(1, 1)
 InventoryFrame.BackgroundTransparency = BACKGROUND_TRANSPARENCY
 InventoryFrame.BackgroundColor3 = BACKGROUND_COLOR
@@ -1649,13 +1845,13 @@ UIGridFrame = Instance.new("Frame")
 UIGridFrame.BackgroundTransparency = 1
 UIGridFrame.Name = "UIGridFrame"
 UIGridFrame.Selectable = false
-UIGridFrame.Size = UDim2.new(1, -(ICON_BUFFER_PIXELS * 2), 1, 0)
-UIGridFrame.Position = UDim2.fromOffset(ICON_BUFFER_PIXELS, 0)
+UIGridFrame.Size = UDim2.new(1, -INVENTORY_GRID_PADDING_X_PIXELS, 1, -INVENTORY_GRID_PADDING_Y_PIXELS)
+UIGridFrame.Position = UDim2.fromOffset(INVENTORY_GRID_PADDING_X_PIXELS, INVENTORY_GRID_PADDING_Y_PIXELS)
 UIGridFrame.Parent = ScrollingFrame
 
 UIGridLayout = Instance.new("UIGridLayout")
 UIGridLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIGridLayout.CellSize = UDim2.fromOffset(ICON_SIZE_PIXELS, ICON_SIZE_PIXELS)
+UIGridLayout.CellSize = UDim2.fromOffset(IconSizePixels, IconSizePixels)
 UIGridLayout.CellPadding = UDim2.fromOffset(ICON_BUFFER_PIXELS, ICON_BUFFER_PIXELS)
 UIGridLayout.Parent = UIGridFrame
 
@@ -1670,7 +1866,7 @@ ScrollUpInventoryButton.MouseButton1Click:Connect(function(): ()
 		Clamp(
 			0,
 			ScrollingFrame.CanvasSize.Y.Offset - ScrollingFrame.AbsoluteWindowSize.Y,
-			ScrollingFrame.CanvasPosition.Y - (ICON_BUFFER_PIXELS + ICON_SIZE_PIXELS)
+			ScrollingFrame.CanvasPosition.Y - (ICON_BUFFER_PIXELS + IconSizePixels)
 		)
 	)
 end)
@@ -1687,7 +1883,7 @@ ScrollDownInventoryButton.MouseButton1Click:Connect(function(): ()
 		Clamp(
 			0,
 			ScrollingFrame.CanvasSize.Y.Offset - ScrollingFrame.AbsoluteWindowSize.Y,
-			ScrollingFrame.CanvasPosition.Y + (ICON_BUFFER_PIXELS + ICON_SIZE_PIXELS)
+			ScrollingFrame.CanvasPosition.Y + (ICON_BUFFER_PIXELS + IconSizePixels)
 		)
 	)
 end)
@@ -1709,7 +1905,8 @@ UpdateBackpackLayout()
 --Make the gamepad hint frame
 local gamepadHintsFrame: Frame = Instance.new("Frame")
 gamepadHintsFrame.Name = "GamepadHintsFrame"
-gamepadHintsFrame.Size = UDim2.fromOffset(HotbarFrame.Size.X.Offset, (IsTenFootInterface and 95 or 60))
+gamepadHintsFrame.AnchorPoint = Vector2.new(0.5, 1)
+gamepadHintsFrame.Size = UDim2.fromOffset(InventoryFrame.Size.X.Offset, (IsTenFootInterface and 95 or 60))
 gamepadHintsFrame.BackgroundTransparency = BACKGROUND_TRANSPARENCY
 gamepadHintsFrame.BackgroundColor3 = BACKGROUND_COLOR
 gamepadHintsFrame.Visible = false
@@ -1774,12 +1971,12 @@ addGamepadHint(UserInputService:GetImageForKeyCode(Enum.KeyCode.ButtonB), "Close
 
 local function resizeGamepadHintsFrame(): ()
 	gamepadHintsFrame.Size =
-		UDim2.new(HotbarFrame.Size.X.Scale, HotbarFrame.Size.X.Offset, 0, (IsTenFootInterface and 95 or 60))
+		UDim2.new(InventoryFrame.Size.X.Scale, InventoryFrame.Size.X.Offset, 0, (IsTenFootInterface and 95 or 60))
 	gamepadHintsFrame.Position = UDim2.new(
-		HotbarFrame.Position.X.Scale,
-		HotbarFrame.Position.X.Offset,
+		InventoryFrame.Position.X.Scale,
+		InventoryFrame.Position.X.Offset,
 		InventoryFrame.Position.Y.Scale,
-		InventoryFrame.Position.Y.Offset - gamepadHintsFrame.Size.Y.Offset - ICON_BUFFER_PIXELS
+		InventoryFrame.Position.Y.Offset - (InventoryFrame.Size.Y.Offset / 2) - ICON_BUFFER_PIXELS
 	)
 
 	local spaceTaken: number = 0
@@ -1829,6 +2026,15 @@ local function resizeGamepadHintsFrame(): ()
 	end
 end
 
+ReferenceViewportFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function(): ()
+	UpdateReferenceScale()
+	UpdateBackpackLayout()
+	resizeGamepadHintsFrame()
+end)
+UpdateReferenceScale()
+UpdateBackpackLayout()
+resizeGamepadHintsFrame()
+
 local searchFrame: Frame = Instance.new("Frame")
 do -- Search stuff
 	searchFrame.Name = "Search"
@@ -1869,7 +2075,7 @@ do -- Search stuff
 	searchBox.TextStrokeColor3 = TEXT_STROKE_COLOR
 	searchBox.ClearTextOnFocus = false
 	searchBox.TextTruncate = Enum.TextTruncate.AtEnd
-	searchBox.TextSize = FONT_SIZE
+	searchBox.TextSize = SEARCH_TEXT_SIZE_PIXELS
 	searchBox.TextXAlignment = Enum.TextXAlignment.Left
 	searchBox.TextYAlignment = Enum.TextYAlignment.Center
 	searchBox.Size = UDim2.new(
