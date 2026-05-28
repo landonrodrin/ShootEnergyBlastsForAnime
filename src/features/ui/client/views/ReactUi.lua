@@ -110,7 +110,7 @@ function ReactUi.Panel(Props)
 		ClipsDescendants = Props.ClipsDescendants == true,
 		LayoutOrder = Props.LayoutOrder,
 		Position = Props.Position,
-		ref = Props.ref,
+		ref = Props.Ref or Props.ref,
 		Size = Props.Size,
 		Visible = Props.Visible ~= false,
 		ZIndex = Props.ZIndex,

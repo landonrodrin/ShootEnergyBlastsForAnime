@@ -3,7 +3,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Satchel = require(ReplicatedStorage:WaitForChild("Vendor"):WaitForChild("Satchel"))
 
-local AnnouncementController = require(script.Parent:WaitForChild("AnnouncementController"))
 local AnimeUnlockController = require(script.Parent:WaitForChild("AnimeUnlockController"))
 local AreaController = require(script.Parent:WaitForChild("AreaController"))
 local LeftRailController = require(script.Parent:WaitForChild("LeftRailController"))
@@ -132,7 +131,6 @@ local function PlayerUiController()
 			SetActivePanel = setActivePanel,
 			SkipCloseTween = shouldSkipClose("Upgrades"),
 		}),
-		Announcements = React.createElement(AnnouncementController),
 		Unlocks = React.createElement(AnimeUnlockController),
 	})
 end

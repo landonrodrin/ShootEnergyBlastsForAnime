@@ -98,7 +98,7 @@ local function SellPanelView(Props)
 			}),
 			Sell = React.createElement(ReactUi.Button, {
 				AnchorPoint = Vector2.new(1, 0.5),
-				BackgroundColor3 = ReactUi.Colours.Green,
+				BackgroundColor3 = ReactUi.Colours.Red,
 				MaxTextSize = ListTuning.SellButtonMaxTextSize,
 				OnActivated = function()
 					Props.OnSellSingle(Item.Id)
@@ -143,13 +143,14 @@ local function SellPanelView(Props)
 				Size = ListTuning.Size,
 			}, ListChildren),
 			SellAll = React.createElement(ReactUi.Button, {
-				AnchorPoint = Vector2.new(0.5, 1),
-				BackgroundColor3 = ReactUi.Colours.Green,
+				AnchorPoint = SellAllTuning.AnchorPoint,
+				BackgroundColor3 = ReactUi.Colours.Red,
 				Disabled = not Props.CanSellAll,
 				OnActivated = Props.OnSellAll,
 				Position = SellAllTuning.Position,
 				Size = SellAllTuning.Size,
 				Text = Props.SellAllText,
+				ZIndex = SellAllTuning.ZIndex,
 			}),
 		}),
 		Confirm = React.createElement(ReactUi.Panel, {
@@ -177,7 +178,7 @@ local function SellPanelView(Props)
 				ZIndex = 21,
 			}),
 			Confirm = React.createElement(ReactUi.Button, {
-				BackgroundColor3 = ReactUi.Colours.Green,
+				BackgroundColor3 = ReactUi.Colours.Red,
 				OnActivated = Props.OnConfirmSellAll,
 				Position = ConfirmTuning.ConfirmPosition,
 				Size = ConfirmTuning.ConfirmSize,

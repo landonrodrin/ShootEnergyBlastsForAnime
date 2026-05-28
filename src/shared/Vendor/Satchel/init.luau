@@ -2227,7 +2227,7 @@ GuiService.MenuClosed:Connect(function(): ()
 	inventoryIcon:setEnabled(true)
 end)
 
-do -- Make the Inventory expand/collapse arrow (unless TopBar)
+local function setupInventoryToggle(): ()
 	local TweenService = game:GetService("TweenService")
 	local inventoryOpenPosition: UDim2 = UDim2.fromScale(0.5, 0.5)
 	local inventoryHiddenPosition: UDim2 = UDim2.new(0.5, 0, 0.5, 150)
@@ -2393,6 +2393,7 @@ do -- Make the Inventory expand/collapse arrow (unless TopBar)
 		return setInventoryOpen(false, options)
 	end
 end
+setupInventoryToggle()
 
 -- Now that we're done building the GUI, we Connect to all the major events
 

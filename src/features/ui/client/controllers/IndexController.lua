@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
+local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
@@ -11,6 +12,11 @@ local ReactUi = require(script.Parent.Parent.Views:WaitForChild("ReactUi"))
 
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 local GAMEPLAY_PANELS = UiTuning.GameplayPanels
+
+local MUTATION_FILL_COLORS = {
+	Default = Color3.fromRGB(115, 115, 115),
+	Gold = Color3.fromRGB(255, 215, 0),
+}
 
 local function sortedEntries(Source)
 	local Entries = {}
@@ -32,6 +38,15 @@ local function sortedEntries(Source)
 	end)
 
 	return Entries
+end
+
+local function mutationFillColor(Name, Configuration)
+	return MUTATION_FILL_COLORS[Name] or Configuration.Colour or ReactUi.Colours.Accent
+end
+
+local function mutationMultiplier(Name)
+	local Configuration = MutationsConfigurations[Name] or {}
+	return Configuration.Multiplier or 1
 end
 
 local MutationEntries = sortedEntries(MutationsConfigurations)
@@ -88,23 +103,35 @@ local function IndexController(Props)
 	for _, Entry in ipairs(MutationEntries) do
 		local Configuration = Entry.Configuration
 		table.insert(MutationRows, {
-			Colour = Configuration.Colour or ReactUi.Colours.Accent,
+			Colour = mutationFillColor(Entry.Name, Configuration),
 			LayoutOrder = Configuration.Index or 0,
 			Name = Entry.Name,
 		})
 	end
 
 	local AnimeRows = {}
+	local SelectedIndexData = IndexData[SelectedMutation] or {}
+	local CollectedCount = 0
+	local MutationMultiplier = mutationMultiplier(SelectedMutation)
+
 	for _, Entry in ipairs(AnimeEntries) do
 		local Configuration = Entry.Configuration
 		local AreaName = Configuration.Area or ""
 		local AreaConfiguration = AreasConfigurations[AreaName] or {}
 		local AnimeName = Entry.Name
+		local IsUnlocked = SelectedIndexData[AnimeName] == true
+		local LevelConfiguration = Configuration.Levels and Configuration.Levels[1] or {}
+		local Income = (LevelConfiguration.Money or 0) * MutationMultiplier
+
+		if IsUnlocked then
+			CollectedCount += 1
+		end
 
 		table.insert(AnimeRows, {
 			Accent = AreaConfiguration.Colour or Color3.fromRGB(255, 255, 255),
 			Area = AreaName,
-			IsUnlocked = IndexData[SelectedMutation] and IndexData[SelectedMutation][AnimeName] == true,
+			IncomeText = string.format("$%s/s", Format.Number(Income)),
+			IsUnlocked = IsUnlocked,
 			LayoutOrder = Configuration.Index or 0,
 			Name = AnimeName,
 		})
@@ -116,6 +143,7 @@ local function IndexController(Props)
 	}, {
 		Panel = React.createElement(IndexPanelView, {
 			Anime = AnimeRows,
+			CollectionText = string.format("%s/%s Collected", CollectedCount, #AnimeEntries),
 			Mutations = MutationRows,
 			OnClose = function()
 				closeIfActive()

@@ -47,7 +47,7 @@ local MutationsConfigurations = {
 	["Diamond"] = {
 		Chance = 0.2,
 
-		Colour = Color3.fromRGB(20, 70, 255),
+		Colour = Color3.fromRGB(75, 221, 255),
 		Gradient = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(42, 250, 246)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 105, 252))}),
 		Aura = {
 			Highlight = {

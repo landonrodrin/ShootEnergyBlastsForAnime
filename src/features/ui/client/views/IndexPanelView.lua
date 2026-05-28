@@ -38,15 +38,18 @@ local function IndexPanelView(Props)
 	}
 
 	for _, Entry in ipairs(Props.Mutations) do
+		local IsSelected = Props.SelectedMutation == Entry.Name
 		MutationChildren[Entry.Name] = React.createElement(ReactUi.Button, {
-			BackgroundColor3 = Props.SelectedMutation == Entry.Name and Entry.Colour or ReactUi.Colours.PanelLight,
+			BackgroundColor3 = Entry.Colour,
 			LayoutOrder = Entry.LayoutOrder,
 			MaxTextSize = MutationTuning.ButtonMaxTextSize,
 			OnActivated = function()
 				Props.OnSelectMutation(Entry.Name)
 			end,
 			Size = MutationTuning.ButtonSize,
-			StrokeColor = Entry.Colour,
+			StrokeColor = MutationTuning.SelectedStrokeColor or ReactUi.Colours.Text,
+			StrokeThickness = IsSelected and MutationTuning.SelectedStrokeThickness or MutationTuning.StrokeThickness,
+			StrokeTransparency = IsSelected and 0 or MutationTuning.StrokeTransparency,
 			Text = Entry.Name,
 		})
 	end
@@ -94,6 +97,15 @@ local function IndexPanelView(Props)
 				Text = Entry.IsUnlocked and Entry.Name or "?",
 				TextScaled = true,
 			}),
+			Income = React.createElement(ReactUi.Text, {
+				MaxTextSize = AnimeTuning.IncomeMaxTextSize,
+				Position = AnimeTuning.IncomePosition,
+				Size = AnimeTuning.IncomeSize,
+				Text = Entry.IncomeText,
+				TextColor3 = ReactUi.Colours.Green,
+				TextScaled = true,
+				TextStrokeTransparency = 0.45,
+			}),
 		})
 	end
 
@@ -104,27 +116,58 @@ local function IndexPanelView(Props)
 		Visible = Props.Visible,
 	}, {
 		Header = React.createElement(ReactUi.Header, headerProps(SharedTuning, Tuning, Props.SelectedMutation, Props.OnClose)),
-		Mutations = React.createElement("Frame", {
-			BackgroundTransparency = 1,
+		Mutations = React.createElement(ReactUi.Panel, {
+			BackgroundColor3 = MutationTuning.BackgroundColor3,
+			BackgroundTransparency = MutationTuning.BackgroundTransparency,
+			Padding = MutationTuning.ContainerPadding,
 			Position = MutationTuning.Position,
 			Size = MutationTuning.Size,
+			StrokeColor = MutationTuning.StrokeColor or Tuning.StrokeColor,
+			StrokeThickness = MutationTuning.StrokeThickness,
+			StrokeTransparency = MutationTuning.ContainerStrokeTransparency,
 		}, MutationChildren),
-		Anime = React.createElement("ScrollingFrame", {
-			AutomaticCanvasSize = Enum.AutomaticSize.Y,
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			CanvasSize = UDim2.fromOffset(0, 0),
-			Position = AnimeTuning.Position,
-			ScrollBarThickness = AnimeTuning.ScrollBarThickness,
-			Size = AnimeTuning.Size,
+		Summary = React.createElement(ReactUi.Panel, {
+			BackgroundColor3 = Tuning.Summary.BackgroundColor3,
+			BackgroundTransparency = Tuning.Summary.BackgroundTransparency,
+			Position = Tuning.Summary.Position,
+			Size = Tuning.Summary.Size,
+			StrokeColor = Tuning.Summary.StrokeColor or Tuning.StrokeColor,
+			StrokeThickness = Tuning.Summary.StrokeThickness,
+			StrokeTransparency = Tuning.Summary.StrokeTransparency,
 		}, {
-			Padding = React.createElement("UIPadding", {
-				PaddingBottom = AnimeTuning.PaddingBottom,
-				PaddingLeft = AnimeTuning.PaddingLeft,
-				PaddingRight = AnimeTuning.PaddingRight,
-				PaddingTop = AnimeTuning.PaddingTop,
+			Label = React.createElement(ReactUi.Text, {
+				Position = Tuning.Summary.LabelPosition,
+				Size = Tuning.Summary.LabelSize,
+				Text = Props.CollectionText,
+				MaxTextSize = Tuning.Summary.LabelMaxTextSize,
 			}),
-			Children = React.createElement(React.Fragment, nil, AnimeChildren),
+		}),
+		AnimeContainer = React.createElement(ReactUi.Panel, {
+			BackgroundColor3 = AnimeTuning.BackgroundColor3,
+			BackgroundTransparency = AnimeTuning.BackgroundTransparency,
+			Position = AnimeTuning.Position,
+			Size = AnimeTuning.Size,
+			StrokeColor = AnimeTuning.StrokeColor or Tuning.StrokeColor,
+			StrokeThickness = AnimeTuning.StrokeThickness,
+			StrokeTransparency = AnimeTuning.ContainerStrokeTransparency,
+		}, {
+			Anime = React.createElement("ScrollingFrame", {
+				AutomaticCanvasSize = Enum.AutomaticSize.Y,
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				CanvasSize = UDim2.fromOffset(0, 0),
+				Position = AnimeTuning.ScrollPosition,
+				ScrollBarThickness = AnimeTuning.ScrollBarThickness,
+				Size = AnimeTuning.ScrollSize,
+			}, {
+				Padding = React.createElement("UIPadding", {
+					PaddingBottom = AnimeTuning.PaddingBottom,
+					PaddingLeft = AnimeTuning.PaddingLeft,
+					PaddingRight = AnimeTuning.PaddingRight,
+					PaddingTop = AnimeTuning.PaddingTop,
+				}),
+				Children = React.createElement(React.Fragment, nil, AnimeChildren),
+			}),
 		}),
 	})
 end

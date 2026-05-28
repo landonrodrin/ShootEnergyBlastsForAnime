@@ -159,7 +159,7 @@ local function SellController(Props)
 			MutationColor = mutationColour(Mutation),
 			MutationText = Mutation,
 			Name = Name,
-			NameLevelText = string.format("%s Lvl %s", Name, Level),
+			NameLevelText = string.format("%s (Lvl %s)", Name, Level),
 			SellText = string.format("$%s", Format.Number(Item.Sell or 0)),
 		})
 	end

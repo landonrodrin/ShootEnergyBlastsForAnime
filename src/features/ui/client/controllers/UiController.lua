@@ -4,12 +4,23 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local ReactRoblox = require(ReplicatedStorage.Shared.Packages:WaitForChild("ReactRoblox"))
 local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
+local AnnouncementController = require(script.Parent:WaitForChild("AnnouncementController"))
 local PlayerUiController = require(script.Parent:WaitForChild("PlayerUiController"))
+local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 
 local UiController = {}
 
+local ANNOUNCEMENTS = UiTuning.Announcements
+
 local Started = false
 local Root = nil
+local AnnouncementRoot = nil
+
+local function unmountRoot(RootHandle)
+	if RootHandle then
+		RootHandle:unmount()
+	end
+end
 
 function UiController.Init() end
 
@@ -28,14 +39,31 @@ function UiController.Start()
 		Gui.Parent = PlayerGui
 	end
 
+	local AnnouncementGui = PlayerGui:FindFirstChild("FeatureAnnouncementGui")
+	if not AnnouncementGui then
+		AnnouncementGui = Instance.new("ScreenGui")
+		AnnouncementGui.Name = "FeatureAnnouncementGui"
+		AnnouncementGui.Parent = PlayerGui
+	end
+	AnnouncementGui.DisplayOrder = ANNOUNCEMENTS.DisplayOrder
+	AnnouncementGui.IgnoreGuiInset = true
+	AnnouncementGui.ResetOnSpawn = false
+	AnnouncementGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
 	Root = ReactRoblox.createRoot(Gui)
 	Root:render(React.createElement(PlayerUiController))
 
+	AnnouncementRoot = ReactRoblox.createRoot(AnnouncementGui)
+	AnnouncementRoot:render(React.createElement(AnnouncementController))
+
 	Gui.Destroying:Connect(function()
-		if Root then
-			Root:unmount()
-			Root = nil
-		end
+		unmountRoot(Root)
+		Root = nil
+	end)
+
+	AnnouncementGui.Destroying:Connect(function()
+		unmountRoot(AnnouncementRoot)
+		AnnouncementRoot = nil
 	end)
 end
 
