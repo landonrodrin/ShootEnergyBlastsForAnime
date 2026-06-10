@@ -19,6 +19,18 @@ local DEFAULT_CORNER_RADIUS = UDim.new(0, 8)
 local DEFAULT_BADGE_BACKGROUND = Color3.fromRGB(12, 14, 18)
 local DEFAULT_TEXT_OUTLINE = Color3.fromRGB(0, 0, 0)
 
+local function getViewportDelay(Props)
+	if Props.DeferViewport ~= true then
+		return 0
+	end
+
+	local Delay = tonumber(Props.DeferDelay) or 0
+	local BatchStep = tonumber(Props.DeferBatchStep) or 0
+	local BatchIndex = math.max((tonumber(Props.LayoutOrder) or 1) - 1, 0)
+
+	return Delay + (BatchStep * BatchIndex)
+end
+
 local function getAreaColor(AnimeName: string?): Color3
 	local Configuration = AnimeName and AnimeConfigurations[AnimeName]
 	local Area = Configuration and Configuration.Area
@@ -51,18 +63,54 @@ local function AnimeSlotIcon(Props)
 	React.useEffect(function()
 		local Placeholder = PlaceholderRef.current
 		if not Placeholder then return nil end
+		if Props.ViewportEnabled == false then return nil end
+		local Cancelled = false
+		local DelayThread = nil
 
-		local Viewport = AnimeViewports.Mount(Placeholder, Props.AnimeName, Mutation, {
-			Scale = Props.Scale or Tuning.ViewportScale or 1.15,
-			Silhouette = Props.Silhouette == true,
-		})
+		local function mountViewport()
+			if Cancelled then
+				return nil
+			end
+
+			return AnimeViewports.Mount(Placeholder, Props.AnimeName, Mutation, {
+				Scale = Props.Scale or Tuning.ViewportScale or 1.15,
+				Silhouette = Props.Silhouette == true,
+			})
+		end
+
+		local Delay = getViewportDelay(Props)
+		local Viewport = nil
+		if Delay > 0 then
+			DelayThread = task.delay(Delay, function()
+				DelayThread = nil
+				Viewport = mountViewport()
+			end)
+		else
+			Viewport = mountViewport()
+		end
 
 		return function()
+			Cancelled = true
+			if DelayThread then
+				pcall(task.cancel, DelayThread)
+				DelayThread = nil
+			end
 			if Viewport then
 				Viewport:Destroy()
 			end
 		end
-	end, { Props.AnimeName, Mutation, Props.Silhouette, Props.Scale })
+	end, {
+		Props.AnimeName,
+		Mutation,
+		Props.Silhouette,
+		Props.Scale,
+		Props.DeferViewport,
+		Props.DeferDelay,
+		Props.DeferBatchStep,
+		Props.LayoutOrder,
+		Props.PreviewSessionKey,
+		Props.ViewportEnabled,
+	})
 
 	return React.createElement("Frame", {
 		BackgroundColor3 = Props.BackgroundColor3 or getAreaColor(Props.AnimeName),

@@ -4,6 +4,9 @@ local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
 local AnimeSlotIcon = require(script.Parent:WaitForChild("AnimeSlotIcon"))
 local ReactUi = require(script.Parent:WaitForChild("ReactUi"))
 
+local PREVIEW_DEFER_DELAY = 0.12
+local PREVIEW_DEFER_BATCH_STEP = 0.02
+
 local function headerProps(SharedTuning, Tuning, OnClose)
 	local Header = SharedTuning.Header
 
@@ -46,13 +49,19 @@ local function SellPanelView(Props)
 		}, {
 			Preview = React.createElement(AnimeSlotIcon, {
 				AnimeName = Item.Name,
+				DeferBatchStep = PREVIEW_DEFER_BATCH_STEP,
+				DeferDelay = PREVIEW_DEFER_DELAY,
+				DeferViewport = true,
+				LayoutOrder = Index,
 				Level = Item.Level,
 				Mutation = Item.Mutation,
 				Position = ListTuning.PreviewPosition,
+				PreviewSessionKey = Props.PreviewSessionKey,
 				Scale = ListTuning.PreviewScale,
 				ShowLevelBadge = true,
 				Size = ListTuning.PreviewSize,
 				Tuning = ListTuning.SlotIcon,
+				ViewportEnabled = Props.Visible == true,
 			}),
 			Mutation = React.createElement(ReactUi.Text, {
 				AnchorPoint = Vector2.new(0, 0.5),
@@ -127,6 +136,8 @@ local function SellPanelView(Props)
 		Size = UDim2.fromScale(1, 1),
 	}, {
 		Panel = React.createElement(ReactUi.GameplayPanel, {
+			DebugEnabled = Props.DebugEnabled,
+			DebugName = Props.DebugName,
 			GameplayPanels = SharedTuning,
 			SkipCloseTween = Props.SkipCloseTween,
 			StrokeColor = Tuning.StrokeColor,

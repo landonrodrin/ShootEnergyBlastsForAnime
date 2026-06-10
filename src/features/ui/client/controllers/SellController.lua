@@ -1,19 +1,19 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local React = require(ReplicatedStorage.Shared.Packages:WaitForChild("React"))
-local ZonePlus = require(ReplicatedStorage.Shared.Packages:WaitForChild("ZonePlus"))
 local Format = require(ReplicatedStorage.Shared.Util:WaitForChild("Format"))
 local AnimeConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AnimeConfigurations"))
 local AreasConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("AreasConfigurations"))
 local MutationsConfigurations = require(ReplicatedStorage.Features.Anime.Shared:WaitForChild("MutationsConfigurations"))
 local RebirthsConfigurations = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("RebirthsConfigurations"))
+local StationZones = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("StationZones"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
+local ShopZonePanel = require(script.Parent:WaitForChild("ShopZonePanel"))
 local SellPanelView = require(ReplicatedStorage.Features.Ui.Client.Views:WaitForChild("SellPanelView"))
 
 local InventoryController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("InventoryController"))
 local StatsController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("StatsController"))
-local Player = Players.LocalPlayer
+local DEBUG_SELL_ZONE = false
 local GAMEPLAY_PANELS = UiTuning.GameplayPanels
 
 local function mutationColour(Mutation)
@@ -57,33 +57,24 @@ local function SellController(Props)
 	local LocalOpen, SetLocalOpen = React.useState(false)
 	local ConfirmOpen, SetConfirmOpen = React.useState(false)
 	local Inventory, SetInventory = React.useState(InventoryController.GetSnapshot())
+	local PreviewSessionKey, SetPreviewSessionKey = React.useState(0)
 	local Rebirths = useStat("Rebirths", 0)
-	local ActivePanelRef = React.useRef(Props.ActivePanel)
-	local Open = if Props.SetActivePanel then Props.ActivePanel == "Sell" else LocalOpen
-
-	React.useEffect(function()
-		ActivePanelRef.current = Props.ActivePanel
-
-		return nil
-	end, { Props.ActivePanel })
-
-	local function setOpen(NextOpen)
-		if Props.SetActivePanel then
-			Props.SetActivePanel(if NextOpen then "Sell" else nil)
-		else
-			SetLocalOpen(NextOpen)
-		end
-	end
-
-	local function closeIfActive()
-		if Props.SetActivePanel then
-			if ActivePanelRef.current == "Sell" then
-				Props.SetActivePanel(nil)
-			end
-		else
-			SetLocalOpen(false)
-		end
-	end
+	local PreviewSessionRef = React.useRef(PreviewSessionKey)
+	local ZonePanel = ShopZonePanel.UsePanelZone({
+		ActivePanel = Props.ActivePanel,
+		DebugEnabled = DEBUG_SELL_ZONE,
+		DebugName = "Sell",
+		GetZoneContainer = StationZones.GetSellZoneContainer,
+		LocalOpen = LocalOpen,
+		OnClosedByExit = function()
+			SetConfirmOpen(false)
+		end,
+		PanelName = "Sell",
+		SetActivePanel = Props.SetActivePanel,
+		SetLocalOpen = SetLocalOpen,
+		WarnMissingZone = StationZones.WarnMissingSellZone,
+	})
+	local Open = ZonePanel.Open
 
 	React.useEffect(function()
 		local ChangedConnection = InventoryController.Changed:Connect(function(Name)
@@ -91,48 +82,18 @@ local function SellController(Props)
 			SetInventory(InventoryController.GetSnapshot())
 		end)
 
-		local CharacterConnection = Player.CharacterRemoving:Connect(function()
-			closeIfActive()
-			SetConfirmOpen(false)
-		end)
-
-		local SellStation = workspace:WaitForChild("Sell", 10)
-		local Toggle = SellStation and SellStation:WaitForChild("Toggle", 10)
-		local SellZone = nil
-		local EnteredConnection = nil
-		local ExitedConnection = nil
-
-		if Toggle then
-			SellZone = ZonePlus.CreatePresenceZone(Toggle)
-			EnteredConnection = SellZone.localPlayerEntered:Connect(function()
-				setOpen(true)
-			end)
-			ExitedConnection = SellZone.localPlayerExited:Connect(function()
-				closeIfActive()
-				SetConfirmOpen(false)
-			end)
-
-			if SellZone:findLocalPlayer() then
-				setOpen(true)
-			end
-		else
-			warn("Missing sell station zone: Workspace.Sell.Toggle")
-		end
-
 		return function()
 			ChangedConnection:Disconnect()
-			CharacterConnection:Disconnect()
-			if EnteredConnection then
-				EnteredConnection:Disconnect()
-			end
-			if ExitedConnection then
-				ExitedConnection:Disconnect()
-			end
-			if SellZone then
-				SellZone:destroy()
-			end
 		end
-	end, { Props.SetActivePanel })
+	end, {})
+
+	React.useEffect(function()
+		local NextSession = PreviewSessionRef.current + 1
+		PreviewSessionRef.current = NextSession
+		SetPreviewSessionKey(NextSession)
+
+		return nil
+	end, { Open })
 
 	local Total = inventoryTotal(Inventory)
 	local Items = {}
@@ -177,7 +138,7 @@ local function SellController(Props)
 				SetConfirmOpen(false)
 			end,
 			OnClose = function()
-				closeIfActive()
+				ZonePanel.CloseManually()
 				SetConfirmOpen(false)
 			end,
 			OnConfirmSellAll = function()
@@ -194,6 +155,9 @@ local function SellController(Props)
 			SharedTuning = GAMEPLAY_PANELS,
 			SkipCloseTween = Props.SkipCloseTween,
 			Tuning = GAMEPLAY_PANELS.Sell,
+			DebugEnabled = DEBUG_SELL_ZONE,
+			DebugName = "Sell",
+			PreviewSessionKey = PreviewSessionKey,
 			Visible = Open,
 		}),
 	})

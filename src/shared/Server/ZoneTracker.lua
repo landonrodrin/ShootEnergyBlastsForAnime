@@ -29,17 +29,17 @@ local function clearZoneCounts(Name)
 	end
 end
 
-function ZoneTracker.RegisterZone(Name, Part)
+function ZoneTracker.RegisterZone(Name, Container, DetectionMode, AccuracyMode)
 	assert(typeof(Name) == "string" and Name ~= "", "Zone name must be a non-empty string")
-	assert(typeof(Part) == "Instance" and Part:IsA("BasePart"), "Zone part must be a BasePart")
+	assert(typeof(Container) == "Instance", "Zone container must be an Instance")
 
 	disconnectZone(Name)
 	clearZoneCounts(Name)
 
-	Zones[Name] = Part
+	Zones[Name] = Container
 
 	local ZoneTrove = Trove.new()
-	local Zone = ZonePlus.CreatePresenceZone(Part)
+	local Zone = ZonePlus.CreatePresenceZone(Container, DetectionMode, AccuracyMode)
 	ZoneTrove:Add(Zone, "destroy")
 
 	ZonePlus.ConnectSignal(ZoneTrove, Zone.playerEntered, function(Player)
@@ -63,7 +63,7 @@ function ZoneTracker.RegisterZone(Name, Part)
 
 	ZoneTroves[Name] = ZoneTrove
 
-	return Part
+	return Container
 end
 
 function ZoneTracker.IsInZone(Player, Name)

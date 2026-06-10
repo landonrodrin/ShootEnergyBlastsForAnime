@@ -258,6 +258,7 @@ function ReactUi.GameplayPanel(Props)
 	local PanelRef = React.useRef(nil)
 	local ActiveTweenRef = React.useRef(nil)
 	local AnimationTokenRef = React.useRef(0)
+	local OpenFromHiddenRef = React.useRef(Props.Visible == true)
 	local DesignScale, SetDesignScale = React.useState(1)
 	local _, SetViewportSize = React.useState(Vector2.zero)
 	local Rendered, SetRendered = React.useState(Props.Visible == true)
@@ -294,6 +295,7 @@ function ReactUi.GameplayPanel(Props)
 
 	React.useEffect(function()
 		if Props.Visible and not Rendered then
+			OpenFromHiddenRef.current = true
 			SetRendered(true)
 		end
 
@@ -305,6 +307,15 @@ function ReactUi.GameplayPanel(Props)
 		if not Panel then return nil end
 		if Props.Visible and not Rendered then return nil end
 		if not Props.Visible and not Rendered then return nil end
+
+		if Props.DebugEnabled == true then
+			print(string.format(
+				"[GameplayPanel:%s] visible=%s rendered=%s",
+				tostring(Props.DebugName or "Panel"),
+				tostring(Props.Visible),
+				tostring(Rendered)
+			))
+		end
 
 		AnimationTokenRef.current += 1
 		local AnimationToken = AnimationTokenRef.current
@@ -325,7 +336,11 @@ function ReactUi.GameplayPanel(Props)
 
 		local Tween
 		if Props.Visible then
-			Panel.Position = HiddenPosition
+			if OpenFromHiddenRef.current then
+				Panel.Position = HiddenPosition
+				OpenFromHiddenRef.current = false
+			end
+
 			Tween = TweenService:Create(Panel, OpenTweenInfo, {
 				Position = Outer.Position,
 			})

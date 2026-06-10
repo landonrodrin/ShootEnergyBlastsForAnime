@@ -16,6 +16,7 @@ local ReactUi = require(script.Parent.Parent.Views:WaitForChild("ReactUi"))
 local RightRailView = require(script.Parent.Parent.Views:WaitForChild("RightRailView"))
 local UiTuning = require(ReplicatedStorage.Features.Ui.Shared:WaitForChild("UiTuning"))
 
+local DEBUG_SELL_ZONE = false
 local HUD_RAILS = UiTuning.HudRails
 
 local function PlayerUiController()
@@ -46,33 +47,31 @@ local function PlayerUiController()
 		end
 	end, {})
 
-	local function isInventoryOpen()
-		return Satchel:IsOpened()
-	end
-
-	local function closeInventoryForPanelSwitch()
-		if not isInventoryOpen() then
+	local setActivePanel = React.useCallback(function(NextPanel)
+		if ActivePanelRef.current == NextPanel then
 			return
 		end
 
-		IgnoreInventoryCloseRef.current = true
-		Satchel:Close({
-			SkipTween = true,
-		})
-		IgnoreInventoryCloseRef.current = false
-	end
-
-	local function setActivePanel(NextPanel)
 		if NextPanel ~= nil and NextPanel ~= "Inventory" then
-			closeInventoryForPanelSwitch()
+			if Satchel:IsOpened() then
+				IgnoreInventoryCloseRef.current = true
+				Satchel:Close({
+					SkipTween = true,
+				})
+				IgnoreInventoryCloseRef.current = false
+			end
+		end
+
+		if DEBUG_SELL_ZONE and (ActivePanelRef.current == "Sell" or NextPanel == "Sell") then
+			print("[PlayerUiController] SetActivePanel", ActivePanelRef.current, "->", NextPanel)
 		end
 
 		ActivePanelRef.current = NextPanel
 		SetActivePanel(NextPanel)
-	end
+	end, {})
 
 	local function togglePanel(PanelName)
-		setActivePanel(if ActivePanel == PanelName then nil else PanelName)
+		setActivePanel(if ActivePanelRef.current == PanelName then nil else PanelName)
 	end
 
 	local function shouldSkipClose(PanelName)

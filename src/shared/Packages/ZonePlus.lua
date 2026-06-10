@@ -85,9 +85,12 @@ function ZonePlus.ConnectSignal(OwnerTrove, Signal, Callback)
 	return Connection
 end
 
-function ZonePlus.CreatePresenceZone(Container)
+function ZonePlus.CreatePresenceZone(Container, DetectionMode, AccuracyMode)
 	local Zone = ZonePlus.new(Container)
-	Zone:setDetection("WholeBody")
+	Zone:setDetection(DetectionMode or "WholeBody")
+	if AccuracyMode then
+		Zone:setAccuracy(AccuracyMode)
+	end
 	return Zone
 end
 

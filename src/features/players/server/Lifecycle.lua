@@ -12,6 +12,7 @@ return function(ctx)
 	local GameConfigurations = ctx.GameConfigurations
 	local AnimeConfigurations = ctx.AnimeConfigurations
 	local UpgradesConfigurations = ctx.UpgradesConfigurations
+	local StationZones = ctx.StationZones
 	local RebirthsConfigurations = ctx.RebirthsConfigurations
 	local MutationsConfigurations = ctx.MutationsConfigurations
 	local RetrievePlayerDataFunction = ctx.RetrievePlayerDataFunction
@@ -187,24 +188,20 @@ local function setGroupsCollidable(GroupA, GroupB, Collidable)
 	end)
 end
 
-local function getSellStation()
-	local Sell = workspace:FindFirstChild("Sell")
-	return Sell and Sell:FindFirstChild("Toggle")
-end
-
 local function isNearSellStation(Player)
 	if ZoneTracker.IsInZone(Player, "Sell") then
 		return true
 	end
 
-	local Station = ZoneTracker.GetZonePart("Sell") or getSellStation()
-	if not Station then return false end
+	local Station = ZoneTracker.GetZonePart("Sell") or StationZones.GetSellZoneContainer()
+	local StationPosition = StationZones.GetZonePosition(Station)
+	if not StationPosition then return false end
 
 	local Character = Player.Character
 	local PrimaryPart = Character and (Character.PrimaryPart or Character:FindFirstChild("HumanoidRootPart"))
 	if not PrimaryPart then return false end
 
-	return (PrimaryPart.Position - Station.Position).Magnitude <= SELL_STATION_DISTANCE
+	return (PrimaryPart.Position - StationPosition).Magnitude <= SELL_STATION_DISTANCE
 end
 
 local function getPlayerSpawnPart()
@@ -346,11 +343,11 @@ function PlayersModule.Setup()
 	end
 	setupMovementSpeedZones()
 
-	local SellStation = getSellStation()
+	local SellStation = StationZones.GetSellZoneContainer()
 	if SellStation then
-		ZoneTracker.RegisterZone("Sell", SellStation)
+		ZoneTracker.RegisterZone("Sell", SellStation, "WholeBody", "Precise")
 	else
-		warn("Missing sell station zone: Workspace.Sell.Toggle")
+		StationZones.WarnMissingSellZone()
 	end
 
 	local SettingUpPlayers = {}
