@@ -19,6 +19,8 @@ local folder = nil
 local pool = {}
 local activeDebris = {}
 local nextToken = 0
+local spawnQueue = {}
+local spawnQueueRunning = false
 
 local debrisConfig = WallConfig.ClientDebris or {}
 
@@ -93,6 +95,13 @@ local function getPart()
 
 	part.Transparency = 0
 	return part
+end
+
+local function prewarmPool()
+	local targetCount = debrisConfig.PoolPrewarmCount or 0
+	while #pool < targetCount do
+		table.insert(pool, createPart())
+	end
 end
 
 local function releaseActiveIndex(index)
@@ -276,6 +285,31 @@ local function spawnPiece(payload)
 	scheduleRelease(debris)
 end
 
+local function runSpawnQueue()
+	if spawnQueueRunning then
+		return
+	end
+
+	spawnQueueRunning = true
+	task.spawn(function()
+		while #spawnQueue > 0 do
+			local spawnPerFrame = math.max(debrisConfig.SpawnPerFrame or 4, 1)
+			for _ = 1, math.min(spawnPerFrame, #spawnQueue) do
+				local payload = table.remove(spawnQueue, 1)
+				if payload then
+					spawnPiece(payload)
+				end
+			end
+
+			if #spawnQueue > 0 then
+				task.wait()
+			end
+		end
+
+		spawnQueueRunning = false
+	end)
+end
+
 local function onWallDebris(payload)
 	if typeof(payload) ~= "table" then
 		return
@@ -289,10 +323,12 @@ local function onWallDebris(payload)
 		payload.Wall.CanCollide = false
 	end
 
-	local count = math.clamp(payload.Count or debrisConfig.NormalCount or 35, 0, debrisConfig.MaxActive or 200)
+	local count = math.clamp(payload.Count or debrisConfig.NormalCount or 8, 0, debrisConfig.MaxActive or 96)
 	for _ = 1, count do
-		spawnPiece(payload)
+		table.insert(spawnQueue, payload)
 	end
+
+	runSpawnQueue()
 end
 
 function WallDebris.Start()
@@ -302,6 +338,7 @@ function WallDebris.Start()
 	started = true
 
 	ensureFolder()
+	prewarmPool()
 	Packets.Listen(Packets.wallDebris, onWallDebris, ScriptTrove)
 	print("Wall debris client ready")
 end

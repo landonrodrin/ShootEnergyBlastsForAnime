@@ -1,11 +1,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Trove = require(ReplicatedStorage.Shared.Packages:WaitForChild("Trove"))
 local WallConfig = require(ReplicatedStorage.Features.Walls.Shared:WaitForChild("WallConfig"))
-local Packets = require(ReplicatedStorage.Shared.Network:WaitForChild("Packets"))
+local BeamRenderer = require(script.Parent:WaitForChild("BeamRenderer"))
 local RequestController = require(ReplicatedStorage.Features.Players.Client:WaitForChild("RequestController"))
 
 local Shooting = {}
@@ -15,7 +14,6 @@ local SHOOT_ANIMATION_ID = WallConfig.ShootAnimationId
 local ANIMATION_FADE_TIME = WallConfig.AnimationFadeTime
 local ANIMATION_FALLBACK_CHARGE_TIME = WallConfig.AnimationFallbackChargeTime
 local ANIMATION_HOLD_OFFSET = 0.04
-local BEAM_TEMPLATE_PATH = { "Effects", "KamehamehaBeamTemplate" }
 
 local started = false
 local player = Players.LocalPlayer
@@ -25,9 +23,6 @@ local mouseHeld = false
 local charging = false
 local firing = false
 local fireLoopRunning = false
-local activeBeam = nil
-local beamTrove = nil
-local beamRenderConnected = false
 local animationCharacter = nil
 local animationTrove = nil
 local shootingAnimation = nil
@@ -132,33 +127,6 @@ local function stopShootingAnimation()
 	end
 end
 
-local function cleanupBeam()
-	if activeBeam then
-		for _, descendant in ipairs(activeBeam:GetDescendants()) do
-			if descendant:IsA("Beam") or descendant:IsA("ParticleEmitter") then
-				descendant.Enabled = false
-			end
-		end
-	end
-end
-
-local function stopBeam()
-	if beamTrove then
-		cleanupBeam()
-		beamTrove:Destroy()
-		beamTrove = nil
-	else
-		cleanupBeam()
-
-		if activeBeam then
-			activeBeam:Destroy()
-		end
-	end
-
-	activeBeam = nil
-	beamRenderConnected = false
-end
-
 local function resetShootingState()
 	mouseHeld = false
 	charging = false
@@ -166,7 +134,7 @@ local function resetShootingState()
 	chargeToken += 1
 	fireToken += 1
 	stopShootingAnimation()
-	stopBeam()
+	BeamRenderer.Stop()
 end
 
 local function cancelShooting()
@@ -248,73 +216,6 @@ local function playShootingAnimation()
 	return track
 end
 
-local function getBeamTemplate()
-	local current = ReplicatedStorage
-	for _, name in ipairs(BEAM_TEMPLATE_PATH) do
-		current = current:FindFirstChild(name)
-		if not current then
-			return nil
-		end
-	end
-
-	return current
-end
-
-local function ensureBeam()
-	if activeBeam then
-		return activeBeam
-	end
-
-	local template = getBeamTemplate()
-	if not template then
-		warn("Missing KamehamehaBeamTemplate")
-		return nil
-	end
-
-	activeBeam = template:Clone()
-	activeBeam.Name = "ClientShotBlueBeam"
-	beamTrove = Trove.new()
-	beamTrove:Add(activeBeam)
-	beamTrove:Add(function()
-		activeBeam = nil
-		beamRenderConnected = false
-	end)
-
-	if activeBeam:IsA("BasePart") then
-		activeBeam.Anchored = true
-		activeBeam.CanCollide = false
-		activeBeam.CanQuery = false
-		activeBeam.CanTouch = false
-		activeBeam.Transparency = 1
-	end
-
-	for _, descendant in ipairs(activeBeam:GetDescendants()) do
-		if descendant:IsA("Beam") or descendant:IsA("ParticleEmitter") then
-			descendant.Enabled = true
-		elseif descendant:IsA("BasePart") then
-			descendant.Anchored = true
-			descendant.CanCollide = false
-			descendant.CanQuery = false
-			descendant.CanTouch = false
-		end
-	end
-
-	activeBeam.Parent = workspace
-
-	return activeBeam
-end
-
-local function setAttachmentDistance(attachmentName, distance)
-	if not activeBeam then
-		return
-	end
-
-	local attachment = activeBeam:FindFirstChild(attachmentName)
-	if attachment and attachment:IsA("Attachment") then
-		attachment.Position = Vector3.new(attachment.Position.X, attachment.Position.Y, -distance)
-	end
-end
-
 local function updateBeam()
 	local targetPoint = getTargetPoint()
 	if not targetPoint then
@@ -326,40 +227,15 @@ local function updateBeam()
 		return
 	end
 
-	local direction = targetPoint - origin
-	local distance = direction.Magnitude
-	if distance < 0.1 then
-		return
-	end
-
-	local beam = ensureBeam()
-	if not beam then
-		return
-	end
-
-	if beam:IsA("BasePart") then
-		beam.CFrame = CFrame.lookAt(origin, targetPoint)
-	end
-
-	setAttachmentDistance("End", distance)
-	setAttachmentDistance("SphereEnd", distance)
-	setAttachmentDistance("SpikesEnd", distance)
+	BeamRenderer.Update(origin, targetPoint)
 end
 
 local function startBeam()
-	ensureBeam()
+	BeamRenderer.Start({
+		GetOrigin = getBeamOrigin,
+		GetTargetPoint = getTargetPoint,
+	})
 	updateBeam()
-
-	if not beamTrove or beamRenderConnected then
-		return
-	end
-
-	beamRenderConnected = true
-	beamTrove:Connect(RunService.RenderStepped, function()
-		if firing then
-			updateBeam()
-		end
-	end)
 end
 
 local function sendShot()
@@ -428,12 +304,6 @@ local function startCharge()
 	end)
 end
 
-local function onShootResult(result)
-	if typeof(result) ~= "table" then
-		return
-	end
-end
-
 function Shooting.Start()
 	if started then
 		return
@@ -460,7 +330,6 @@ function Shooting.Start()
 		cleanupAllShooting()
 	end)
 
-	Packets.Listen(Packets.shootResult, onShootResult, scriptTrove)
 	scriptTrove:Add(cleanupAllShooting)
 	print("Wall shooting client ready")
 end
